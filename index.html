@@ -135,6 +135,12 @@ tr:hover td{background:#fafaf8}
 </div>
 
 <!-- LOGIN -->
+<style>
+.pass-wrap{position:relative}
+.pass-wrap input{padding-right:44px}
+.pass-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#888;font-size:16px;padding:0;line-height:1}
+.pass-toggle:hover{color:#1a1a1a}
+</style>
 <div id="login-screen" style="display:none">
   <div class="login-box">
     <div class="login-logo">&#9650;</div>
@@ -142,26 +148,47 @@ tr:hover td{background:#fafaf8}
     <div class="login-sub">Sistema de gestión</div>
     <div class="tab-row">
       <button class="tab-btn active" id="tab-login" onclick="switchTab('login')">Ingresar</button>
-      <button class="tab-btn" id="tab-reg" onclick="switchTab('reg')">Crear cuenta</button>
+      <button class="tab-btn" id="tab-reg" onclick="switchTab('reg')">Nuevo cliente</button>
     </div>
+    <!-- FORM: Ingresar -->
     <div id="form-login">
       <label>Usuario</label>
       <input type="text" id="l-user" placeholder="Tu usuario" autocomplete="username"/>
       <label style="margin-top:10px">Contraseña</label>
-      <input type="password" id="l-pass" placeholder="Tu contraseña" autocomplete="current-password"/>
+      <div class="pass-wrap">
+        <input type="password" id="l-pass" placeholder="Tu contraseña" autocomplete="current-password"/>
+        <button class="pass-toggle" onclick="togglePass('l-pass',this)" type="button">👁</button>
+      </div>
       <div id="l-err" class="err"></div>
       <button class="btn bp" style="width:100%;margin-top:16px" id="l-btn" onclick="doLogin()">Ingresar</button>
     </div>
+    <!-- FORM: Nuevo cliente (self-registration) -->
     <div id="form-reg" style="display:none">
-      <label>Usuario administrador</label>
-      <input type="text" id="r-user" placeholder="Sin espacios"/>
-      <label style="margin-top:10px">Contraseña</label>
-      <input type="password" id="r-pass" placeholder="Mínimo 4 caracteres"/>
-      <label style="margin-top:10px">Nombre del local</label>
-      <input type="text" id="r-local" value="Granja Los Abuelos"/>
+      <label>Nombre completo *</label>
+      <input type="text" id="r-nombre" placeholder="Nombre y apellido"/>
+      <label style="margin-top:8px">Teléfono / WhatsApp *</label>
+      <input type="text" id="r-tel" placeholder="11-5555-1234"/>
+      <label style="margin-top:8px">Email *</label>
+      <input type="email" id="r-mail" placeholder="mail@ejemplo.com"/>
+      <label style="margin-top:8px">Dirección *</label>
+      <input type="text" id="r-dir" placeholder="Calle y número"/>
+      <label style="margin-top:8px">Barrio / Localidad *</label>
+      <input type="text" id="r-barrio" placeholder="Barrio"/>
+      <label style="margin-top:8px">Usuario *</label>
+      <input type="text" id="r-user" placeholder="Sin espacios, sin mayúsculas"/>
+      <label style="margin-top:8px">Contraseña * <span style="font-size:10px;color:#888">(mín. 4 caracteres)</span></label>
+      <div class="pass-wrap">
+        <input type="password" id="r-pass" placeholder="Contraseña"/>
+        <button class="pass-toggle" onclick="togglePass('r-pass',this)" type="button">👁</button>
+      </div>
+      <label style="margin-top:8px">Confirmar contraseña *</label>
+      <div class="pass-wrap">
+        <input type="password" id="r-pass2" placeholder="Repetí la contraseña"/>
+        <button class="pass-toggle" onclick="togglePass('r-pass2',this)" type="button">👁</button>
+      </div>
       <div id="r-err" class="err"></div>
       <div id="r-ok" class="okmsg"></div>
-      <button class="btn bp" style="width:100%;margin-top:16px" id="r-btn" onclick="doRegister()">Crear cuenta admin</button>
+      <button class="btn bp" style="width:100%;margin-top:14px" id="r-btn" onclick="doRegisterCliente()">Registrarme</button>
     </div>
   </div>
 </div>
@@ -623,6 +650,28 @@ tr:hover td{background:#fafaf8}
       </div>
     </div>
 
+    <!-- RESET PASSWORD PANEL (admin only) -->
+    <div id="reset-pass-panel" style="display:none;margin-top:16px">
+      <div class="card edit-card">
+        <h3>Resetear contraseña</h3>
+        <div style="font-size:13px;margin-bottom:10px">Usuario: <strong id="rp-user-label" style="color:var(--primary)">—</strong></div>
+        <label>Nueva contraseña</label>
+        <div class="pass-wrap">
+          <input type="password" id="rp-pass" placeholder="Mínimo 4 caracteres"/>
+          <button class="pass-toggle" onclick="togglePass('rp-pass',this)" type="button">👁</button>
+        </div>
+        <label>Confirmar contraseña</label>
+        <div class="pass-wrap">
+          <input type="password" id="rp-pass2" placeholder="Repetí la contraseña"/>
+          <button class="pass-toggle" onclick="togglePass('rp-pass2',this)" type="button">👁</button>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn bp" id="rp-btn" onclick="doResetPass()">Guardar nueva contraseña</button>
+          <button class="btn bs" onclick="closeResetPass()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
     <!-- SOLICITAR STOCK (vendor only) -->
     <div id="sec-solicitar-stock" class="sec">
       <div class="stitle">Solicitar stock</div>
@@ -826,6 +875,27 @@ function updateNotifBadge(){
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load',async()=>{
+  // Ensure default admin account exists
+  try{
+    const adminSnap=await getDoc(doc(db,'users','admin'));
+    if(!adminSnap.exists()){
+      const defProds=[
+        {id:'p1',nombre:'Pollo entero',precio:2800,unidad:'unidad'},{id:'p2',nombre:'Pollo mitad',precio:1500,unidad:'unidad'},
+        {id:'p3',nombre:'Presas 1kg',precio:1200,unidad:'kg'},{id:'p4',nombre:'Milanesa',precio:900,unidad:'kg'},
+        {id:'p5',nombre:'Patitas de pollo',precio:700,unidad:'kg'},{id:'p6',nombre:'Papas noisette',precio:600,unidad:'kg'},
+        {id:'p7',nombre:'Vino tinto',precio:1800,unidad:'unidad'},{id:'p8',nombre:'Vino blanco',precio:1800,unidad:'unidad'},
+        {id:'p9',nombre:'Aceite 1L',precio:900,unidad:'unidad'},{id:'p10',nombre:'Especias',precio:400,unidad:'unidad'}
+      ];
+      const defInv={};defProds.forEach(p=>{defInv[p.nombre]={stock:0,alerta:5};});
+      await setDoc(doc(db,'users','admin'),{username:'admin',passHash:hash('2808'),local:'Granja Los Abuelos',role:'admin',createdAt:'2024-01-01'});
+      await setDoc(doc(db,'inventario','admin'),defInv);
+      await setDoc(doc(db,'productos','admin'),{lista:defProds});
+      await setDoc(doc(db,'promociones','admin'),{lista:[]});
+      await setDoc(doc(db,'descuentos','admin'),{lista:[]});
+      await setDoc(doc(db,'franjas','admin'),{lista:['10-12hs','12-14hs','14-16hs','16-18hs','18-20hs']});
+      await setDoc(doc(db,'lotes','admin'),{});
+    }
+  }catch(e){console.log('Admin init:',e);}
   const saved=sessionStorage.getItem('crm_cu');
   if(saved){
     CU=saved;
@@ -846,6 +916,49 @@ window.switchTab=function(t){
   document.getElementById('form-reg').style.display=t==='reg'?'block':'none';
   document.getElementById('tab-login').className='tab-btn'+(t==='login'?' active':'');
   document.getElementById('tab-reg').className='tab-btn'+(t==='reg'?' active':'');
+};
+
+window.togglePass=function(inputId,btn){
+  const inp=document.getElementById(inputId);if(!inp)return;
+  inp.type=inp.type==='password'?'text':'password';
+  btn.textContent=inp.type==='password'?'👁':'🙈';
+};
+
+window.doRegisterCliente=async function(){
+  const nombre=document.getElementById('r-nombre').value.trim();
+  const tel=document.getElementById('r-tel').value.trim();
+  const mail=document.getElementById('r-mail').value.trim();
+  const dir=document.getElementById('r-dir').value.trim();
+  const barrio=document.getElementById('r-barrio').value.trim();
+  const u=document.getElementById('r-user').value.trim().toLowerCase().replace(/\s/g,'');
+  const p=document.getElementById('r-pass').value;
+  const p2=document.getElementById('r-pass2').value;
+  const err=document.getElementById('r-err');const ok=document.getElementById('r-ok');
+  err.style.display='none';ok.style.display='none';
+  if(!nombre){err.style.display='block';err.textContent='El nombre es obligatorio.';return;}
+  if(!tel){err.style.display='block';err.textContent='El teléfono es obligatorio.';return;}
+  if(!mail){err.style.display='block';err.textContent='El email es obligatorio.';return;}
+  if(!dir){err.style.display='block';err.textContent='La dirección es obligatoria.';return;}
+  if(!barrio){err.style.display='block';err.textContent='El barrio es obligatorio.';return;}
+  if(!u){err.style.display='block';err.textContent='El usuario es obligatorio.';return;}
+  if(p.length<4){err.style.display='block';err.textContent='La contraseña debe tener al menos 4 caracteres.';return;}
+  if(p!==p2){err.style.display='block';err.textContent='Las contraseñas no coinciden.';return;}
+  const btn=document.getElementById('r-btn');
+  btn.innerHTML='<span class="spin"></span> Registrando...';btn.disabled=true;
+  try{
+    // Find admin store (use default store "gonzalo" or first admin found)
+    const ex=await getDoc(doc(db,'users',u));
+    if(ex.exists()){err.style.display='block';err.textContent='Ese usuario ya existe. Elegí otro.';btn.innerHTML='Registrarme';btn.disabled=false;return;}
+    // We need to find the STORE - use hardcoded admin for self-registration
+    const adminStore='admin'; // Default admin store
+    await setDoc(doc(db,'users',u),{username:u,passHash:hash(p),role:'cliente',parentAdmin:adminStore,nombre,tel,mail,dir,barrio,createdAt:today()});
+    // Also add to admin's clientes collection
+    await addDoc(collection(db,'users',adminStore,'clientes'),{nombre,tel,mail,dir,barrio,notas:'',usuario:u,createdAt:today()});
+    ok.style.display='block';ok.textContent='¡Cuenta creada! Ahora podés ingresar con tu usuario.';
+    switchTab('login');
+    document.getElementById('l-user').value=u;
+    btn.innerHTML='Registrarme';btn.disabled=false;
+  }catch(e){err.style.display='block';err.textContent='Error: '+e.message;btn.innerHTML='Registrarme';btn.disabled=false;}
 };
 
 window.doLogin=async function(){
@@ -1324,7 +1437,7 @@ function renderClientes(){
     const nv=_ventas.filter(v=>v.cliente===c.nombre).length;
     const gasto=USER_ROLE==='admin'?_ventas.filter(v=>v.cliente===c.nombre).reduce((a,v)=>a+v.total,0):0;
     const isAdmin=USER_ROLE==='admin';
-    return`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1"><div style="font-weight:600;font-size:13px">${c.nombre}</div><div style="font-size:11px;color:#888">${c.tel||''} · ${c.barrio||''}</div>${c.mail?`<div style="font-size:11px;color:#888">${c.mail}</div>`:''} ${c.usuario?`<div style="font-size:11px;color:var(--success)">Portal: <strong>${c.usuario}</strong></div>`:''}</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="badge bb">${nv} compras</span>${isAdmin?`<div style="font-size:11px;color:var(--success)">${fmt(gasto)}</div>`:''}<button class="btn bs bsm" onclick="startEditCliente('${c.id}')">Editar</button></div></div>`;
+    return`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1"><div style="font-weight:600;font-size:13px">${c.nombre}</div><div style="font-size:11px;color:#888">${c.tel||''} · ${c.barrio||''}</div>${c.mail?`<div style="font-size:11px;color:#888">${c.mail}</div>`:''} ${c.usuario?`<div style="font-size:11px;color:var(--success)">Portal: <strong>${c.usuario}</strong></div>`:''}</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="badge bb">${nv} compras</span>${isAdmin?`<div style="font-size:11px;color:var(--success)">${fmt(gasto)}</div>`:''}${isAdmin&&c.usuario?`<button class="btn bs bsm" onclick="openResetPass('${c.usuario}','${c.nombre}')">🔑 Clave</button>`:''}<button class="btn bs bsm" onclick="startEditCliente('${c.id}')">Editar</button>${isAdmin?`<button class="btn bd bsm" onclick="deleteCliente('${c.id}','${c.usuario||''}')">Eliminar</button>`:''}</div></div>`;
   }).join('');
 }
 
@@ -1355,6 +1468,18 @@ window.addCliente=async function(){
     toast('Cliente guardado'+(usuario?' con acceso al portal':''));
   }catch(e){alert('Error: '+e.message);}
   setBtn('c-btn',false,'Guardar cliente');
+};
+
+window.deleteCliente=async function(id,usuario){
+  if(!confirm('¿Eliminar este cliente? Se eliminarán también sus datos del portal.'))return;
+  setSyncDot('syncing');
+  try{
+    await deleteDoc(doc(db,'users',STORE,'clientes',id));
+    if(usuario){
+      try{await deleteDoc(doc(db,'users',usuario));}catch{}
+    }
+    toast('Cliente eliminado');
+  }catch(e){alert('Error: '+e.message);}
 };
 
 window.startEditCliente=function(id){
@@ -2165,7 +2290,7 @@ function renderEmp(){
   document.getElementById('e-count').textContent=_empleados.length;
   const el=document.getElementById('e-lista');
   if(!_empleados.length){el.innerHTML='<div class="empty">Sin empleados</div>';return;}
-  el.innerHTML=_empleados.map(e=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1"><div style="font-weight:600;font-size:13px">${e.nombre}</div><div style="font-size:11px;color:#888">${e.rol} · ${e.tel||''}</div>${e.usuario?`<div style="font-size:11px;color:var(--primary)">Usuario CRM: <strong>${e.usuario}</strong> <span class="badge rbadge-vend" style="font-size:9px">Vendedor</span></div>`:'<div style="font-size:11px;color:#bbb">Sin acceso al sistema</div>'}</div><div style="display:flex;gap:4px"><button class="btn bs bsm" onclick="startEditEmp('${e.id}')">Editar</button><button class="btn bd bsm" onclick="delEmp('${e.id}','${e.usuario||''}')">Eliminar</button></div></div>`).join('');
+  el.innerHTML=_empleados.map(e=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1"><div style="font-weight:600;font-size:13px">${e.nombre}</div><div style="font-size:11px;color:#888">${e.rol} · ${e.tel||''}</div>${e.usuario?`<div style="font-size:11px;color:var(--primary)">Usuario CRM: <strong>${e.usuario}</strong> <span class="badge rbadge-vend" style="font-size:9px">Vendedor</span></div>`:'<div style="font-size:11px;color:#bbb">Sin acceso al sistema</div>'}</div><div style="display:flex;gap:4px;flex-wrap:wrap">${e.usuario?`<button class="btn bs bsm" onclick="openResetPass('${e.usuario}','${e.nombre}')">🔑 Clave</button>`:''}<button class="btn bs bsm" onclick="startEditEmp('${e.id}')">Editar</button><button class="btn bd bsm" onclick="delEmp('${e.id}','${e.usuario||''}')">Eliminar</button></div></div>`).join('');
 }
 window.addEmp=async function(){
   const nom=document.getElementById('e-nom').value.trim();const usuario=document.getElementById('e-user').value.trim().toLowerCase().replace(/\s/g,'');const pass=document.getElementById('e-pass').value;
@@ -2191,6 +2316,33 @@ window.delEmp=async function(id,usuario){
     if(usuario)await deleteDoc(doc(db,'users',usuario));
     toast('Empleado eliminado');
   }catch(e){alert('Error: '+e.message);}
+};
+
+let _resetUserId=null;
+window.openResetPass=function(userId,label){
+  _resetUserId=userId;
+  document.getElementById('rp-user-label').textContent=label;
+  document.getElementById('rp-pass').value='';
+  document.getElementById('rp-pass2').value='';
+  document.getElementById('reset-pass-panel').style.display='block';
+  document.getElementById('reset-pass-panel').scrollIntoView({behavior:'smooth'});
+};
+window.closeResetPass=function(){
+  _resetUserId=null;
+  document.getElementById('reset-pass-panel').style.display='none';
+};
+window.doResetPass=async function(){
+  if(!_resetUserId)return;
+  const p=document.getElementById('rp-pass').value;
+  const p2=document.getElementById('rp-pass2').value;
+  if(p.length<4){alert('La contraseña debe tener al menos 4 caracteres');return;}
+  if(p!==p2){alert('Las contraseñas no coinciden');return;}
+  setBtn('rp-btn',true,'Guardando...');
+  try{
+    await updateDoc(doc(db,'users',_resetUserId),{passHash:hash(p)});
+    closeResetPass();toast('Contraseña actualizada para: '+_resetUserId);
+  }catch(e){alert('Error: '+e.message);}
+  setBtn('rp-btn',false,'Guardar nueva contraseña');
 };
 
 let editingEmpId=null;
