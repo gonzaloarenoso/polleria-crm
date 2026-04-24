@@ -1,0 +1,26 @@
+{
+  "name": "Granja Los Abuelos",
+  "short_name": "Granja",
+  "description": "Portal de pedidos y gestión — Granja Los Abuelos",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f4f0",
+  "theme_color": "#D85A30",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["food", "shopping"],
+  "lang": "es"
+}
