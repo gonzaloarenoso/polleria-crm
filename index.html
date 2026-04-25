@@ -225,6 +225,17 @@ tr:hover td{background:#fafaf8}
   <div class="content">
 
     <!-- DASHBOARD -->
+    <!-- RECONTACTO MODAL -->
+    <div id="recontacto-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;padding:20px">
+      <div style="background:#fff;border-radius:16px;padding:24px;max-width:600px;width:100%;max-height:85vh;overflow-y:auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h3 style="margin-bottom:0">Clientes para recontactar</h3>
+          <button onclick="document.getElementById('recontacto-modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer">✕</button>
+        </div>
+        <div id="recontacto-lista"></div>
+      </div>
+    </div>
+
     <!-- PANEL EJECUTIVO (solo admin) -->
     <div id="sec-dashboard" class="sec">
       <div class="stitle">Panel</div>
@@ -242,9 +253,9 @@ tr:hover td{background:#fafaf8}
           <div class="mc-v" id="d-capital" style="color:var(--warn)">$0</div>
         </div>
         <div class="mc" style="text-align:left;padding:14px 16px">
-          <div class="mc-l">Clientes sin comprar hace +10 días</div>
+          <div class="mc-l">Clientes para recontactar</div>
           <div class="mc-v" id="d-inactivos" style="color:var(--danger)">0</div>
-          <div id="d-inactivos-list" style="font-size:11px;color:#888;margin-top:4px"></div>
+          <button class="btn bs bsm" id="d-inactivos-btn" style="display:none;margin-top:6px;font-size:11px" onclick="showRecontactoPanel()">Ver y contactar</button>
         </div>
       </div>
       <div class="g2" style="margin-bottom:16px">
@@ -422,7 +433,18 @@ tr:hover td{background:#fafaf8}
 
     <!-- CLIENTES -->
     <div id="sec-clientes" class="sec">
-      <div class="stitle">Clientes</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+        <div class="stitle" style="margin-bottom:0">Clientes</div>
+        <button class="btn bs bsm" onclick="printClienteDB()">🖨 Imprimir base</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn bs bsm active" id="cli-fil-todos" onclick="setCliFiltro('todos',this)">Todos</button>
+        <button class="btn bs bsm" id="cli-fil-activo" onclick="setCliFiltro('activo',this)">🟢 Activos</button>
+        <button class="btn bs bsm" id="cli-fil-tibio" onclick="setCliFiltro('tibio',this)">🟡 Tibios</button>
+        <button class="btn bs bsm" id="cli-fil-inactivo" onclick="setCliFiltro('inactivo',this)">🔴 Inactivos</button>
+        <button class="btn bs bsm" id="cli-fil-perdido" onclick="setCliFiltro('perdido',this)">⚫ Perdidos</button>
+        <button class="btn bs bsm" id="cli-fil-recordatorio" onclick="setCliFiltro('recordatorio',this)">💬 Para recontactar</button>
+      </div>
 
       <!-- EDIT FORM (hidden until edit clicked) -->
       <div id="cli-edit-wrap" style="display:none;margin-bottom:16px">
@@ -918,11 +940,19 @@ tr:hover td{background:#fafaf8}
             <label>Dirección</label><input type="text" id="cfg-dir-local" placeholder="Calle y número, Caseros"/>
             <label>Teléfono</label><input type="text" id="cfg-tel-local" placeholder="11-5555-1234"/>
             <label>Horario de atención</label><input type="text" id="cfg-horario" placeholder="Lun-Sab 9-20hs"/>
-            <!-- Mensaje recordatorio -->
-            <label style="margin-top:12px;font-weight:600">Mensaje de recordatorio a clientes inactivos</label>
-            <textarea id="cfg-msg-recordatorio" rows="3" placeholder="Hola [nombre]! Te extrañamos..."></textarea>
-            <div style="font-size:11px;color:#888;margin-top:2px">Usá [nombre] para insertar el nombre del cliente automáticamente.</div>
             <div class="row" style="margin-top:12px"><button class="btn bp" id="cfg-neg-btn" onclick="saveCfgNegocio()">Guardar datos</button></div>
+          </div>
+          <div class="card">
+            <h3>📱 Código QR del portal</h3>
+            <div style="font-size:13px;color:#888;margin-bottom:12px">Mostralo en el mostrador, bolsas o tarjetas para que tus clientes accedan al portal.</div>
+            <div id="qr-container" style="display:flex;flex-direction:column;align-items:center;gap:12px">
+              <canvas id="qr-canvas" width="200" height="200" style="border-radius:10px;border:1px solid var(--border)"></canvas>
+              <div style="font-size:12px;color:#888;text-align:center" id="qr-url"></div>
+              <div style="display:flex;gap:8px">
+                <button class="btn bp bsm" onclick="downloadQR()">⬇ Descargar QR</button>
+                <button class="btn bs bsm" onclick="shareQR()">📤 Compartir link</button>
+              </div>
+            </div>
           </div>
           <div class="card">
             <h3>Datos actuales</h3>
@@ -975,6 +1005,14 @@ tr:hover td{background:#fafaf8}
               </div>
               <div style="margin-top:10px">
                 <input type="text" id="dc-auto-nombre" placeholder="Nombre del descuento (ej: Transferencia lunes)" style="font-size:12px"/>
+              </div>
+              <div style="margin-top:10px">
+                <label style="font-size:12px;color:#888;font-weight:600">Horario (opcional — vacío = todo el día)</label>
+                <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+                  <input type="time" id="dc-auto-hora-desde" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px"/>
+                  <span style="font-size:12px;color:#888">a</span>
+                  <input type="time" id="dc-auto-hora-hasta" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px"/>
+                </div>
               </div>
             </div>
             <button class="btn bp bsm" id="dc-auto-btn" onclick="addDescuentoAuto()">+ Agregar</button>
@@ -1094,6 +1132,16 @@ tr:hover td{background:#fafaf8}
           <textarea id="wa-retiro-retirado" rows="2" placeholder="[nombre], gracias por tu compra..."></textarea>
           <label>❌ Cancelado</label>
           <textarea id="wa-cancelado" rows="2" placeholder="[nombre], lamentablemente tu pedido fue cancelado..."></textarea>
+          <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px">
+            <h3 style="margin-bottom:8px">Mensajes de recontacto por nivel de cliente</h3>
+            <div style="font-size:12px;color:#888;margin-bottom:10px">Usá <strong>[nombre]</strong> para el nombre del cliente y <strong>[local]</strong> para el nombre del local.</div>
+            <label>🥉 Mensaje para clientes (nivel base)</label>
+            <textarea id="wa-rec-cliente" rows="2" placeholder="Hola [nombre]! Te extrañamos en [local]..."></textarea>
+            <label>🥈 Mensaje para clientes frecuentes</label>
+            <textarea id="wa-rec-frecuente" rows="2" placeholder="Hola [nombre]! Hace unos días que no sabemos de vos..."></textarea>
+            <label>🥇 Mensaje para clientes VIP</label>
+            <textarea id="wa-rec-vip" rows="2" placeholder="Hola [nombre]! Te deseamos una excelente semana..."></textarea>
+          </div>
           <div class="row" style="margin-top:12px">
             <button class="btn bp" id="cfg-wa-btn" onclick="saveCfgMensajes()">Guardar mensajes</button>
             <button class="btn bs" onclick="resetCfgMensajes()">Restaurar por defecto</button>
@@ -1145,6 +1193,18 @@ tr:hover td{background:#fafaf8}
             </div>
           </div>
           <div class="card">
+            <h3>Niveles de fidelización de clientes</h3>
+            <div style="font-size:12px;color:#888;margin-bottom:10px">Compras promedio por mes para alcanzar cada nivel. Todo configurable.</div>
+            <div id="cfg-niveles-lista" style="margin-bottom:10px"></div>
+            <div style="display:grid;grid-template-columns:2fr 60px 1fr 1fr auto;gap:6px;align-items:flex-end;margin-bottom:8px">
+              <div><label style="font-size:11px;color:#888">Nombre</label><input type="text" id="cfg-nv-nombre" placeholder="Ej: VIP" style="font-size:12px"/></div>
+              <div><label style="font-size:11px;color:#888">Emoji</label><input type="text" id="cfg-nv-emoji" placeholder="🥇" style="font-size:14px;text-align:center"/></div>
+              <div><label style="font-size:11px;color:#888">Compras/mes</label><input type="number" id="cfg-nv-umbral" placeholder="4" min="0" style="font-size:12px"/></div>
+              <div><label style="font-size:11px;color:#888">Dto %</label><input type="number" id="cfg-nv-dto" placeholder="5" min="0" max="50" style="font-size:12px"/></div>
+              <div><button class="btn bp bsm" onclick="addNivel()" style="margin-top:16px">+</button></div>
+            </div>
+          </div>
+          <div class="card">
             <h3>Fidelización</h3>
             <label>Compras acumuladas para ganar cupón ($)</label>
             <input type="number" id="cfg-fid-cada" value="50000"/>
@@ -1156,6 +1216,9 @@ tr:hover td{background:#fafaf8}
             <input type="number" id="cfg-fid-mincompra" value="20000"/>
             <label>Días de vigencia del cupón</label>
             <input type="number" id="cfg-fid-dias" value="30" min="1" max="365"/>
+            <label>Descuento de bienvenida para clientes nuevos (%)</label>
+            <input type="number" id="cfg-fid-bienvenida" placeholder="Ej: 10" min="0" max="50"/>
+            <div style="font-size:11px;color:#888;margin-top:2px">Se genera automáticamente un cupón al registrarse. 0 = desactivado.</div>
             <div class="row" style="margin-top:12px">
               <button class="btn bp" id="cfg-fid-btn" onclick="saveCfgFidelizacion()">Guardar fidelización</button>
             </div>
@@ -1517,6 +1580,20 @@ tr:hover td{background:#fafaf8}
         </div>
         <div id="misdatos-ok" style="display:none;color:var(--success);font-size:13px;margin-top:8px">✓ Datos actualizados correctamente</div>
       </div>
+      <!-- Nivel de fidelización -->
+      <div class="card" style="max-width:500px;margin-top:16px" id="cli-nivel-card">
+        <h3>Mi nivel de cliente</h3>
+        <div id="cli-nivel-info"><div class="empty">Cargando...</div></div>
+      </div>
+      <!-- Referidos -->
+      <div class="card" style="max-width:500px;margin-top:16px">
+        <h3>Referí a un amigo</h3>
+        <div style="font-size:13px;color:#555;margin-bottom:12px">Compartí tu link único. Cuando tu amigo haga su primera compra, ambos reciben un descuento.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn bp bsm" onclick="compartirLinkReferido()">📲 Compartir por WhatsApp</button>
+          <button class="btn bs bsm" onclick="copiarLinkReferido()">📋 Copiar link</button>
+        </div>
+      </div>
       <!-- Cupones disponibles -->
       <div class="card" style="max-width:500px;margin-top:16px">
         <h3>Mis cupones disponibles</h3>
@@ -1582,6 +1659,11 @@ let _novedades=[];
 let _cupones=[];
 let _cfgMensajes={};
 let _cfgAvanzado={};
+let _nivelesCliente=[
+  {nombre:'Cliente',emoji:'🥉',umbral:0,dto:0},
+  {nombre:'Frecuente',emoji:'🥈',umbral:2,dto:3},
+  {nombre:'VIP',emoji:'🥇',umbral:4,dto:5}
+];
 let _mensajesAdmin=[];
 let _recordatoriosTimestamps={};
 let _eventos=[];
@@ -1668,7 +1750,6 @@ window.showSec=function(id,btn){
   if(id==='descuentos')renderDescuentos();
   if(id==='configuracion')renderConfiguracion();
   if(id==='mensajes-admin')renderMensajesAdmin();
-  if(id==='calendario')renderCalendario();
   if(id==='calendario')renderCalendario();
   if(id==='informes')loadCierresMensuales();
   if(id==='turnos')initTurnos();
@@ -2170,6 +2251,7 @@ function startListeners(){
       _novedades=d.novedades||[];
       _cfgMensajes=d.mensajesWA||{};
       _cfgAvanzado=d.avanzado||{};
+      if(d.nivelesCliente&&d.nivelesCliente.length)_nivelesCliente=d.nivelesCliente;
       // Apply custom color if set
       if(d.avanzado?.colorPrimary)document.documentElement.style.setProperty('--primary',d.avanzado.colorPrimary);
       renderDescuentoAutoSelect();
@@ -2190,6 +2272,13 @@ function startListeners(){
     _mensajesAdmin=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.ts-a.ts);
     if(document.getElementById('sec-mensajes-admin')?.classList.contains('active'))renderMensajesAdmin();
     updateNotifBadge();
+  }));
+  // Eventos listener
+  _unsubs.push(onSnapshot(collection(db,'users',STORE,'eventos'),snap=>{
+    _eventos=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(document.getElementById('sec-calendario')?.classList.contains('active'))renderCalendario();
+    checkEventAlertas();
+    setSyncDot('ok');
   }));
   _unsubs.push(onSnapshot(collection(db,'users',STORE,'gastos'),snap=>{
     _gastos=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.fecha.localeCompare(a.fecha));
@@ -2241,6 +2330,7 @@ function startClienteListeners(){
       _cfgNegocio=d.negocio||{};
       _cfgPedidos=d.pedidos||{};
       _cfgAvanzado=d.avanzado||{};
+      if(d.nivelesCliente&&d.nivelesCliente.length)_nivelesCliente=d.nivelesCliente;
       _categorias=d.categorias&&d.categorias.length>0?d.categorias:[
         {nombre:'Pollos y presas',emoji:'🐔'},{nombre:'Milanesas',emoji:'🥩'},
         {nombre:'Guarniciones',emoji:'🍟'},{nombre:'Bebidas',emoji:'🍷'},
@@ -2885,7 +2975,7 @@ function renderClientes(){
     <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
         <div style="flex:1;min-width:200px">
-          <div style="font-weight:700;font-size:14px;margin-bottom:4px">${c.nombre}${isInactivo?'<span style="font-size:10px;background:#FFF3CD;color:#854F0B;padding:2px 7px;border-radius:10px;margin-left:8px;font-weight:600">Sin compras +10d</span>':''}</div>
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px">${c.nombre} ${(()=>{const seg=getClienteSegmento(c);const colors={activo:'#EAF3DE',tibio:'#FFF3CD',inactivo:'#FCEBEB',perdido:'#F0F0F0'};const textc={activo:'#1D6B48',tibio:'#854F0B',inactivo:'#A32D2D',perdido:'#666'};const labels={activo:'🟢 Activo',tibio:'🟡 Tibio',inactivo:'🔴 Inactivo',perdido:'⚫ Perdido'};return'<span style="font-size:10px;background:'+colors[seg]+';color:'+textc[seg]+';padding:2px 7px;border-radius:10px;font-weight:600">'+labels[seg]+'</span>';})()}</div>
           <div style="font-size:12px;color:#888;display:flex;flex-wrap:wrap;gap:8px">
             ${c.tel?`<span>📱 ${c.tel}</span>`:''}
             ${c.mail?`<span>✉️ ${c.mail}</span>`:''}
@@ -2956,7 +3046,7 @@ window.deleteCliente=async function(id,usuario){
   }catch(e){alert('Error: '+e.message);}
 };
 
-window.setCliFiltro=function(filtro,btn){_cliFiltro=filtro;document.querySelectorAll('#cli-fil-todos,#cli-fil-recordatorio').forEach(b=>{if(b)b.classList.remove('active');});if(btn)btn.classList.add('active');renderClientes();};
+window.setCliFiltro=function(filtro,btn){_cliFiltro=filtro;document.querySelectorAll('#cli-fil-todos,#cli-fil-activo,#cli-fil-tibio,#cli-fil-inactivo,#cli-fil-perdido,#cli-fil-recordatorio').forEach(b=>{if(b)b.classList.remove('active');});if(btn)btn.classList.add('active');renderClientes();};
 
 window.startEditCliente=function(id){
   const cli=_clientes.find(x=>x.id===id);if(!cli)return;
@@ -3797,8 +3887,16 @@ window.sendRecordatorio=async function(tel,nombre,clienteId){
     }
   }catch{}
   const nombreLocal=_cfgNegocio?.nombre||'Granja Los Abuelos';
-  const plantilla=_cfgNegocio?.msgRecordatorio||'Hola [nombre]! Te extrañamos en '+nombreLocal+'. Hace un tiempo que no sabes de nosotros y queremos recordarte que seguimos con los mejores productos para vos. Pasate a vernos o pedí por nuestro portal online. Te esperamos!';
-  const msg=plantilla.replace(/\[nombre\]/gi,nombre);
+  // Use nivel-specific message
+  const fakeCli={nombre:nombre};const nivel=getNivelCliente(fakeCli);
+  const nivelKey=nivel.nombre==='VIP'?'rec-vip':nivel.nombre==='Frecuente'?'rec-frecuente':'rec-cliente';
+  const defaults={
+    'rec-vip':'Hola [nombre]! Te deseamos una excelente semana. Quedamos atentos a tu pedido de la semana! Programemos juntos tus comidas — [local]',
+    'rec-frecuente':'Hola [nombre]! Hace unos días que no sabemos de vos. Te esperamos en [local]!',
+    'rec-cliente':'Hola [nombre]! Te extrañamos en [local]. Pasate a vernos o pedí por nuestro portal online. Te esperamos!'
+  };
+  const plantilla=(_cfgMensajes&&_cfgMensajes[nivelKey])||defaults[nivelKey];
+  const msg=plantilla.replace(/\[nombre\]/gi,nombre).replace(/\[local\]/gi,nombreLocal);
   sendWhatsApp(tel,msg);
   _recordatoriosEnviados.add(clienteId);
   _recordatoriosTimestamps[clienteId]=Date.now();
@@ -3985,8 +4083,8 @@ window.switchCfgTab=function(tab,btn){
   if(tab==='gastos')renderGastos();
   if(tab==='pedidos'){renderFranjas();renderCfgPedidosActual();renderCfgCategorias();renderCfgPagos();}
   if(tab==='mensajes')renderCfgMensajes();
-  if(tab==='avanzado'){renderCfgAvanzado();loadCuponesAdmin();}
-  if(tab==='negocio')renderCfgNegocioActual();
+  if(tab==='avanzado'){renderCfgAvanzado();loadCuponesAdmin();renderCfgNiveles();}
+  if(tab==='negocio'){renderCfgNegocioActual();setTimeout(renderQR,300);}
 };
 
 window.saveCfgNegocio=async function(){
@@ -4171,10 +4269,12 @@ window.addDescuentoAuto=async function(){
   const pago=document.getElementById('dc-auto-pago').value;
   const pct=parseInt(document.getElementById('dc-auto-pct').value)||0;
   const nombre=document.getElementById('dc-auto-nombre').value.trim();
+  const horaDesde=document.getElementById('dc-auto-hora-desde')?.value||'';
+  const horaHasta=document.getElementById('dc-auto-hora-hasta')?.value||'';
   if(!dias.length||!pct||!nombre){alert('Completá días, porcentaje y nombre');return;}
   setBtn('dc-auto-btn',true,'Guardando...');setSyncDot('syncing');
   try{
-    const newList=[..._descuentosAuto,{id:'da'+Date.now(),dias,pago,porcentaje:pct,nombre,activo:true}];
+    const newList=[..._descuentosAuto,{id:'da'+Date.now(),dias,pago,porcentaje:pct,nombre,horaDesde,horaHasta,activo:true}];
     const cfgSnap=await getDoc(doc(db,'config',STORE));
     const existing=cfgSnap.exists()?cfgSnap.data():{};
     await setDoc(doc(db,'config',STORE),{...existing,descuentosAuto:newList});
@@ -4189,7 +4289,7 @@ function renderDescuentosAuto(){
   const el=document.getElementById('dc-auto-lista');if(!el)return;
   if(!_descuentosAuto.length){el.innerHTML='<div class="empty">Sin descuentos automáticos</div>';return;}
   const dias=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-  el.innerHTML=_descuentosAuto.map(d=>`<div class="pr"><div><div style="font-weight:600;font-size:13px">${d.nombre}</div><div style="font-size:11px;color:#888">${d.dias.map(n=>dias[n]).join(', ')} · ${d.pago||'Cualquier pago'} · ${d.porcentaje}%</div></div><button class="btn bd bsm" onclick="deleteDescuentoAuto('${d.id}')">Eliminar</button></div>`).join('');
+  el.innerHTML=_descuentosAuto.map(d=>{const horario=d.horaDesde&&d.horaHasta?d.horaDesde+' a '+d.horaHasta:'Todo el día';return`<div class="pr"><div><div style="font-weight:600;font-size:13px">${d.nombre}</div><div style="font-size:11px;color:#888">${d.dias.map(n=>diasN[n]).join(', ')} · ${d.pago||'Cualquier pago'} · ${d.porcentaje}% · ${horario}</div></div><button class="btn bd bsm" onclick="deleteDescuentoAuto(this.dataset.id)" data-id="${d.id}">Eliminar</button></div>`;}).join('');
 }
 
 window.deleteDescuentoAuto=async function(id){
@@ -4212,8 +4312,16 @@ function renderDescuentoAutoSelect(){
 
 // Check auto discount based on current day + payment method
 function checkAutoDiscount(pago){
-  const hoy=new Date().getDay(); // 0=sun,1=mon...
-  const matching=_descuentosAuto.filter(d=>d.activo&&d.dias.includes(hoy)&&(!d.pago||d.pago===pago));
+  const hoy=new Date().getDay();
+  const horaActual=new Date().toTimeString().substring(0,5); // HH:MM
+  const matching=_descuentosAuto.filter(d=>{
+    if(!d.activo||!d.dias.includes(hoy))return false;
+    if(d.pago&&d.pago!==pago)return false;
+    if(d.horaDesde&&d.horaHasta){
+      if(horaActual<d.horaDesde||horaActual>d.horaHasta)return false;
+    }
+    return true;
+  });
   if(!matching.length)return null;
   return matching.reduce((best,d)=>d.porcentaje>best.porcentaje?d:best,matching[0]);
 }
@@ -4982,8 +5090,27 @@ function renderMisDatos(){
   if(!CLI_DATA)return;
   const campos=[['misdatos-nombre','nombre'],['misdatos-tel','tel'],['misdatos-mail','mail'],['misdatos-dir','dir'],['misdatos-barrio','barrio']];
   campos.forEach(([id,key])=>{const el=document.getElementById(id);if(el)el.value=CLI_DATA[key]||'';});
-  // Show available coupons
   renderMisCupones();
+  renderNivelPortal();
+}
+
+function renderNivelPortal(){
+  const el=document.getElementById('cli-nivel-info');if(!el||!CLI_DATA)return;
+  const fakeCli={nombre:CLI_DATA.nombre};
+  const prog=getNivelProgress(fakeCli);
+  const actual=prog.actual;
+  const sig=prog.siguiente;
+  const pct=sig?Math.min(100,Math.round(prog.comprasMes/sig.umbral*100)):100;
+  el.innerHTML='<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'+
+    '<div style="font-size:36px">'+actual.emoji+'</div>'+
+    '<div><div style="font-weight:700;font-size:18px">'+actual.nombre+'</div>'+
+    '<div style="font-size:12px;color:#888">'+prog.comprasMes.toFixed(1)+' compras/mes promedio</div>'+
+    (actual.dto?'<div style="font-size:12px;color:var(--success)">Beneficio: '+actual.dto+'% de descuento automático</div>':'')+
+    '</div></div>'+
+    (sig?'<div style="font-size:12px;color:#888;margin-bottom:6px">Próximo nivel: <strong>'+sig.emoji+' '+sig.nombre+'</strong> ('+sig.umbral+' compras/mes)</div>'+
+    '<div style="background:#f0ede8;border-radius:8px;height:8px;overflow:hidden"><div style="background:var(--primary);height:100%;width:'+pct+'%;border-radius:8px;transition:width 0.5s"></div></div>'+
+    '<div style="font-size:11px;color:#888;margin-top:4px">'+pct+'% del camino al nivel '+sig.nombre+'</div>':
+    '<div style="font-size:13px;color:var(--success);font-weight:600">🎉 ¡Sos nuestro cliente de mayor nivel!</div>');
 }
 
 function renderMisCupones(){
@@ -5609,7 +5736,8 @@ function renderCfgMensajes(){
 
 window.saveCfgMensajes=async function(){
   const ids=[['wa-confirmado','confirmado'],['wa-envio-camino','envio_camino'],['wa-envio-entregado','envio_entregado'],
-    ['wa-retiro-recibido','retiro_recibido'],['wa-retiro-listo','retiro_listo'],['wa-retiro-retirado','retiro_retirado'],['wa-cancelado','cancelado']];
+    ['wa-retiro-recibido','retiro_recibido'],['wa-retiro-listo','retiro_listo'],['wa-retiro-retirado','retiro_retirado'],['wa-cancelado','cancelado'],
+    ['wa-rec-cliente','rec-cliente'],['wa-rec-frecuente','rec-frecuente'],['wa-rec-vip','rec-vip']];
   const msgs={};
   ids.forEach(([elId,key])=>{const el=document.getElementById(elId);if(el&&el.value.trim())msgs[key]=el.value.trim();});
   try{
@@ -5800,8 +5928,10 @@ const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','
 const DIAS_CORTO=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 
 function renderCalendario(){
-  const vista=document.getElementById('cal-vista')?.value||'mes';
-  document.getElementById('cal-titulo').textContent=MESES[_calMes]+' '+_calAno;
+  const vistaEl=document.getElementById('cal-vista');
+  const vista=vistaEl?.value||'mes';
+  const tituloEl=document.getElementById('cal-titulo');
+  if(tituloEl)tituloEl.textContent=MESES[_calMes]+' '+_calAno;
   if(vista==='mes')renderCalMes();
   else if(vista==='semana')renderCalSemana();
   else renderCalLista();
@@ -6182,6 +6312,259 @@ async function checkAutoArchivado(){
     await batch.commit();
     console.log('Auto archivado: '+antiguas.length+' ventas');
   }catch(e){console.log('Auto archivado error:',e);}
+}
+
+// ── RECONTACTO PANEL ─────────────────────────────────────────────────────────
+window.showRecontactoPanel=function(){
+  const modal=document.getElementById('recontacto-modal');
+  const lista=document.getElementById('recontacto-lista');
+  if(!modal||!lista)return;
+  const cfgMsgRec=_cfgMensajes||{};
+  const getNivelMsg=(seg)=>{
+    if(seg==='tibio')return cfgMsgRec['rec-frecuente']||'Hola [nombre]! Hace unos días que no sabemos de vos. Te esperamos en [local]!';
+    return cfgMsgRec['rec-cliente']||'Hola [nombre]! Te extrañamos en [local]. Pasate a vernos o pedí por nuestro portal!';
+  };
+  const clientes=_clientes.filter(c=>{
+    if(c.noRecordatorio)return false;
+    const seg=getClienteSegmento(c);
+    return seg==='tibio'||seg==='inactivo';
+  }).sort((a,b)=>{
+    const dA=getUltCompra(a),dB=getUltCompra(b);
+    return(dA||0)-(dB||0);
+  });
+  if(!clientes.length){lista.innerHTML='<div class="empty">No hay clientes para recontactar</div>';modal.style.display='flex';return;}
+  lista.innerHTML=clientes.map(cli=>{
+    const diasSinComprar=getUltCompra(cli);
+    const gasto=_ventas.filter(v=>v.cliente===cli.nombre).reduce((a,v)=>a+v.total,0);
+    const seg=getClienteSegmento(cli);
+    const segColor={activo:'var(--success)',tibio:'#EF9F27',inactivo:'var(--danger)',perdido:'#666'};
+    const segLabel={activo:'Activo',tibio:'Tibio',inactivo:'Inactivo',perdido:'Perdido'};
+    const local=_cfgNegocio?.nombre||'Granja Los Abuelos';
+    const msg=getNivelMsg(seg).replace(/\[nombre\]/gi,cli.nombre).replace(/\[local\]/gi,local);
+    const tel=cli.tel?.replace(/\D/g,'')||'';
+    const waLink=tel?'https://wa.me/549'+tel+'?text='+encodeURIComponent(msg):'';
+    return'<div style="background:#f5f4f0;border-radius:10px;padding:12px;margin-bottom:10px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">'+
+      '<div><div style="font-weight:600;font-size:14px">'+cli.nombre+'</div>'+
+      '<div style="font-size:12px;color:#888;margin-top:2px">'+
+      (diasSinComprar!==null?'Sin comprar hace '+diasSinComprar+' días':'Sin compras')+'</div>'+
+      '<div style="font-size:12px;color:#888">Gasto total: <strong>$'+Math.round(gasto).toLocaleString('es-AR')+'</strong></div>'+
+      '</div>'+
+      '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">'+
+      '<span style="font-size:11px;background:'+segColor[seg]+';color:#fff;padding:2px 8px;border-radius:10px;font-weight:600">'+segLabel[seg]+'</span>'+
+      (waLink?'<a href="'+waLink+'" target="_blank" class="btn bp bsm" style="text-decoration:none;font-size:11px">💬 WhatsApp</a>':'<span style="font-size:11px;color:#aaa">Sin teléfono</span>')+
+      '</div></div></div>';
+  }).join('');
+  modal.style.display='flex';
+};
+
+function getClienteSegmento(cli){
+  const ults=_ventas.filter(v=>v.cliente===cli.nombre);
+  if(!ults.length)return 'inactivo';
+  const dias=getUltCompra(cli);
+  if(dias===null)return 'inactivo';
+  if(dias<=10)return 'activo';
+  if(dias<=30)return 'tibio';
+  if(dias<=90)return 'inactivo';
+  return 'perdido';
+}
+
+function getUltCompra(cli){
+  const ults=_ventas.filter(v=>v.cliente===cli.nombre);
+  if(!ults.length)return null;
+  const ultima=ults.map(v=>v.fecha).sort().reverse()[0];
+  return Math.floor((new Date()-new Date(ultima+'T12:00:00'))/86400000);
+}
+
+// ── PRINT CLIENT DATABASE ─────────────────────────────────────────────────────
+window.printClienteDB=function(){
+  const w=window.open('','_clidb','width=700,height:800');
+  const rows=_clientes.map(cli=>{
+    const seg=getClienteSegmento(cli);
+    const segLabel={activo:'Activo',tibio:'Tibio',inactivo:'Inactivo',perdido:'Perdido'};
+    const gasto=_ventas.filter(v=>v.cliente===cli.nombre).reduce((a,v)=>a+v.total,0);
+    const ultDias=getUltCompra(cli);
+    return'<tr><td>'+cli.nombre+'</td><td>'+(cli.tel||'—')+'</td><td>'+(cli.mail||'—')+'</td>'+
+      '<td>'+(cli.dir||'—')+'</td><td>'+segLabel[seg]+'</td>'+
+      '<td>$'+Math.round(gasto).toLocaleString('es-AR')+'</td>'+
+      '<td>'+(ultDias!==null?'Hace '+ultDias+' días':'Sin compras')+'</td></tr>';
+  }).join('');
+  w.document.write('<!DOCTYPE html><html><head><title>Base de clientes</title>'+
+  '<style>body{font-family:-apple-system,sans-serif;padding:20px;font-size:12px}'+
+  'table{width:100%;border-collapse:collapse}th{background:#1a1a1a;color:#fff;padding:7px 10px;text-align:left;font-size:11px}'+
+  'td{padding:6px 10px;border-bottom:1px solid #f0ede8}'+
+  '@media print{button{display:none}}</style></head><body>'+
+  '<button onclick="window.print()" style="margin-bottom:14px;padding:8px 20px;font-size:13px;cursor:pointer;border:1px solid #ccc;border-radius:8px">🖨 Imprimir / PDF</button>'+
+  '<h2 style="margin-bottom:12px">Base de clientes — '+new Date().toLocaleDateString("es-AR")+'</h2>'+
+  '<table><thead><tr><th>Nombre</th><th>Teléfono</th><th>Email</th><th>Dirección</th><th>Estado</th><th>Gasto total</th><th>Última compra</th></tr></thead>'+
+  '<tbody>'+rows+'</tbody></table></body></html>');
+  w.document.close();
+};
+
+// ── NIVELES DE CLIENTE ────────────────────────────────────────────────────────
+function getNivelCliente(cli){
+  const meses3=new Date();meses3.setMonth(meses3.getMonth()-3);const f3=meses3.toISOString().split('T')[0];
+  const comprasMes=_ventas.filter(v=>v.cliente===cli.nombre&&v.fecha>=f3).length/3;
+  const sorted=[..._nivelesCliente].sort((a,b)=>b.umbral-a.umbral);
+  for(const nv of sorted){if(comprasMes>=nv.umbral)return nv;}
+  return _nivelesCliente[0]||{nombre:'Cliente',emoji:'🥉',umbral:0,dto:0};
+}
+
+function getNivelProgress(cli){
+  const meses3=new Date();meses3.setMonth(meses3.getMonth()-3);const f3=meses3.toISOString().split('T')[0];
+  const comprasMes=_ventas.filter(v=>v.cliente===cli.nombre&&v.fecha>=f3).length/3;
+  const sorted=[..._nivelesCliente].sort((a,b)=>a.umbral-b.umbral);
+  const actual=getNivelCliente(cli);
+  const idx=sorted.findIndex(n=>n.nombre===actual.nombre);
+  const siguiente=sorted[idx+1]||null;
+  return{actual,siguiente,comprasMes:Math.round(comprasMes*10)/10};
+}
+
+function renderCfgNiveles(){
+  const el=document.getElementById('cfg-niveles-lista');if(!el)return;
+  const sorted=[..._nivelesCliente].sort((a,b)=>a.umbral-b.umbral);
+  el.innerHTML=sorted.map((nv,i)=>'<div class="pr"><div><span style="font-size:16px">'+nv.emoji+'</span> <strong>'+nv.nombre+'</strong> — '+nv.umbral+'+ compras/mes'+(nv.dto?', '+nv.dto+'% dto':'')+'</div>'+
+    (i>0?'<button class="btn bd bsm" onclick="deleteNivel(this.dataset.nom)" data-nom="'+nv.nombre+'">✕</button>':'')+
+  '</div>').join('');
+}
+
+window.addNivel=async function(){
+  const nombre=document.getElementById('cfg-nv-nombre').value.trim();
+  const emoji=document.getElementById('cfg-nv-emoji').value.trim()||'⭐';
+  const umbral=parseInt(document.getElementById('cfg-nv-umbral').value)||0;
+  const dto=parseInt(document.getElementById('cfg-nv-dto').value)||0;
+  if(!nombre){alert('Ingresá el nombre del nivel');return;}
+  const nuevos=[..._nivelesCliente,{nombre,emoji,umbral,dto}];
+  try{
+    const snap=await getDoc(doc(db,'config',STORE));
+    const ex=snap.exists()?snap.data():{};
+    await setDoc(doc(db,'config',STORE),{...ex,nivelesCliente:nuevos});
+    toast('Nivel agregado');
+  }catch(e){alert('Error: '+e.message);}
+};
+
+window.deleteNivel=async function(nombre){
+  if(!confirm('¿Eliminar nivel "'+nombre+'"?'))return;
+  const nuevos=_nivelesCliente.filter(n=>n.nombre!==nombre);
+  try{
+    const snap=await getDoc(doc(db,'config',STORE));
+    const ex=snap.exists()?snap.data():{};
+    await setDoc(doc(db,'config',STORE),{...ex,nivelesCliente:nuevos});
+    toast('Nivel eliminado');
+  }catch(e){alert('Error: '+e.message);}
+};
+
+// ── QR CODE ───────────────────────────────────────────────────────────────────
+function renderQR(){
+  const url=window.location.href.split('?')[0];
+  const canvas=document.getElementById('qr-canvas');
+  const urlEl=document.getElementById('qr-url');
+  if(urlEl)urlEl.textContent=url;
+  if(!canvas)return;
+  // Simple QR using Google Charts API
+  const img=new Image();
+  img.onload=function(){const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,200,200);};
+  img.src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(url);
+  img.onerror=function(){
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#f5f4f0';ctx.fillRect(0,0,200,200);
+    ctx.fillStyle='#888';ctx.font='12px Arial';ctx.textAlign='center';
+    ctx.fillText('QR: '+url,100,100);
+  };
+}
+
+window.downloadQR=function(){
+  const canvas=document.getElementById('qr-canvas');if(!canvas)return;
+  const a=document.createElement('a');
+  a.download='QR-GranjaLosAbuelos.png';
+  a.href=canvas.toDataURL();a.click();
+};
+
+window.shareQR=function(){
+  const url=window.location.href.split('?')[0];
+  const local=_cfgNegocio?.nombre||'Granja Los Abuelos';
+  const msg='Hacé tus pedidos online en '+local+'! Entrá acá: '+url;
+  const wa='https://wa.me/?text='+encodeURIComponent(msg);
+  window.open(wa,'_blank');
+};
+
+// ── CATÁLOGO PÚBLICO ──────────────────────────────────────────────────────────
+function checkCatalogoPublico(){
+  const params=new URLSearchParams(window.location.search);
+  if(params.get('catalogo')==='publico'){
+    // Show public catalog mode
+    document.getElementById('loading-screen').style.display='none';
+    document.getElementById('portal-wrapper').style.display='block';
+    STORE='admin';USER_ROLE='publico';CU=null;
+    startClienteListeners();
+    document.getElementById('cli-header-nombre').textContent='Catálogo';
+    // Hide cart and order buttons for public mode
+    document.querySelectorAll('.cli-nav').forEach(n=>{
+      n.innerHTML='<button class="active">Catálogo</button>';
+    });
+    showCliTab('catalogo',null);
+    return true;
+  }
+  return false;
+}
+
+// ── DESCUENTO BIENVENIDA ──────────────────────────────────────────────────────
+async function checkDescuentoBienvenida(usuario,nombre){
+  const fid=_cfgPedidos?.fidelizacion||{};
+  const pctBienvenida=fid.bienvenida||0;
+  if(!pctBienvenida)return;
+  // Check if user already got welcome coupon
+  const cupSnap=await getDocs(collection(db,'users',STORE,'cupones'));
+  const yaRecibio=cupSnap.docs.some(d=>d.data().clienteId===usuario&&d.data().tipo==='bienvenida');
+  if(yaRecibio)return;
+  // Generate welcome coupon
+  const codigo=Math.random().toString(36).substr(2,4).toUpperCase();
+  const vence=new Date();vence.setDate(vence.getDate()+30);
+  await addDoc(collection(db,'users',STORE,'cupones'),{
+    codigo,clienteId:usuario,clienteNombre:nombre,
+    descPct:pctBienvenida,maxDescuento:9999,minCompra:0,
+    vence:vence.toISOString().split('T')[0],
+    generadoEn:today(),usado:false,tipo:'bienvenida',ts:Date.now()
+  });
+  toast('🎉 ¡Bienvenido! Recibiste un cupón de '+pctBienvenida+'% de descuento: GLA-'+codigo);
+}
+
+// ── REFERIDOS ─────────────────────────────────────────────────────────────────
+function getReferidoLink(usuario){
+  const base=window.location.href.split('?')[0];
+  return base+'?ref='+usuario;
+}
+
+window.copiarLinkReferido=function(){
+  const link=getReferidoLink(CU);
+  navigator.clipboard.writeText(link).then(()=>toast('Link copiado!'));
+};
+
+window.compartirLinkReferido=function(){
+  const link=getReferidoLink(CU);
+  const local=_cfgNegocio?.nombre||'Granja Los Abuelos';
+  const msg='Te recomiendo pedir en '+local+'! Usá mi link para registrarte y recibir un descuento de bienvenida: '+link;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+};
+
+async function checkReferido(nuevoUsuario,nuevoNombre){
+  const params=new URLSearchParams(window.location.search);
+  const refUsuario=params.get('ref');
+  if(!refUsuario)return;
+  // Give welcome bonus to new client
+  await checkDescuentoBienvenida(nuevoUsuario,nuevoNombre);
+  // Give bonus to referrer
+  const fid=_cfgPedidos?.fidelizacion||{};
+  const pctRef=fid.bienvenida||5;
+  const codigo=Math.random().toString(36).substr(2,4).toUpperCase();
+  const vence=new Date();vence.setDate(vence.getDate()+30);
+  await addDoc(collection(db,'users',STORE,'cupones'),{
+    codigo,clienteId:refUsuario,
+    descPct:pctRef,maxDescuento:9999,minCompra:0,
+    vence:vence.toISOString().split('T')[0],
+    generadoEn:today(),usado:false,tipo:'referido',
+    referidoNombre:nuevoNombre,ts:Date.now()
+  });
 }
 
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('form-login')?.style.display!=='none')doLogin();});
