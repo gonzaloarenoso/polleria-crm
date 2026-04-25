@@ -2063,7 +2063,7 @@ async function loginSuccess(u,userData){
     if(USER_ROLE==='admin'){
       document.getElementById('po-franjas-admin').style.display='block';
     }
-    buildNav(USER_ROLE);setSyncDot('syncing');startListeners();setTimeout(checkAutoArchivado,8000);setTimeout(checkAutoArchivado,5000);
+    buildNav(USER_ROLE);setSyncDot('syncing');startListeners();setTimeout(checkAutoArchive,8000);
   }
 }
 
@@ -5408,7 +5408,7 @@ window.generarComparativa=function(){
 };
 
 async function checkAutoArchive(){
-  // Run auto-archive on the 1st of each month
+  if(!STORE||!db)return;
   const hoy=new Date();
   const key='last_autoarchive_'+STORE;
   try{
