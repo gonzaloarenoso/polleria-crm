@@ -6785,8 +6785,7 @@ window.editarRegistro=async function(tipo,id){
   if(hash(codigo)!==MASTER_HASH){alert('Código incorrecto');return;}
   if(tipo==='venta'){
     const v=_ventas.find(x=>x.id===id);if(!v)return;
-    const nuevoTotal=prompt('Total actual: $'+v.total+'
-Ingresá el nuevo total (o cancelar para no cambiar):',v.total);
+    const nuevoTotal=prompt('Total actual: $'+v.total+'\nIngresá el nuevo total (o cancelar para no cambiar):',v.total);
     if(nuevoTotal===null)return;
     const nuevoObs=prompt('Observaciones actuales: '+(v.obs||'')+'\nIngresá nuevas observaciones:',v.obs||'');
     try{
