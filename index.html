@@ -6729,7 +6729,7 @@ function renderCatsRapidas(){
     const activa=catFil?.value===cat.nombre;
     return'<button onclick="filtrarCatRapida(this.dataset.cat)" data-cat="'+cat.nombre+'" style="background:'+(activa?'var(--primary)':'rgba(255,255,255,0.15)')+';color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:5px 12px;font-size:12px;cursor:pointer;white-space:nowrap">'+cat.emoji+' '+cat.nombre+'</button>';
   }).join('')+
-  '<button onclick="filtrarCatRapida('')" style="background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:5px 12px;font-size:12px;cursor:pointer">✕ Todas</button>';
+  '<button onclick="filtrarCatRapida(this.dataset.cat)" data-cat="" style="background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:5px 12px;font-size:12px;cursor:pointer">✕ Todas</button>';
 }
 
 window.filtrarCatRapida=function(cat){
