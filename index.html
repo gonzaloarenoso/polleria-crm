@@ -154,6 +154,13 @@ tr:hover td{background:#fafaf8}
     <div class="login-logo">&#9650;</div>
     <div class="login-title">Granja Los Abuelos</div>
     <div class="login-sub">Sistema de gestión</div>
+    <!-- Ver Productos button -->
+    <div style="margin-bottom:10px">
+      <button onclick="verProductosPublico()" class="btn bs" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border:1px solid var(--border)">
+        <span style="font-size:16px">🛒</span>
+        <span style="font-size:13px;font-weight:600">Ver productos</span>
+      </button>
+    </div>
     <!-- PWA Install button - always visible -->
     <div id="pwa-install-wrap" style="margin-bottom:16px">
       <button id="pwa-install-btn" onclick="installPWA()" class="btn bs" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border:1px solid var(--border);background:#f5f4f0">
@@ -291,7 +298,7 @@ tr:hover td{background:#fafaf8}
       <div class="card" style="margin-bottom:14px;padding:12px 16px">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between">
           <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;font-size:13px">
-            <input type="checkbox" id="print-on-confirm" style="width:16px;height:16px"/>
+            <input type="checkbox" id="print-on-confirm" checked style="width:16px;height:16px"/>
             <span>Imprimir ticket automáticamente al confirmar venta</span>
           </label>
         </div>
@@ -350,8 +357,7 @@ tr:hover td{background:#fafaf8}
       <div class="g2">
         <div class="card">
           <h3>Datos del pedido</h3>
-          <label>Canal de venta</label>
-          <select id="v-canal"><option>Mostrador</option><option>WhatsApp</option><option>Delivery propio</option></select>
+
           <label>Cliente <span style="color:var(--danger)">*</span> <span style="font-size:10px;color:#888">— obligatorio</span></label>
           <div style="position:relative">
             <input type="text" id="v-cli" placeholder="Escribí nombre o teléfono..." autocomplete="off" oninput="searchCli(this.value)" onfocus="searchCli(this.value)"/>
@@ -526,6 +532,8 @@ tr:hover td{background:#fafaf8}
             <h3>Agregar producto</h3>
             <label>Nombre del producto</label><input type="text" id="p-nom" placeholder="Ej: Pollo entero"/>
             <label>Precio de venta ($)</label><input type="number" id="p-precio" placeholder="Ej: 2800"/>
+            <label>Categoría</label>
+            <select id="p-categoria"><option value="">Sin categoría</option></select>
             <label>Unidad de medida</label>
             <select id="p-unidad">
               <option value="unidad">Unidad</option><option value="kg">Kg</option>
@@ -933,11 +941,9 @@ tr:hover td{background:#fafaf8}
       <div class="stitle">⚙ Configuración</div>
       <div class="tab-row" style="margin-bottom:16px;max-width:700px">
         <button class="tab-btn active" id="cfg-tab-negocio" onclick="switchCfgTab('negocio',this)">Negocio</button>
-        <button class="tab-btn" id="cfg-tab-descuentos" onclick="switchCfgTab('descuentos',this)">Descuentos</button>
         <button class="tab-btn" id="cfg-tab-gastos" onclick="switchCfgTab('gastos',this)">Gastos</button>
         <button class="tab-btn" id="cfg-tab-pedidos" onclick="switchCfgTab('pedidos',this)">Pedidos online</button>
-        <button class="tab-btn" id="cfg-tab-mensajes" onclick="switchCfgTab('mensajes',this)">Mensajes</button>
-        <button class="tab-btn" id="cfg-tab-avanzado" onclick="switchCfgTab('avanzado',this)">Avanzado</button>
+        <button class="tab-btn" id="cfg-tab-fidelizacion" onclick="switchCfgTab('fidelizacion',this)">Programa Fidelización</button>
         <button class="tab-btn" id="cfg-tab-datos" onclick="switchCfgTab('datos',this)" style="color:var(--danger)">Datos</button>
       </div>
 
@@ -1122,6 +1128,34 @@ tr:hover td{background:#fafaf8}
               <input type="text" id="cfg-pago-nuevo" placeholder="Nuevo método" style="flex:1"/>
               <button class="btn bp bsm" onclick="addMetodoPago()">+</button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROGRAMA FIDELIZACIÓN (unified) -->
+      <div id="cfg-fidelizacion" style="display:none">
+        <!-- Descuentos content will be shown here dynamically -->
+        <div id="cfg-fidelizacion-descuentos"></div>
+        <!-- Mensajes -->
+        <div class="card" style="margin-top:16px">
+          <h3>Mensajes de WhatsApp por estado</h3>
+          <div style="font-size:12px;color:#888;margin-bottom:12px">Usá <strong>[nombre]</strong> para el nombre del cliente y <strong>[local]</strong> para el nombre del local.</div>
+          <label>✅ Pedido confirmado</label><textarea id="wa-confirmado2" rows="2"></textarea>
+          <label>🚚 En camino (envío)</label><textarea id="wa-envio-camino2" rows="2"></textarea>
+          <label>📦 Entregado (envío)</label><textarea id="wa-envio-entregado2" rows="2"></textarea>
+          <label>🏪 Pedido recibido (retiro)</label><textarea id="wa-retiro-recibido2" rows="2"></textarea>
+          <label>✅ Listo para retirar</label><textarea id="wa-retiro-listo2" rows="2"></textarea>
+          <label>🎉 Retirado</label><textarea id="wa-retiro-retirado2" rows="2"></textarea>
+          <label>❌ Cancelado</label><textarea id="wa-cancelado2" rows="2"></textarea>
+          <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px">
+            <h3 style="margin-bottom:8px">Mensajes de recontacto por nivel</h3>
+            <label>🥉 Cliente</label><textarea id="wa-rec-cliente2" rows="2"></textarea>
+            <label>🥈 Frecuente</label><textarea id="wa-rec-frecuente2" rows="2"></textarea>
+            <label>🥇 VIP</label><textarea id="wa-rec-vip2" rows="2"></textarea>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn bp" onclick="saveCfgMensajesFid()">Guardar mensajes</button>
+            <button class="btn bs" onclick="resetCfgMensajes()">Restaurar por defecto</button>
           </div>
         </div>
       </div>
@@ -1514,6 +1548,7 @@ tr:hover td{background:#fafaf8}
           <!-- Search + Category filter -->
           <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
             <input type="text" id="cli-buscar" placeholder="🔍 Buscar producto..." style="flex:1;min-width:150px;padding:8px 12px;border-radius:10px;border:1px solid var(--border);font-size:13px" oninput="renderCliCatalog()"/>
+              <button class="btn bs bsm" onclick="borrarFiltros()" style="white-space:nowrap;font-size:12px">✕ Borrar filtro</button>
             <select id="cli-categoria-fil" style="padding:8px 12px;border-radius:10px;border:1px solid var(--border);font-size:13px;background:#fff" onchange="renderCliCatalog()">
               <option value="">Todas las categorías</option>
             </select>
@@ -2878,7 +2913,7 @@ window.confirmar=async function(){
   const finalTotal=itemTotal-descMonto;
   const venta={
     ts:now.getTime(),fecha:today(),hora:ftime(),
-    canal:document.getElementById('v-canal').value,
+    canal:'Mostrador',
     cliente:document.getElementById('v-cli').value||'Mostrador',
     dir:document.getElementById('v-dir').value,
     telCli:document.getElementById('v-teli').value,
@@ -2924,7 +2959,7 @@ window.confirmar=async function(){
     }
     await fifoConsume(items);
     await updateDoc(doc(db,'users',STORE,'ventas',docRef.id),{costoFIFO:costoTotal,gananciaNeta:finalTotal-costoTotal});
-    if(document.getElementById('print-on-confirm')?.checked)printTicket(venta);
+    printTicket(venta);
     // Mark coupon as used
     if(cuponId)await updateDoc(doc(db,'users',STORE,'cupones',cuponId),{usado:true,usadoEn:today(),ventaId:docRef.id});
     _cuponAplicado=null;
@@ -3401,6 +3436,14 @@ window.switchProdTab=function(tab,btn){
 };
 
 function renderProductos(){
+  // Update category selector
+  const catSel=document.getElementById('p-categoria');
+  if(catSel&&_categorias?.length){
+    const cur=catSel.value;
+    catSel.innerHTML='<option value="">Sin categoría</option>'+
+      _categorias.map(cat=>'<option value="'+cat.nombre+'">'+cat.emoji+' '+cat.nombre+'</option>').join('');
+    catSel.value=cur;
+  }
   // Admin view: editable list
   const el=document.getElementById('p-lista');
   const elVend=document.getElementById('p-lista-vend');
@@ -3434,11 +3477,19 @@ function renderPromoListReadOnly(){
   }).join('');
 }
 window.addProducto=async function(){
+  // Populate category selector dynamically
+  const catSel=document.getElementById('p-categoria');
+  if(catSel&&_categorias?.length&&catSel.options.length<=1){
+    catSel.innerHTML='<option value="">Sin categoría</option>'+
+      _categorias.map(cat=>'<option value="'+cat.nombre+'">'+cat.emoji+' '+cat.nombre+'</option>').join('');
+  }
   const nom=document.getElementById('p-nom').value.trim();const precio=parseInt(document.getElementById('p-precio').value)||0;const alerta=parseInt(document.getElementById('p-alerta').value)||5;const unidad=document.getElementById('p-unidad').value||'unidad';
   if(!nom||!precio){alert('Ingresá nombre y precio');return;}
   setBtn('p-btn',true,'Agregar producto');setSyncDot('syncing');
   try{
-    const newList=[..._productos,{id:'p'+Date.now(),nombre:nom,precio,unidad}];
+    const categoria=document.getElementById('p-categoria')?.value||'';
+    const vencimiento=document.getElementById('p-vencimiento')?.value||'';
+    const newList=[..._productos,{id:'p'+Date.now(),nombre:nom,precio,unidad,categoria,vencimiento}];
     await setDoc(doc(db,'productos',STORE),{lista:newList});
     const newInv={..._inv,[nom]:{stock:0,alerta}};
     await setDoc(doc(db,'inventario',STORE),newInv);
@@ -3994,18 +4045,16 @@ function renderConfiguracion(){
   switchCfgTab('negocio', document.getElementById('cfg-tab-negocio'));
 }
 window.switchCfgTab=function(tab,btn){
-  ['negocio','descuentos','gastos','pedidos','mensajes','avanzado','datos'].forEach(t=>{
+  ['negocio','descuentos','gastos','pedidos','mensajes','avanzado','fidelizacion','datos'].forEach(t=>{
     const el=document.getElementById('cfg-'+t);if(el)el.style.display='none';
     const b=document.getElementById('cfg-tab-'+t);
     if(b){b.className='tab-btn';if(t==='datos')b.style.color='var(--danger)';else b.style.color='';}
   });
   const el=document.getElementById('cfg-'+tab);if(el)el.style.display='block';
   if(btn)btn.className='tab-btn active';
-  if(tab==='descuentos'){renderDescuentos();renderDescuentosAuto();}
   if(tab==='gastos')renderGastos();
   if(tab==='pedidos'){renderFranjas();renderCfgPedidosActual();renderCfgCategorias();renderCfgPagos();}
-  if(tab==='mensajes')renderCfgMensajes();
-  if(tab==='avanzado'){renderCfgAvanzado();loadCuponesAdmin();renderCfgNiveles();}
+  if(tab==='fidelizacion'){renderDescuentos();renderDescuentosAuto();renderCfgMensajesFid();renderCfgAvanzado();loadCuponesAdmin();renderCfgNiveles();}
   if(tab==='negocio'){renderCfgNegocioActual();setTimeout(renderQR,300);}
 };
 
@@ -4990,17 +5039,33 @@ function renderCliCatalog(){
   renderCliCart();
 }
 
+window.borrarFiltros=function(){
+  const buscar=document.getElementById('cli-buscar');if(buscar)buscar.value='';
+  const catFil=document.getElementById('cli-categoria-fil');if(catFil)catFil.value='';
+  renderCliCatalog();
+  // Reset category buttons in banner
+  document.querySelectorAll('#cli-cats-rapidas button').forEach(b=>{b.style.background='rgba(255,255,255,0.15)';});
+};
+
 window.scrollToCarrito=function(){
   const cart=document.getElementById('cli-cart');
   if(cart&&cart.style.display!=='none'){
     cart.scrollIntoView({behavior:'smooth',block:'start'});
   } else {
-    // No items yet - scroll to products
     const grid=document.getElementById('cli-prod-grid');
     if(grid)grid.scrollIntoView({behavior:'smooth',block:'start'});
-    // Flash search box to hint user
-    const buscar=document.getElementById('cli-buscar');
-    if(buscar){buscar.focus();buscar.style.boxShadow='0 0 0 3px var(--primary)';setTimeout(()=>{buscar.style.boxShadow='';},1500);}
+  }
+};
+
+// Update "Ver carrito" button visibility based on cart contents
+function updateVerCarritoBtn(){
+  const btn=document.querySelector('#cli-cta-pedido button');
+  if(!btn)return;
+  if(cartItems&&cartItems.length>0){
+    btn.style.display='flex';
+    btn.textContent='🛒 Ver carrito ('+cartItems.length+')';
+  } else {
+    btn.style.display='none';
   }
 };
 
@@ -5273,6 +5338,7 @@ window.addToCart=function(type,nom,precio){
   else cartItems.push({nom,precio,cant:1,type});
   cartTotal=cartItems.reduce((a,c)=>a+c.precio*c.cant,0);
   renderCliCart();
+  updateVerCarritoBtn();
 };
 
 function renderCliCart(){
@@ -5309,7 +5375,7 @@ function renderCliCart(){
   }
 }
 
-window.rmFromCart=function(i){cartItems.splice(i,1);cartTotal=cartItems.reduce((a,c)=>a+c.precio*c.cant,0);renderCliCart();};
+window.rmFromCart=function(i){cartItems.splice(i,1);cartTotal=cartItems.reduce((a,c)=>a+c.precio*c.cant,0);renderCliCart();updateVerCarritoBtn();};
 window.incCart=function(i){if(cartItems[i])cartItems[i].cant++;cartTotal=cartItems.reduce((a,c)=>a+c.precio*c.cant,0);renderCliCart();};
 window.decCart=function(i){if(!cartItems[i])return;if(cartItems[i].cant<=1){rmFromCart(i);return;}cartItems[i].cant--;cartTotal=cartItems.reduce((a,c)=>a+c.precio*c.cant,0);renderCliCart();};
 
@@ -6406,8 +6472,9 @@ function getNivelProgress(cli){
 function renderCfgNiveles(){
   const el=document.getElementById('cfg-niveles-lista');if(!el)return;
   const sorted=[..._nivelesCliente].sort((a,b)=>a.umbral-b.umbral);
-  el.innerHTML=sorted.map((nv,i)=>'<div class="pr"><div><span style="font-size:16px">'+nv.emoji+'</span> <strong>'+nv.nombre+'</strong> — '+nv.umbral+'+ compras/mes'+(nv.dto?', '+nv.dto+'% dto':'')+'</div>'+
-    (i>0?'<button class="btn bd bsm" onclick="deleteNivel(this.dataset.nom)" data-nom="'+nv.nombre+'">✕</button>':'')+
+  if(!sorted.length){el.innerHTML='<div class="empty">Sin niveles configurados</div>';return;}
+  el.innerHTML=sorted.map((nv)=>'<div class="pr"><div><span style="font-size:16px">'+nv.emoji+'</span> <strong>'+nv.nombre+'</strong> — '+nv.umbral+'+ compras/mes'+(nv.dto?', '+nv.dto+'% dto':'')+'</div>'+
+    '<button class="btn bd bsm" onclick="deleteNivel(this.dataset.nom)" data-nom="'+nv.nombre+'">✕</button>'+
   '</div>').join('');
 }
 
@@ -6423,6 +6490,9 @@ window.addNivel=async function(){
     const ex=snap.exists()?snap.data():{};
     await setDoc(doc(db,'config',STORE),{...ex,nivelesCliente:nuevos});
     toast('Nivel agregado');
+    renderCfgNiveles();
+    // Clear inputs
+    ['cfg-nv-nombre','cfg-nv-emoji','cfg-nv-umbral','cfg-nv-dto'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   }catch(e){alert('Error: '+e.message);}
 };
 
@@ -6717,6 +6787,52 @@ window.verProductosPublico=function(){
   const url=window.location.href.split('?')[0]+'?catalogo=publico';
   window.open(url,'_blank');
 };
+
+window.saveCfgMensajesFid=async function(){
+  const ids=[
+    ['wa-confirmado2','confirmado'],['wa-envio-camino2','envio_camino'],
+    ['wa-envio-entregado2','envio_entregado'],['wa-retiro-recibido2','retiro_recibido'],
+    ['wa-retiro-listo2','retiro_listo'],['wa-retiro-retirado2','retiro_retirado'],
+    ['wa-cancelado2','cancelado'],['wa-rec-cliente2','rec-cliente'],
+    ['wa-rec-frecuente2','rec-frecuente'],['wa-rec-vip2','rec-vip']
+  ];
+  const msgs={};
+  ids.forEach(([elId,key])=>{const el=document.getElementById(elId);if(el&&el.value.trim())msgs[key]=el.value.trim();});
+  try{
+    const snap=await getDoc(doc(db,'config',STORE));
+    const ex=snap.exists()?snap.data():{};
+    await setDoc(doc(db,'config',STORE),{...ex,mensajesWA:msgs});
+    toast('Mensajes guardados');
+  }catch(e){alert('Error: '+e.message);}
+};
+
+// Populate fidelizacion mensajes when tab opens
+function renderCfgMensajesFid(){
+  const m=_cfgMensajes;
+  const defaults={
+    confirmado:'Buenas noticias [nombre]! Tu pedido fue confirmado.',
+    envio_camino:'[nombre], tu pedido está en camino.',
+    envio_entregado:'Tu pedido llegó! Gracias [nombre].',
+    retiro_recibido:'[nombre], recibimos tu pedido. En breve te avisamos.',
+    retiro_listo:'[nombre], ya podés pasar a retirar tu pedido.',
+    retiro_retirado:'Gracias por tu compra, [nombre]!',
+    cancelado:'[nombre], lamentablemente tu pedido fue cancelado.',
+    'rec-cliente':'Hola [nombre]! Te extrañamos en [local].',
+    'rec-frecuente':'Hola [nombre]! Hace unos días que no sabemos de vos.',
+    'rec-vip':'Hola [nombre]! Te deseamos una excelente semana. Quedamos atentos a tu pedido!'
+  };
+  const map={
+    'wa-confirmado2':'confirmado','wa-envio-camino2':'envio_camino',
+    'wa-envio-entregado2':'envio_entregado','wa-retiro-recibido2':'retiro_recibido',
+    'wa-retiro-listo2':'retiro_listo','wa-retiro-retirado2':'retiro_retirado',
+    'wa-cancelado2':'cancelado','wa-rec-cliente2':'rec-cliente',
+    'wa-rec-frecuente2':'rec-frecuente','wa-rec-vip2':'rec-vip'
+  };
+  Object.entries(map).forEach(([elId,key])=>{
+    const el=document.getElementById(elId);
+    if(el)el.value=m[key]||defaults[key]||'';
+  });
+}
 
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('form-login')?.style.display!=='none')doLogin();});
 
