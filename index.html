@@ -697,7 +697,19 @@ tr:hover td{background:#fafaf8}
       <div class="card" style="margin-top:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
           <h3 style="margin-bottom:0">Caja chica</h3>
-          <div id="caja-chica-saldo" style="font-size:14px;font-weight:700"></div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <div id="caja-chica-saldo" style="font-size:14px;font-weight:700"></div>
+            <button class="btn bs bsm" onclick="toggleCfgCajaChica()" style="font-size:11px">⚙ Categorías</button>
+          </div>
+        </div>
+        <!-- Categorías configurables -->
+        <div id="cfg-cc-panel" style="display:none;background:#f5f4f0;border-radius:10px;padding:12px;margin-bottom:12px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:8px">Gestionar categorías</div>
+          <div id="cfg-cc-lista" style="margin-bottom:8px"></div>
+          <div style="display:flex;gap:6px">
+            <input type="text" id="cfg-cc-nueva" placeholder="Nueva categoría" style="flex:1;font-size:12px"/>
+            <button class="btn bp bsm" onclick="addCatCajaChica()">+</button>
+          </div>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
           <select id="cc-tipo" style="flex:1;min-width:140px;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:13px">
@@ -1387,6 +1399,25 @@ tr:hover td{background:#fafaf8}
         <div style="font-size:12px;color:#888;margin-bottom:10px">Ventas de más de 6 meses archivadas automáticamente cada mes.</div>
         <div id="inf-archivos-lista"><div class="empty">Sin archivos históricos</div></div>
       </div>
+      <!-- Log de auditoría -->
+      <div class="card" style="margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <h3 style="margin-bottom:0">🔍 Log de auditoría</h3>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <select id="audit-fil-usuario" style="font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--border)" onchange="loadAuditoria()"><option value="">Todos los usuarios</option></select>
+            <select id="audit-fil-tipo" style="font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--border)" onchange="loadAuditoria()">
+              <option value="">Todas las acciones</option>
+              <option value="venta">Ventas</option>
+              <option value="edicion">Ediciones</option>
+              <option value="caja">Caja</option>
+              <option value="cliente">Clientes</option>
+              <option value="inventario">Inventario</option>
+            </select>
+            <button class="btn bs bsm" onclick="loadAuditoria()">Actualizar</button>
+          </div>
+        </div>
+        <div id="inf-auditoria-lista"><div class="empty">Sin registros de auditoría</div></div>
+      </div>
     </div>
 
     <!-- TURNOS (vendedor) -->
@@ -1440,10 +1471,10 @@ tr:hover td{background:#fafaf8}
       </div>
       <div class="cli-nav" style="display:flex;flex-wrap:wrap;gap:4px;">
         <button class="active" id="cli-tab-cat" onclick="showCliTab('catalogo',this)">Productos</button>
-        <button id="cli-tab-promo" onclick="showCliTab('promociones',this)">Promociones</button>
         <button id="cli-tab-nov" onclick="showCliTab('novedades',this)">Novedades</button>
         <button id="cli-tab-ped" onclick="showCliTab('mis-pedidos',this)">Mis pedidos</button>
         <button id="cli-tab-msg" onclick="showCliTab('mensajes',this)">✉ Mensajes <span id="nb-mensajes-admin" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span></button>
+        <button id="cli-tab-desc" onclick="showCliTab('descuentos',this)">Descuentos</button>
         <button id="cli-tab-datos" onclick="showCliTab('mis-datos',this)">Mis datos</button>
         <button id="cli-tab-info" onclick="showCliTab('info-local',this)">El local</button>
       </div>
@@ -1457,18 +1488,25 @@ tr:hover td{background:#fafaf8}
 
 
       <!-- Puntos de fidelización -->
-      <div id="cli-puntos-banner" style="display:none;background:linear-gradient(135deg,#D85A30,#EF9F27);border-radius:10px;padding:10px 16px;margin-bottom:12px;color:#fff;display:flex;justify-content:space-between;align-items:center">
+      <div id="cli-puntos-banner" style="display:none;background:linear-gradient(135deg,#1a1a1a,#333);border-radius:10px;padding:10px 16px;margin-bottom:12px;color:#fff;display:flex;justify-content:space-between;align-items:center">
         <div><div style="font-size:11px;opacity:0.85">Tus puntos acumulados</div><div style="font-size:18px;font-weight:700" id="cli-puntos-valor">$0</div></div>
         <div id="cli-cupon-disponible" style="display:none;background:#fff;color:#D85A30;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700"></div>
       </div>
       <!-- CTA Iniciar pedido -->
-      <div id="cli-cta-pedido" style="background:linear-gradient(135deg,var(--primary),#EF9F27);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-        <div>
-          <div style="font-size:15px;font-weight:700;color:#fff">¿Qué vas a pedir hoy?</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.85);margin-top:2px">Elegí tus productos y confirmá tu pedido</div>
+      <div id="cli-cta-pedido" style="background:linear-gradient(135deg,#1a1a1a,#333);border-radius:12px;padding:14px 18px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+          <div>
+            <div style="font-size:15px;font-weight:700;color:#fff">¿Qué vas a pedir hoy?</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:2px">Elegí por categoría o buscá tu producto</div>
+          </div>
+          <button onclick="scrollToCarrito()" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer">🛒 Ver carrito</button>
         </div>
-        <button onclick="scrollToCarrito()" style="background:#fff;color:var(--primary);border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer">🛒 Iniciar pedido</button>
+        <!-- Quick category buttons -->
+        <div id="cli-cats-rapidas" style="display:flex;gap:6px;flex-wrap:wrap"></div>
       </div>
+
+      <!-- Promociones activas dentro de Productos -->
+      <div id="cli-promos-en-prod" style="margin-bottom:16px"></div>
 
       <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
         <!-- LEFT: catalog -->
@@ -1540,6 +1578,41 @@ tr:hover td{background:#fafaf8}
       <div id="cli-novedades-grid" class="prod-grid"></div>
     </div>
 
+    <!-- DESCUENTOS -->
+    <div id="cli-sec-descuentos" style="display:none">
+      <div style="font-size:18px;font-weight:700;margin-bottom:16px">Mis descuentos y beneficios</div>
+      <!-- Ahorro último mes -->
+      <div id="cli-ahorro-banner" style="background:linear-gradient(135deg,#1a1a1a,#333);border-radius:12px;padding:16px;margin-bottom:16px;color:#fff">
+        <div style="font-size:12px;color:rgba(255,255,255,0.7)">En el último mes ahorraste</div>
+        <div style="font-size:28px;font-weight:700;color:#EF9F27" id="cli-ahorro-monto">$0</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px">usando tus cupones de descuento</div>
+      </div>
+      <!-- Nivel cliente -->
+      <div class="card" style="max-width:500px">
+        <h3>Mi nivel de cliente</h3>
+        <div id="cli-nivel-descuentos"><div class="empty">Cargando...</div></div>
+      </div>
+      <!-- Cupones disponibles -->
+      <div class="card" style="max-width:500px;margin-top:16px">
+        <h3>Mis cupones disponibles</h3>
+        <div id="cli-cupones-desc"><div class="empty">Sin cupones disponibles</div></div>
+      </div>
+      <!-- Descuentos del local -->
+      <div class="card" style="max-width:500px;margin-top:16px">
+        <h3>Descuentos del local</h3>
+        <div id="cli-descuentos-local"><div class="empty">Sin descuentos activos</div></div>
+      </div>
+      <!-- Referidos -->
+      <div class="card" style="max-width:500px;margin-top:16px">
+        <h3>Referí a un amigo</h3>
+        <div style="font-size:13px;color:#555;margin-bottom:12px">Compartí tu link único. Cuando tu amigo haga su primera compra, ambos reciben un descuento.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn bp bsm" onclick="compartirLinkReferido()">📲 Compartir por WhatsApp</button>
+          <button class="btn bs bsm" onclick="copiarLinkReferido()">📋 Copiar link</button>
+        </div>
+      </div>
+    </div>
+
     <!-- MIS DATOS -->
     <div id="cli-sec-mis-datos" style="display:none">
       <div style="font-size:18px;font-weight:700;margin-bottom:16px">Mis datos</div>
@@ -1555,21 +1628,7 @@ tr:hover td{background:#fafaf8}
         </div>
         <div id="misdatos-ok" style="display:none;color:var(--success);font-size:13px;margin-top:8px">✓ Datos actualizados correctamente</div>
       </div>
-      <!-- Nivel de fidelización -->
-      <div class="card" style="max-width:500px;margin-top:16px" id="cli-nivel-card">
-        <h3>Mi nivel de cliente</h3>
-        <div id="cli-nivel-info"><div class="empty">Cargando...</div></div>
-      </div>
-      <!-- Referidos -->
-      <div class="card" style="max-width:500px;margin-top:16px">
-        <h3>Referí a un amigo</h3>
-        <div style="font-size:13px;color:#555;margin-bottom:12px">Compartí tu link único. Cuando tu amigo haga su primera compra, ambos reciben un descuento.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn bp bsm" onclick="compartirLinkReferido()">📲 Compartir por WhatsApp</button>
-          <button class="btn bs bsm" onclick="copiarLinkReferido()">📋 Copiar link</button>
-        </div>
-      </div>
-      <!-- Cupones disponibles -->
+      <!-- Cupones disponibles (ya están en Descuentos) -->
       <div class="card" style="max-width:500px;margin-top:16px">
         <h3>Mis cupones disponibles</h3>
         <div id="cli-mis-cupones"><div class="empty">Sin cupones disponibles</div></div>
@@ -2231,6 +2290,7 @@ function startListeners(){
       _cfgMensajes=d.mensajesWA||{};
       _cfgAvanzado=d.avanzado||{};
       if(d.nivelesCliente&&d.nivelesCliente.length)_nivelesCliente=d.nivelesCliente;
+      if(d.catsCajaChica&&d.catsCajaChica.length){_catsCajaChica=d.catsCajaChica;updateCCSelect();}
       // Apply custom color if set
       if(d.avanzado?.colorPrimary)document.documentElement.style.setProperty('--primary',d.avanzado.colorPrimary);
       renderDescuentoAutoSelect();
@@ -2310,6 +2370,7 @@ function startClienteListeners(){
       _cfgPedidos=d.pedidos||{};
       _cfgAvanzado=d.avanzado||{};
       if(d.nivelesCliente&&d.nivelesCliente.length)_nivelesCliente=d.nivelesCliente;
+      if(d.catsCajaChica&&d.catsCajaChica.length){_catsCajaChica=d.catsCajaChica;updateCCSelect();}
       _categorias=d.categorias&&d.categorias.length>0?d.categorias:[
         {nombre:'Pollos y presas',emoji:'🐔'},{nombre:'Milanesas',emoji:'🥩'},
         {nombre:'Guarniciones',emoji:'🍟'},{nombre:'Bebidas',emoji:'🍷'},
@@ -4260,8 +4321,18 @@ function renderDescuentosAuto(){
   const el=document.getElementById('dc-auto-lista');if(!el)return;
   if(!_descuentosAuto.length){el.innerHTML='<div class="empty">Sin descuentos automáticos</div>';return;}
   const dias=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-  el.innerHTML=_descuentosAuto.map(d=>{const horario=d.horaDesde&&d.horaHasta?d.horaDesde+' a '+d.horaHasta:'Todo el día';return`<div class="pr"><div><div style="font-weight:600;font-size:13px">${d.nombre}</div><div style="font-size:11px;color:#888">${d.dias.map(n=>diasN[n]).join(', ')} · ${d.pago||'Cualquier pago'} · ${d.porcentaje}% · ${horario}</div></div><button class="btn bd bsm" onclick="deleteDescuentoAuto(this.dataset.id)" data-id="${d.id}">Eliminar</button></div>`;}).join('');
+  el.innerHTML=_descuentosAuto.map(d=>{const horario=d.horaDesde&&d.horaHasta?d.horaDesde+' a '+d.horaHasta:'Todo el día';return`<div class="pr"><div><div style="font-weight:600;font-size:13px">${d.nombre}</div><div style="font-size:11px;color:#888">${d.dias.map(n=>diasN[n]).join(', ')} · ${d.pago||'Cualquier pago'} · ${d.porcentaje}% · ${horario}</div></div><div style="display:flex;gap:4px"><button class="btn bs bsm" style="font-size:11px" onclick="toggleDcAutoVisible(this.dataset.id,${!d.visible})" data-id="${d.id}" title="${d.visible!==false?'Ocultar del portal':'Mostrar en portal'}">${d.visible!==false?'👁 Visible':'🙈 Oculto'}</button><button class="btn bd bsm" onclick="deleteDescuentoAuto(this.dataset.id)" data-id="${d.id}">Eliminar</button></div></div>`;}).join('');
 }
+
+window.toggleDcAutoVisible=async function(id,visible){
+  try{
+    const snap=await getDoc(doc(db,'config',STORE));
+    const ex=snap.exists()?snap.data():{};
+    const updated=_descuentosAuto.map(d=>d.id===id?{...d,visible}:d);
+    await setDoc(doc(db,'config',STORE),{...ex,descuentosAuto:updated});
+    toast(visible?'Descuento visible en el portal':'Descuento oculto del portal');
+  }catch(e){alert('Error: '+e.message);}
+};
 
 window.deleteDescuentoAuto=async function(id){
   if(!confirm('¿Eliminar este descuento?'))return;
@@ -4972,14 +5043,15 @@ window.showCliTab=function(tab,btn){
   document.querySelectorAll('.cli-nav button').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   // Hide all sections
-  ['catalogo','promociones','novedades','mis-pedidos','mensajes','mis-datos','info-local'].forEach(t=>{
+  ['catalogo','novedades','mis-pedidos','mensajes','descuentos','mis-datos','info-local'].forEach(t=>{
     const el=document.getElementById('cli-sec-'+t);
     if(el)el.style.display=tab===t?'block':'none';
   });
   if(tab==='catalogo')renderCliCatalog();
   if(tab==='mis-pedidos')renderMisPedidos();
-  if(tab==='promociones')renderCliPromociones();
+
   if(tab==='novedades')renderCliNovedades();
+  if(tab==='descuentos')renderDescuentosPortal();
   if(tab==='mis-datos')renderMisDatos();
   if(tab==='mensajes')renderCliMensajes();
   if(tab==='info-local')renderInfoLocal();
@@ -4987,6 +5059,10 @@ window.showCliTab=function(tab,btn){
 };
 
 function renderCliCatalog(){
+  // Render promos inside catalog
+  renderPromosEnProductos();
+  // Render quick category buttons
+  renderCatsRapidas();
   const dirInput=document.getElementById('cli-dir-entrega');
   if(dirInput&&CLI_DATA?.dir&&!dirInput.value)dirInput.value=CLI_DATA.dir;
   // Update category filter options
@@ -5099,6 +5175,55 @@ function renderMisDatos(){
   campos.forEach(([id,key])=>{const el=document.getElementById(id);if(el)el.value=CLI_DATA[key]||'';});
   renderMisCupones();
   renderNivelPortal();
+}
+
+function renderDescuentosPortal(){
+  // Ahorro último mes
+  const hace30=new Date();hace30.setDate(hace30.getDate()-30);const f30=hace30.toISOString().split('T')[0];
+  const ahorro=_cupones.filter(cup=>cup.clienteId===CU&&cup.usado&&cup.usadoEn>=f30)
+    .reduce((a,cup)=>a+(cup.descuentoAplicado||0),0);
+  const ahorroEl=document.getElementById('cli-ahorro-monto');
+  if(ahorroEl)ahorroEl.textContent='$'+Math.round(ahorro).toLocaleString('es-AR');
+  // Nivel
+  const nivelEl=document.getElementById('cli-nivel-descuentos');
+  if(nivelEl&&CLI_DATA){
+    const fakeCli={nombre:CLI_DATA.nombre};
+    const prog=getNivelProgress(fakeCli);
+    const actual=prog.actual;const sig=prog.siguiente;
+    const pct=sig?Math.min(100,Math.round(prog.comprasMes/sig.umbral*100)):100;
+    nivelEl.innerHTML='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
+      '<div style="font-size:32px">'+actual.emoji+'</div>'+
+      '<div><div style="font-weight:700;font-size:16px">'+actual.nombre+'</div>'+
+      (actual.dto?'<div style="font-size:12px;color:var(--success)">'+actual.dto+'% descuento automático</div>':'')+
+      '</div></div>'+
+      (sig?'<div style="font-size:12px;color:#888;margin-bottom:6px">Próximo: '+sig.emoji+' '+sig.nombre+' ('+sig.umbral+' compras/mes)</div>'+
+      '<div style="background:#f0ede8;border-radius:8px;height:8px;overflow:hidden"><div style="background:var(--primary);height:100%;width:'+pct+'%;border-radius:8px"></div></div>':
+      '<div style="font-size:13px;color:var(--success)">🎉 ¡Nivel máximo!</div>');
+  }
+  // Cupones
+  const cupEl=document.getElementById('cli-cupones-desc');
+  if(cupEl)renderMisCuponesEn(cupEl);
+  // Descuentos del local (visibles)
+  const dcEl=document.getElementById('cli-descuentos-local');
+  if(dcEl){
+    const visibles=_descuentosAuto.filter(d=>d.activo&&d.visible!==false);
+    if(!visibles.length){dcEl.innerHTML='<div class="empty">Sin descuentos activos</div>';}
+    else{
+      const dias=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+      dcEl.innerHTML=visibles.map(d=>{
+        const horario=d.horaDesde&&d.horaHasta?d.horaDesde+' a '+d.horaHasta:'Todo el día';
+        return'<div class="pr"><div><div style="font-weight:600">'+d.nombre+'</div>'+
+          '<div style="font-size:12px;color:#888">'+d.dias.map(n=>dias[n]).join(', ')+' · '+horario+' · pagando con '+d.pago+'</div></div>'+
+          '<span style="background:#EAF3DE;color:#1D6B48;padding:3px 10px;border-radius:10px;font-weight:700;font-size:14px">'+d.porcentaje+'% OFF</span></div>';
+      }).join('');
+    }
+  }
+}
+
+function renderMisCuponesEn(el){
+  const misCupones=_cupones.filter(cup=>cup.clienteId===CU&&!cup.usado&&new Date(cup.vence)>=new Date());
+  if(!misCupones.length){el.innerHTML='<div class="empty">Sin cupones disponibles. Seguí comprando para ganar tu próximo cupón!</div>';return;}
+  el.innerHTML=misCupones.map(cup=>'<div class="pr"><div><div style="font-weight:700;font-size:16px;letter-spacing:2px;color:var(--primary)">GLA-'+cup.codigo+'</div><div style="font-size:12px;color:#888">'+cup.descPct+'% dto · Mín. '+fmt(cup.minCompra)+' · vence '+cup.vence+'</div></div></div>').join('');
 }
 
 function renderNivelPortal(){
@@ -6575,6 +6700,177 @@ async function checkReferido(nuevoUsuario,nuevoNombre){
     referidoNombre:nuevoNombre,ts:Date.now()
   });
 }
+
+// ── PROMOS EN PRODUCTOS + CATS RÁPIDAS ───────────────────────────────────────
+function renderPromosEnProductos(){
+  const el=document.getElementById('cli-promos-en-prod');if(!el)return;
+  const activas=_promociones.filter(p=>p.activa);
+  if(!activas.length){el.innerHTML='';return;}
+  el.innerHTML='<div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:8px">🎁 Promociones especiales</div>'+
+    '<div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:6px">'+
+    activas.map(p=>{
+      const s=promoStock(p);
+      const comps=p.componentes.map(c=>c.cantidad+'x '+c.producto).join(' + ');
+      return'<div style="min-width:180px;background:#fff;border-radius:10px;border:2px solid var(--primary);padding:10px;flex-shrink:0">'+
+        '<div style="font-weight:700;font-size:13px;margin-bottom:2px">'+p.nombre+'</div>'+
+        '<div style="font-size:10px;color:#888;margin-bottom:6px">'+comps+'</div>'+
+        '<div style="font-size:16px;font-weight:700;color:var(--primary);margin-bottom:6px">'+fmt(p.precio)+'</div>'+
+        '<button class="btn bp" style="width:100%;font-size:11px;padding:5px" '+(s===0?'disabled':'')+' onclick="addToCart('promo',''+p.nombre+'','+p.precio+')">+ Al carrito</button>'+
+        '</div>';
+    }).join('')+
+    '</div><hr style="border:none;border-top:1px solid var(--border);margin:12px 0"/>';
+}
+
+function renderCatsRapidas(){
+  const el=document.getElementById('cli-cats-rapidas');if(!el)return;
+  if(!_categorias?.length){el.innerHTML='';return;}
+  const catFil=document.getElementById('cli-categoria-fil');
+  el.innerHTML=_categorias.map(cat=>{
+    const activa=catFil?.value===cat.nombre;
+    return'<button onclick="filtrarCatRapida(this.dataset.cat)" data-cat="'+cat.nombre+'" style="background:'+(activa?'var(--primary)':'rgba(255,255,255,0.15)')+';color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:5px 12px;font-size:12px;cursor:pointer;white-space:nowrap">'+cat.emoji+' '+cat.nombre+'</button>';
+  }).join('')+
+  '<button onclick="filtrarCatRapida('')" style="background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:5px 12px;font-size:12px;cursor:pointer">✕ Todas</button>';
+}
+
+window.filtrarCatRapida=function(cat){
+  const sel=document.getElementById('cli-categoria-fil');
+  if(sel){sel.value=cat;renderCliCatalog();}
+  // Scroll to product grid
+  const grid=document.getElementById('cli-prod-grid');
+  if(grid)grid.scrollIntoView({behavior:'smooth',block:'start'});
+};
+
+// ── AUDITORÍA ─────────────────────────────────────────────────────────────────
+async function logAuditoria(accion,tipo,detalle,valorAnterior='',valorNuevo=''){
+  try{
+    await addDoc(collection(db,'users',STORE,'auditoria'),{
+      fecha:today(),hora:new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),
+      ts:Date.now(),usuario:CU||'admin',accion,tipo,detalle,
+      valorAnterior:String(valorAnterior).substring(0,200),
+      valorNuevo:String(valorNuevo).substring(0,200)
+    });
+  }catch(e){console.log('Audit error:',e);}
+}
+
+window.loadAuditoria=async function(){
+  const el=document.getElementById('inf-auditoria-lista');if(!el)return;
+  el.innerHTML='<div class="empty">Cargando...</div>';
+  try{
+    const snap=await getDocs(collection(db,'users',STORE,'auditoria'));
+    let registros=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.ts-a.ts).slice(0,200);
+    const filUser=document.getElementById('audit-fil-usuario')?.value||'';
+    const filTipo=document.getElementById('audit-fil-tipo')?.value||'';
+    if(filUser)registros=registros.filter(r=>r.usuario===filUser);
+    if(filTipo)registros=registros.filter(r=>r.tipo===filTipo);
+    // Populate user filter
+    const usuarios=[...new Set(snap.docs.map(d=>d.data().usuario).filter(Boolean))];
+    const sel=document.getElementById('audit-fil-usuario');
+    if(sel){const cur=sel.value;sel.innerHTML='<option value="">Todos los usuarios</option>'+usuarios.map(u=>'<option value="'+u+'">'+u+'</option>').join('');sel.value=cur;}
+    if(!registros.length){el.innerHTML='<div class="empty">Sin registros</div>';return;}
+    const colores={creó:'#EAF3DE',modificó:'#FFF3CD',eliminó:'#FCEBEB',cerró:'#EAF3DE'};
+    el.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
+      '<thead><tr style="background:#1a1a1a;color:#fff"><th style="padding:7px 10px;text-align:left">Fecha</th><th style="padding:7px 10px;text-align:left">Usuario</th><th style="padding:7px 10px;text-align:left">Acción</th><th style="padding:7px 10px;text-align:left">Detalle</th><th style="padding:7px 10px;text-align:left">Anterior</th><th style="padding:7px 10px;text-align:left">Nuevo</th></tr></thead>'+
+      '<tbody>'+registros.map(r=>'<tr style="border-bottom:1px solid #f0ede8"><td style="padding:6px 10px">'+r.fecha+' '+r.hora+'</td><td style="padding:6px 10px;font-weight:600">'+r.usuario+'</td><td style="padding:6px 10px"><span style="background:'+(colores[r.accion]||'#f0ede8')+';padding:2px 8px;border-radius:10px">'+r.accion+' '+r.tipo+'</span></td><td style="padding:6px 10px">'+r.detalle+'</td><td style="padding:6px 10px;color:#888">'+r.valorAnterior+'</td><td style="padding:6px 10px">'+r.valorNuevo+'</td></tr>').join('')+
+      '</tbody></table></div>';
+  }catch(e){el.innerHTML='<div class="empty">Error cargando auditoría</div>';}
+};
+
+// Load auditoria when informes tab opens
+const _origLoadInformes=window.renderInformes;
+
+// ── EDITAR REGISTROS ──────────────────────────────────────────────────────────
+window.editarRegistro=async function(tipo,id){
+  const codigo=prompt('Ingresá el código de administrador para editar:');
+  if(!codigo)return;
+  if(hash(codigo)!==MASTER_HASH){alert('Código incorrecto');return;}
+  if(tipo==='venta'){
+    const v=_ventas.find(x=>x.id===id);if(!v)return;
+    const nuevoTotal=prompt('Total actual: $'+v.total+'
+Ingresá el nuevo total (o cancelar para no cambiar):',v.total);
+    if(nuevoTotal===null)return;
+    const nuevoObs=prompt('Observaciones actuales: '+(v.obs||'')+'\nIngresá nuevas observaciones:',v.obs||'');
+    try{
+      await updateDoc(doc(db,'users',STORE,'ventas',id),{total:parseFloat(nuevoTotal)||v.total,obs:nuevoObs||''});
+      await logAuditoria('modificó','venta','Edición manual venta '+id,'Total: $'+v.total,'Total: $'+nuevoTotal);
+      toast('Venta actualizada');
+    }catch(e){alert('Error: '+e.message);}
+  }
+  if(tipo==='gasto'){
+    const g=_gastos.find(x=>x.id===id);if(!g)return;
+    const nuevoMonto=prompt('Monto actual: $'+g.monto+'
+Ingresá el nuevo monto:',g.monto);
+    if(nuevoMonto===null)return;
+    try{
+      await updateDoc(doc(db,'users',STORE,'gastos',id),{monto:parseFloat(nuevoMonto)||g.monto});
+      await logAuditoria('modificó','gasto','Edición gasto '+g.descripcion,'$'+g.monto,'$'+nuevoMonto);
+      toast('Gasto actualizado');
+    }catch(e){alert('Error: '+e.message);}
+  }
+  if(tipo==='cajaChica'){
+    const m=_cajaChica.find(x=>x.id===id);if(!m)return;
+    const nuevoMonto=prompt('Monto actual: $'+Math.abs(m.monto)+'
+Ingresá el nuevo monto:',Math.abs(m.monto));
+    if(nuevoMonto===null)return;
+    try{
+      const signo=m.monto<0?-1:1;
+      await updateDoc(doc(db,'users',STORE,'cajaChica',id),{monto:signo*parseFloat(nuevoMonto),montoAbs:parseFloat(nuevoMonto)});
+      await logAuditoria('modificó','caja','Edición caja chica '+m.tipo,'$'+Math.abs(m.monto),'$'+nuevoMonto);
+      toast('Movimiento actualizado');
+    }catch(e){alert('Error: '+e.message);}
+  }
+};
+
+// ── CAJA CHICA CATEGORIES ────────────────────────────────────────────────────
+let _catsCajaChica=['Retiro de caja','Adelanto empleado','Pago a proveedor','Gasto menor','Ingreso extra','Fondo de cambio'];
+
+window.toggleCfgCajaChica=function(){
+  const panel=document.getElementById('cfg-cc-panel');
+  if(panel)panel.style.display=panel.style.display==='none'?'block':'none';
+  renderCfgCajaChica();
+};
+
+function renderCfgCajaChica(){
+  const el=document.getElementById('cfg-cc-lista');if(!el)return;
+  el.innerHTML=_catsCajaChica.map((cat,i)=>'<div class="pr"><span>'+cat+'</span>'+
+    (i>0?'<button class="btn bd bsm" onclick="deleteCatCC('+i+')">✕</button>':'')+
+    '</div>').join('');
+}
+
+window.addCatCajaChica=async function(){
+  const nueva=document.getElementById('cfg-cc-nueva')?.value.trim();
+  if(!nueva)return;
+  _catsCajaChica=[..._catsCajaChica,nueva];
+  updateCCSelect();
+  renderCfgCajaChica();
+  saveCatsCajaChica();
+  document.getElementById('cfg-cc-nueva').value='';
+  toast('Categoría agregada');
+};
+
+window.deleteCatCC=async function(idx){
+  if(!confirm('¿Eliminar categoría "'+_catsCajaChica[idx]+'"?'))return;
+  _catsCajaChica=_catsCajaChica.filter((_,i)=>i!==idx);
+  updateCCSelect();renderCfgCajaChica();saveCatsCajaChica();
+};
+
+async function saveCatsCajaChica(){
+  try{
+    const snap=await getDoc(doc(db,'config',STORE));
+    const ex=snap.exists()?snap.data():{};
+    await setDoc(doc(db,'config',STORE),{...ex,catsCajaChica:_catsCajaChica});
+  }catch(e){console.log('Error saving CC cats:',e);}
+}
+
+function updateCCSelect(){
+  const sel=document.getElementById('cc-tipo');if(!sel)return;
+  sel.innerHTML=_catsCajaChica.map(cat=>'<option value="'+cat+'">'+cat+'</option>').join('');
+}
+
+// ── BOTÓN "VER PRODUCTOS" en login ────────────────────────────────────────────
+window.verProductosPublico=function(){
+  const url=window.location.href.split('?')[0]+'?catalogo=publico';
+  window.open(url,'_blank');
+};
 
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('form-login')?.style.display!=='none')doLogin();});
 
