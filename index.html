@@ -1461,6 +1461,15 @@ tr:hover td{background:#fafaf8}
         <div><div style="font-size:11px;opacity:0.85">Tus puntos acumulados</div><div style="font-size:18px;font-weight:700" id="cli-puntos-valor">$0</div></div>
         <div id="cli-cupon-disponible" style="display:none;background:#fff;color:#D85A30;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700"></div>
       </div>
+      <!-- CTA Iniciar pedido -->
+      <div id="cli-cta-pedido" style="background:linear-gradient(135deg,var(--primary),#EF9F27);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#fff">¿Qué vas a pedir hoy?</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.85);margin-top:2px">Elegí tus productos y confirmá tu pedido</div>
+        </div>
+        <button onclick="scrollToCarrito()" style="background:#fff;color:var(--primary);border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer">🛒 Iniciar pedido</button>
+      </div>
+
       <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
         <!-- LEFT: catalog -->
         <div style="flex:1;min-width:280px">
@@ -2097,9 +2106,13 @@ async function loginSuccess(u,userData){
   document.getElementById('l-btn').innerHTML='Ingresar';document.getElementById('l-btn').disabled=false;
   if(USER_ROLE==='cliente'){
     document.getElementById('cliente-screen').style.display='block';
-    document.getElementById('cli-local-name').textContent=localName;
+    const cliLocalEl=document.getElementById('cli-local-name');if(cliLocalEl)cliLocalEl.textContent=localName;
     document.getElementById('cli-nombre').textContent=userData.nombre||u;
     startClienteListeners();
+    // Show catalogo tab and render products on login
+    setTimeout(()=>{
+      showCliTab('catalogo',document.getElementById('cli-tab-cat'));
+    },800);
   } else {
     document.getElementById('main-screen').style.display='block';
     document.getElementById('top-local').textContent=localName;
@@ -5010,6 +5023,20 @@ function renderCliCatalog(){
   grid.innerHTML=html||'<div class="empty">Sin productos disponibles</div>';
   renderCliCart();
 }
+
+window.scrollToCarrito=function(){
+  const cart=document.getElementById('cli-cart');
+  if(cart&&cart.style.display!=='none'){
+    cart.scrollIntoView({behavior:'smooth',block:'start'});
+  } else {
+    // No items yet - scroll to products
+    const grid=document.getElementById('cli-prod-grid');
+    if(grid)grid.scrollIntoView({behavior:'smooth',block:'start'});
+    // Flash search box to hint user
+    const buscar=document.getElementById('cli-buscar');
+    if(buscar){buscar.focus();buscar.style.boxShadow='0 0 0 3px var(--primary)';setTimeout(()=>{buscar.style.boxShadow='';},1500);}
+  }
+};
 
 window.setCuando=function(tipo,btn){
   document.querySelectorAll('#cli-cuando-ahora,#cli-cuando-prog').forEach(b=>{
