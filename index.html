@@ -6796,8 +6796,7 @@ window.editarRegistro=async function(tipo,id){
   }
   if(tipo==='gasto'){
     const g=_gastos.find(x=>x.id===id);if(!g)return;
-    const nuevoMonto=prompt('Monto actual: $'+g.monto+'
-Ingresá el nuevo monto:',g.monto);
+    const nuevoMonto=prompt('Monto actual: $'+g.monto+'\nIngresá el nuevo monto:',g.monto);
     if(nuevoMonto===null)return;
     try{
       await updateDoc(doc(db,'users',STORE,'gastos',id),{monto:parseFloat(nuevoMonto)||g.monto});
@@ -6807,8 +6806,7 @@ Ingresá el nuevo monto:',g.monto);
   }
   if(tipo==='cajaChica'){
     const m=_cajaChica.find(x=>x.id===id);if(!m)return;
-    const nuevoMonto=prompt('Monto actual: $'+Math.abs(m.monto)+'
-Ingresá el nuevo monto:',Math.abs(m.monto));
+    const nuevoMonto=prompt('Monto actual: $'+Math.abs(m.monto)+'\nIngresá el nuevo monto:',Math.abs(m.monto));
     if(nuevoMonto===null)return;
     try{
       const signo=m.monto<0?-1:1;
