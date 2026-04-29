@@ -6715,7 +6715,7 @@ function renderPromosEnProductos(){
         '<div style="font-weight:700;font-size:13px;margin-bottom:2px">'+p.nombre+'</div>'+
         '<div style="font-size:10px;color:#888;margin-bottom:6px">'+comps+'</div>'+
         '<div style="font-size:16px;font-weight:700;color:var(--primary);margin-bottom:6px">'+fmt(p.precio)+'</div>'+
-        '<button class="btn bp" style="width:100%;font-size:11px;padding:5px" '+(s===0?'disabled':'')+' onclick="addToCart('promo',''+p.nombre+'','+p.precio+')">+ Al carrito</button>'+
+        '<button class="btn bp" style="width:100%;font-size:11px;padding:5px" '+(s===0?'disabled':'')+' onclick="addToCart(\'promo\',this.dataset.nom,this.dataset.pr)" data-nom="'+p.nombre+'" data-pr="'+p.precio+'">+ Al carrito</button>'+
         '</div>';
     }).join('')+
     '</div><hr style="border:none;border-top:1px solid var(--border);margin:12px 0"/>';
