@@ -3595,14 +3595,6 @@ function renderProductos(){
       _categorias.map(cat=>'<option value="'+cat.nombre+'">'+cat.emoji+' '+cat.nombre+'</option>').join('');
     catSel.value=cur;
   }
-  // Update category selector
-  const catSel=document.getElementById('p-categoria');
-  if(catSel&&_categorias?.length){
-    const cur=catSel.value;
-    catSel.innerHTML='<option value="">Sin categoría</option>'+
-      _categorias.map(cat=>'<option value="'+cat.nombre+'">'+cat.emoji+' '+cat.nombre+'</option>').join('');
-    catSel.value=cur;
-  }
   // Admin view: editable list
   const el=document.getElementById('p-lista');
   const elVend=document.getElementById('p-lista-vend');
