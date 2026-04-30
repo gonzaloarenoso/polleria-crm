@@ -5306,7 +5306,7 @@ function renderDestacadosPreview(){
       '<div class="prod-card-nom">'+p.nombre+'</div>'+
       '<div class="prod-card-precio">'+fmt(p.precio)+'</div>'+
       '<button class="btn bp" style="width:100%;font-size:12px;padding:6px" '+(stock===0?'disabled':'')+
-      ' onclick="addToCart('prod',''+p.nombre+'','+p.precio+')">+ Al carrito</button></div>';
+      ' onclick="addToCart(\'prod\',this.dataset.nom,'+p.precio+')" data-nom="'+p.nombre+'">+ Al carrito</button></div>';
   }).join('');
 }
 
