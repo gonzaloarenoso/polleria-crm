@@ -7247,10 +7247,10 @@ window.loadCierresCaja=async function(){
       .filter(c=>c.fecha&&c.fecha.startsWith(mesActual))
       .sort((a,b)=>b.fecha.localeCompare(a.fecha));
     if(!cierres.length){el.innerHTML='<div class="empty">Sin cierres este mes</div>';return;}
-    el.innerHTML=cierres.map(ci=>'<div class="pr" style="cursor:pointer" onclick="verDetalleCierre(''+ci.id+'')">'+
+    el.innerHTML=cierres.map(ci=>'<div class="pr" style="cursor:pointer" onclick="verDetalleCierre(this.dataset.id)" data-id="'+ci.id+'">'+
       '<div><div style="font-weight:600">'+fdate(ci.fecha)+'</div>'+
       '<div style="font-size:12px;color:#888">Total: '+fmt(ci.totalDia||0)+' · '+ci.cantVentas+' ventas</div></div>'+
-      '<button class="btn bs bsm" onclick="event.stopPropagation();verDetalleCierre(''+ci.id+'')">Ver detalle</button>'+
+      '<button class="btn bs bsm" onclick="event.stopPropagation();verDetalleCierre(this.dataset.id)" data-id="'+ci.id+'">Ver detalle</button>'+
       '</div>').join('');
   }catch(e){el.innerHTML='<div class="empty">Error cargando cierres</div>';}
 };
