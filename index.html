@@ -958,7 +958,10 @@ tr:hover td{background:#fafaf8}
             </div>
             <label>Nombre del local</label><input type="text" id="cfg-nombre-local" placeholder="Granja Los Abuelos"/>
             <label>Dirección</label><input type="text" id="cfg-dir-local" placeholder="Calle y número, Caseros"/>
-            <label>Teléfono</label><input type="text" id="cfg-tel-local" placeholder="11-5555-1234"/>
+            <label>Teléfono (público)</label><input type="text" id="cfg-tel-local" placeholder="11-5555-1234"/>
+            <label>Teléfono interno (para alertas y cierre de caja)</label>
+            <input type="text" id="cfg-tel-interno" placeholder="11-5555-1234"/>
+            <div style="font-size:11px;color:#888;margin-top:2px">A este número llega el resumen cuando cerrás la caja.</div>
             <label>Horario de atención</label><input type="text" id="cfg-horario" placeholder="Lun-Sab 9-20hs"/>
             <div class="row" style="margin-top:12px"><button class="btn bp" id="cfg-neg-btn" onclick="saveCfgNegocio()">Guardar datos</button></div>
           </div>
@@ -982,68 +985,7 @@ tr:hover td{background:#fafaf8}
       </div>
 
       <!-- DESCUENTOS -->
-      <div id="cfg-descuentos" style="display:none" data-legacy="true">
-        <div class="g2" style="margin-bottom:16px">
-          <div class="card">
-            <h3>Descuento por motivo (manual)</h3>
-            <label>Motivo del descuento</label>
-            <input type="text" id="dc-motivo" placeholder="Ej: Amigo del dueño"/>
-            <label>Porcentaje (%)</label>
-            <input type="number" id="dc-pct" placeholder="Ej: 30" min="1" max="100"/>
-            <div class="row"><button class="btn bp" id="dc-btn" onclick="addDescuento()">Agregar descuento</button></div>
-          </div>
-          <div class="card">
-            <h3>Descuentos activos</h3>
-            <div id="dc-lista"><div class="empty">Sin descuentos configurados</div></div>
-          </div>
-        </div>
-        <div class="g2">
-          <div class="card">
-            <h3>Nuevo descuento automático</h3>
-            <div style="font-size:12px;color:#888;margin-bottom:12px">Se aplica solo cuando coincide el día y el método de pago. No se acumula — siempre gana el mayor.</div>
-            <div style="background:#f5f4f0;border-radius:8px;padding:12px;margin-bottom:10px">
-              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px">
-                <span style="color:#888">Los</span>
-                <div style="display:flex;gap:6px;flex-wrap:wrap" id="dc-auto-dias">
-                  <label style="display:flex;align-items:center;gap:3px;margin:0;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:12px"><input type="checkbox" value="1" style="width:12px"/> Lun</label>
-                  <label style="display:flex;align-items:center;gap:3px;margin:0;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:12px"><input type="checkbox" value="2" style="width:12px"/> Mar</label>
-                  <label style="display:flex;align-items:center;gap:3px;margin:0;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:12px"><input type="checkbox" value="3" style="width:12px"/> Mié</label>
-                  <label style="display:flex;align-items:center;gap:3px;margin:0;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:12px"><input type="checkbox" value="4" style="width:12px"/> Jue</label>
-                  <label style="display:flex;align-items:center;gap:3px;margin:0;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:12px"><input type="checkbox" value="5" style="width:12px"/> Vie</label>
-                  <label style="display:flex;align-items:center;gap:3px;margin:0;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:12px"><input type="checkbox" value="6" style="width:12px"/> Sáb</label>
-                  <label style="display:flex;align-items:center;gap:3px;margin:0;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:12px"><input type="checkbox" value="0" style="width:12px"/> Dom</label>
-                </div>
-                <span style="color:#888">+ pago:</span>
-                <select id="dc-auto-pago" style="width:140px;font-size:12px;padding:4px 8px">
-                  <option value="">Cualquier método</option>
-                  <option>Efectivo</option><option>Transferencia</option>
-                  <option>Tarjeta débito</option><option>Tarjeta crédito</option>
-                </select>
-                <span style="color:#888">= descuento de</span>
-                <input type="number" id="dc-auto-pct" placeholder="%" min="1" max="100" style="width:60px;font-size:13px;padding:4px 8px"/>
-                <span style="color:#888">%</span>
-              </div>
-              <div style="margin-top:10px">
-                <input type="text" id="dc-auto-nombre" placeholder="Nombre del descuento (ej: Transferencia lunes)" style="font-size:12px"/>
-              </div>
-              <div style="margin-top:10px">
-                <label style="font-size:12px;color:#888;font-weight:600">Horario (opcional — vacío = todo el día)</label>
-                <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
-                  <input type="time" id="dc-auto-hora-desde" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px"/>
-                  <span style="font-size:12px;color:#888">a</span>
-                  <input type="time" id="dc-auto-hora-hasta" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px"/>
-                </div>
-              </div>
-            </div>
-            <button class="btn bp bsm" id="dc-auto-btn" onclick="addDescuentoAuto()">+ Agregar</button>
-          </div>
-          <div class="card">
-            <h3>Descuentos automáticos activos</h3>
-            <div id="dc-auto-lista"><div class="empty">Sin descuentos automáticos</div></div>
-          </div>
-        </div>
-      </div>
-
+      <!-- cfg-descuentos removed, now inside Programa Fidelización -->
       <!-- GASTOS -->
       <div id="cfg-gastos" style="display:none">
         <div class="g2">
@@ -1279,6 +1221,32 @@ tr:hover td{background:#fafaf8}
                 <button class="btn bp" id="cfg-avz-btn" onclick="saveCfgAvanzado()">Guardar</button>
               </div>
             </div>
+            <div class="card">
+              <h3>Categorías de clientes</h3>
+              <div style="font-size:12px;color:#888;margin-bottom:10px">Días sin comprar para clasificar a cada cliente.</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div>
+                  <label>🟢 Activo — hasta X días</label>
+                  <input type="number" id="cfg-seg-activo" value="10" min="1"/>
+                </div>
+                <div>
+                  <label>🟡 Tibio — hasta X días</label>
+                  <input type="number" id="cfg-seg-tibio" value="30" min="1"/>
+                </div>
+                <div>
+                  <label>🔴 Inactivo — hasta X días</label>
+                  <input type="number" id="cfg-seg-inactivo" value="90" min="1"/>
+                </div>
+                <div>
+                  <label>⚫ Perdido — más de X días</label>
+                  <input type="number" id="cfg-seg-perdido" value="90" min="1" disabled style="opacity:0.6"/>
+                  <div style="font-size:10px;color:#888">Se calcula automáticamente</div>
+                </div>
+              </div>
+              <div class="row" style="margin-top:12px">
+                <button class="btn bp bsm" onclick="saveCfgSegmentos()">Guardar categorías</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1309,42 +1277,7 @@ tr:hover td{background:#fafaf8}
 
       </div>
 
-      <!-- MENSAJES WHATSAPP -->
-      <div id="cfg-mensajes" style="display:none" data-legacy="true">
-        <div class="card">
-          <h3>Mensajes de WhatsApp por estado</h3>
-          <div style="font-size:12px;color:#888;margin-bottom:12px">Usá <strong>[nombre]</strong> para el nombre del cliente y <strong>[local]</strong> para el nombre del local.</div>
-          <label>✅ Pedido confirmado</label>
-          <textarea id="wa-confirmado" rows="2" placeholder="Buenas noticias [nombre]! Tu pedido fue confirmado..."></textarea>
-          <label>🚚 En camino (envío)</label>
-          <textarea id="wa-envio-camino" rows="2" placeholder="[nombre], tu pedido está en camino..."></textarea>
-          <label>📦 Entregado (envío)</label>
-          <textarea id="wa-envio-entregado" rows="2" placeholder="Tu pedido llegó! Gracias [nombre]..."></textarea>
-          <label>🏪 Pedido recibido (retiro)</label>
-          <textarea id="wa-retiro-recibido" rows="2" placeholder="[nombre], recibimos tu pedido..."></textarea>
-          <label>✅ Listo para retirar</label>
-          <textarea id="wa-retiro-listo" rows="2" placeholder="[nombre], ya podés pasar a retirar..."></textarea>
-          <label>🎉 Retirado</label>
-          <textarea id="wa-retiro-retirado" rows="2" placeholder="[nombre], gracias por tu compra..."></textarea>
-          <label>❌ Cancelado</label>
-          <textarea id="wa-cancelado" rows="2" placeholder="[nombre], lamentablemente tu pedido fue cancelado..."></textarea>
-          <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px">
-            <h3 style="margin-bottom:8px">Mensajes de recontacto por nivel de cliente</h3>
-            <div style="font-size:12px;color:#888;margin-bottom:10px">Usá <strong>[nombre]</strong> para el nombre del cliente y <strong>[local]</strong> para el nombre del local.</div>
-            <label>🥉 Mensaje para clientes (nivel base)</label>
-            <textarea id="wa-rec-cliente" rows="2" placeholder="Hola [nombre]! Te extrañamos en [local]..."></textarea>
-            <label>🥈 Mensaje para clientes frecuentes</label>
-            <textarea id="wa-rec-frecuente" rows="2" placeholder="Hola [nombre]! Hace unos días que no sabemos de vos..."></textarea>
-            <label>🥇 Mensaje para clientes VIP</label>
-            <textarea id="wa-rec-vip" rows="2" placeholder="Hola [nombre]! Te deseamos una excelente semana..."></textarea>
-          </div>
-          <div class="row" style="margin-top:12px">
-            <button class="btn bp" id="cfg-wa-btn" onclick="saveCfgMensajes()">Guardar mensajes</button>
-            <button class="btn bs" onclick="resetCfgMensajes()">Restaurar por defecto</button>
-          </div>
-        </div>
-      </div>
-
+      <!-- cfg-mensajes removed, now inside Programa Fidelización -->
       <!-- CONFIGURACIÓN AVANZADA -->
       <div id="cfg-avanzado" style="display:none" data-legacy="true">
         <div class="g2">
@@ -1582,6 +1515,14 @@ tr:hover td{background:#fafaf8}
         <div style="font-size:12px;color:#888;margin-bottom:10px">Ventas de más de 6 meses archivadas automáticamente cada mes.</div>
         <div id="inf-archivos-lista"><div class="empty">Sin archivos históricos</div></div>
       </div>
+      <!-- Cierres de caja del mes -->
+      <div class="card" style="margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 style="margin-bottom:0">🏦 Cierres de caja</h3>
+          <button class="btn bs bsm" onclick="loadCierresCaja()">Actualizar</button>
+        </div>
+        <div id="inf-cierres-caja"><div class="empty">Sin cierres este mes</div></div>
+      </div>
       <!-- Log de auditoría -->
       <div class="card" style="margin-top:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -1654,12 +1595,9 @@ tr:hover td{background:#fafaf8}
       </div>
       <div class="cli-nav" style="display:flex;flex-wrap:wrap;gap:4px;">
         <button class="active" id="cli-tab-cat" onclick="showCliTab('catalogo',this)">Productos</button>
-        <button id="cli-tab-nov" onclick="showCliTab('novedades',this)">Novedades</button>
         <button id="cli-tab-ped" onclick="showCliTab('mis-pedidos',this)">Mis pedidos</button>
-        <button id="cli-tab-msg" onclick="showCliTab('mensajes',this)">✉ Mensajes <span id="nb-mensajes-admin" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span></button>
-        <button id="cli-tab-desc" onclick="showCliTab('descuentos',this)">Descuentos</button>
-        <button id="cli-tab-datos" onclick="showCliTab('mis-datos',this)">Mis datos</button>
-        <button id="cli-tab-info" onclick="showCliTab('info-local',this)">El local</button>
+        <button id="cli-tab-beneficios" onclick="showCliTab('beneficios',this)">Beneficios</button>
+        <button id="cli-tab-cuenta" onclick="showCliTab('mi-cuenta',this)">Mi cuenta</button>
       </div>
       <div class="user-pill" onclick="doLogout()">cerrar sesión</div>
     </div>
@@ -1667,7 +1605,17 @@ tr:hover td{background:#fafaf8}
   <div style="padding:20px;max-width:900px;margin:0 auto">
     <div id="cli-sec-catalogo">
       <div style="font-size:18px;font-weight:700;margin-bottom:4px">Bienvenido, <span id="cli-nombre">Cliente</span></div>
-      <div id="cli-welcome-msg" style="font-size:13px;color:#888;margin-bottom:12px">Seleccioná los productos que querés pedir</div>
+      <!-- Productos destacados - initial view -->
+      <div id="cli-destacados-preview" style="margin-bottom:16px">
+        <div style="font-size:14px;font-weight:600;color:#1a1a1a;margin-bottom:10px">⭐ Productos destacados</div>
+        <div id="cli-destacados-grid" class="prod-grid"></div>
+        <div style="margin-top:12px;text-align:center" id="cli-iniciar-pedido-wrap">
+          <button onclick="iniciarPedido()" class="btn bp" style="padding:12px 32px;font-size:14px;font-weight:700;width:100%">🛒 Iniciar pedido</button>
+        </div>
+      </div>
+      <!-- Full catalog - hidden until Iniciar pedido -->
+      <div id="cli-catalogo-completo" style="display:none">
+        <div id="cli-welcome-msg" style="font-size:13px;color:#888;margin-bottom:12px">Seleccioná los productos que querés pedir</div>
 
 
       <!-- Puntos de fidelización -->
@@ -1841,6 +1789,69 @@ tr:hover td{background:#fafaf8}
       <div style="font-size:18px;font-weight:700;margin-bottom:16px">Mis pedidos</div>
       <div id="cli-pedidos-lista"><div class="empty">Sin pedidos aún</div></div>
     </div>
+
+    <!-- BENEFICIOS (unifica: descuentos + cupones + nivel + referidos) -->
+    <div id="cli-sec-beneficios" style="display:none">
+      <div style="font-size:18px;font-weight:700;margin-bottom:16px">Mis beneficios</div>
+      <!-- Ahorro -->
+      <div style="background:linear-gradient(135deg,#1a1a1a,#333);border-radius:12px;padding:14px 18px;margin-bottom:16px;color:#fff">
+        <div style="font-size:12px;color:rgba(255,255,255,0.7)">En el último mes ahorraste</div>
+        <div style="font-size:28px;font-weight:700;color:#EF9F27" id="cli-ahorro-monto">$0</div>
+      </div>
+      <!-- Nivel -->
+      <div class="card" style="max-width:500px">
+        <h3>Mi nivel</h3>
+        <div id="cli-nivel-beneficios"><div class="empty">Cargando...</div></div>
+      </div>
+      <!-- Cupones -->
+      <div class="card" style="max-width:500px;margin-top:12px">
+        <h3>Mis cupones</h3>
+        <div id="cli-cupones-beneficios"><div class="empty">Sin cupones disponibles</div></div>
+      </div>
+      <!-- Descuentos del local -->
+      <div class="card" style="max-width:500px;margin-top:12px">
+        <h3>Descuentos del local</h3>
+        <div id="cli-descuentos-beneficios"><div class="empty">Sin descuentos activos</div></div>
+      </div>
+      <!-- Referidos -->
+      <div class="card" style="max-width:500px;margin-top:12px">
+        <h3>Referí a un amigo</h3>
+        <div style="font-size:13px;color:#555;margin-bottom:12px">Compartí tu link y ambos reciben un descuento.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn bp bsm" onclick="compartirLinkReferido()">📲 Compartir por WhatsApp</button>
+          <button class="btn bs bsm" onclick="copiarLinkReferido()">📋 Copiar link</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MI CUENTA (datos + mensajes del local + info local) -->
+    <div id="cli-sec-mi-cuenta" style="display:none">
+      <div style="font-size:18px;font-weight:700;margin-bottom:16px">Mi cuenta</div>
+      <!-- Mensajes del local -->
+      <div class="card" style="max-width:500px;margin-bottom:12px" id="cli-mensajes-cuenta-wrap" style="display:none">
+        <h3>✉ Mensajes del local</h3>
+        <div id="cli-mensajes-cuenta"><div class="empty">Sin mensajes</div></div>
+      </div>
+      <!-- Mis datos -->
+      <div class="card" style="max-width:500px">
+        <h3>Mis datos</h3>
+        <label>Nombre completo</label><input type="text" id="misdatos-nombre" placeholder="Nombre y apellido"/>
+        <label>Teléfono</label><input type="text" id="misdatos-tel" placeholder="11-5555-1234"/>
+        <label>Email</label><input type="email" id="misdatos-mail" placeholder="mail@ejemplo.com"/>
+        <label>Dirección</label><input type="text" id="misdatos-dir" placeholder="Calle y número"/>
+        <label>Barrio</label><input type="text" id="misdatos-barrio" placeholder="Barrio"/>
+        <div class="row" style="margin-top:12px">
+          <button class="btn bp" id="misdatos-btn" onclick="saveMisDatos()">Guardar cambios</button>
+        </div>
+        <div id="misdatos-ok" style="display:none;color:var(--success);font-size:13px;margin-top:8px">✓ Datos actualizados</div>
+      </div>
+      <!-- El local -->
+      <div class="card" style="max-width:500px;margin-top:12px">
+        <h3>El local</h3>
+        <div id="cli-info-local-content"><div class="empty">Cargando...</div></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1907,23 +1918,27 @@ let poFilter='todos';
 let chartInst=[];
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
-const today=()=>new Date().toISOString().split('T')[0];
+const today=()=>{const ar=new Date(new Date().getTime()-3*60*60*1000);return ar.toISOString().split('T')[0];};
 const fmt=n=>'$'+Math.round(n).toLocaleString('es-AR');
 const fdate=d=>new Date(d+'T12:00:00').toLocaleDateString('es-AR');
-const ftime=()=>new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+const ftime=()=>{const ar=new Date(new Date().getTime()-3*60*60*1000);return ar.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});};
 const hash=s=>{let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h)+s.charCodeAt(i);return(h>>>0).toString(16);};
 
-function toast(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg;t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2800);
+function toast(msg,type){
+  const t=document.getElementById('toast');if(!t)return;
+  t.textContent=msg;
+  t.style.background=type==='error'?'#A32D2D':type==='warn'?'#7A4800':'var(--primary)';
+  t.classList.add('show');
+  setTimeout(()=>{t.classList.remove('show');t.style.background='';},3000);
 }
 function setSyncDot(s){const d=document.getElementById('sync-dot');if(!d)return;d.className='sync-dot'+(s==='ok'?' ok':s==='syncing'?' syncing':'');}
 function setBtn(id,loading,label){const b=document.getElementById(id);if(!b)return;b.disabled=loading;b.innerHTML=loading?'<span class="spin"></span> Guardando...':label;}
 
-function statusLabel(s){
+function statusLabel(s,motivo){
   const map={pendiente_confirmacion:'🕐 Pendiente',confirmado:'✅ Confirmado',en_preparacion:'👨‍🍳 En preparación',en_camino:'🛵 En camino',entregado:'🎉 Entregado',cancelado:'❌ Cancelado'};
-  return map[s]||s;
+  const label=map[s]||s;
+  if(s==='cancelado'&&motivo)return label+' — '+motivo;
+  return label;
 }
 function statusClass(s){
   const map={pendiente_confirmacion:'s-pendiente',confirmado:'s-confirmado',en_preparacion:'s-preparacion',en_camino:'s-camino',entregado:'s-entregado',cancelado:'s-cancelado'};
@@ -1931,8 +1946,8 @@ function statusClass(s){
 }
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
-const ADMIN_TABS=[['dashboard','Panel'],['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['ventas-dia','Ventas'],['caja','Caja'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['mensajes-admin','✉ Mensajes'],['configuracion','⚙ Configuración']];
-const VEND_TABS=[['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['mensajes-admin','✉ Mensajes'],['calendario','📅 Calendario'],['turnos','Mis turnos']];
+const ADMIN_TABS=[['dashboard','Panel'],['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['caja','Caja'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['mensajes-admin','✉ Mensajes'],['configuracion','⚙ Configuración']];
+const VEND_TABS=[['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['calendario','📅 Calendario'],['turnos','Mis turnos']];
 
 function buildNav(role){
   const tabs=role==='admin'?ADMIN_TABS:VEND_TABS;
@@ -2950,13 +2965,13 @@ window.convertirPresupuesto=async function(id){
     renderItems();renderTotales();
     await updateDoc(doc(db,'users',STORE,'presupuestos',id),{estado:'convertido'});
     toast('Presupuesto cargado — confirmá la venta');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 window.eliminarPresupuesto=async function(id){
   if(!confirm('¿Eliminar este presupuesto?'))return;
   try{await deleteDoc(doc(db,'users',STORE,'presupuestos',id));renderPresupuestos();toast('Presupuesto eliminado');}
-  catch(e){alert('Error: '+e.message);}
+  catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 window.limpiar=function(){
@@ -3049,7 +3064,7 @@ window.confirmar=async function(){
         fecha:today(),hora:ftime(),validoHasta,estado:'pendiente',ts:Date.now(),creadoPor:CU
       });
       limpiar();toast('Presupuesto guardado');renderPresupuestos();
-    }catch(e){alert('Error: '+e.message);}
+    }catch(e){toast('❌ Error: '+e.message,'error');}
     return;
   }
   setBtn('v-btn',true,'Confirmar venta');setSyncDot('syncing');
@@ -3118,7 +3133,7 @@ window.confirmar=async function(){
     const cliSel=_clientes.find(x=>x.id===selectedClienteId);
     if(cliSel)await checkFidelizacion(cliSel.usuario||selectedClienteId,cliSel.nombre,finalTotal);
     limpiar();toast('Venta registrada');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('v-btn',false,'Confirmar venta');
 };
 
@@ -3180,11 +3195,24 @@ function renderClientes(){
   const f10calc=new Date();f10calc.setDate(f10calc.getDate()-10);const f10x=f10calc.toISOString().split('T')[0];
   const isInact=(cli)=>{const ult=_ventas.filter(v=>v.cliente===cli.nombre).map(v=>v.fecha).sort().reverse()[0]||null;return(!ult||ult<f10x)&&!cli.noRecordatorio&&!(_recordatoriosEnviados?.has(cli.id));};
   const lstS=[...lst].sort((a,b)=>(isInact(b)?1:0)-(isInact(a)?1:0));
-  const lstF=_cliFiltro==='recordatorio'?lstS.filter(isInact):lstS;
-  if(!lstF.length){el.innerHTML='<div class="empty">Sin resultados</div>';return;}
+  // Apply segment filter
+  const segs=_cfgAvanzado?.segmentos||{activo:10,tibio:30,inactivo:90};
+  const getSegFiltro=(cli)=>{
+    const ult=_ventas.filter(v=>v.cliente===cli.nombre).map(v=>v.fecha).sort().reverse()[0]||null;
+    const dias=ult?Math.floor((new Date()-new Date(ult+'T12:00:00'))/86400000):9999;
+    if(dias<=segs.activo)return 'activo';
+    if(dias<=segs.tibio)return 'tibio';
+    if(dias<=segs.inactivo)return 'inactivo';
+    return 'perdido';
+  };
+  const lstF=_cliFiltro==='todos'?lstS:
+    _cliFiltro==='recordatorio'?lstS.filter(isInact):
+    lstS.filter(cli=>getSegFiltro(cli)===_cliFiltro);
+  if(!lstF.length){el.innerHTML='<div class="empty">Sin clientes con ese filtro</div>';return;}
   el.innerHTML=lstF.map(c=>{
-    const nv=_ventas.filter(v=>v.cliente===c.nombre).length;
-    const gasto=isAdmin?_ventas.filter(v=>v.cliente===c.nombre).reduce((a,v)=>a+v.total,0):0;
+    const ventasCli=_ventas.filter(v=>v.cliente===c.nombre||(c.usuario&&v.clienteId===c.usuario));
+    const nv=ventasCli.length;
+    const gasto=isAdmin?ventasCli.reduce((a,v)=>a+v.total,0):0;
     const diasInac=_cfgAvanzado?.diasInactividad||10;
     const hace10=new Date();hace10.setDate(hace10.getDate()-diasInac);const f10=hace10.toISOString().split('T')[0];
     const ultCompra=_ventas.filter(v=>v.cliente===c.nombre).map(v=>v.fecha).sort().reverse()[0]||null;
@@ -3248,7 +3276,7 @@ window.addCliente=async function(){
     await addDoc(collection(db,'users',STORE,'clientes'),{nombre:n,tel:document.getElementById('c-tel').value,mail:document.getElementById('c-mail').value,dir:document.getElementById('c-dir2').value,barrio:document.getElementById('c-bar').value,notas:document.getElementById('c-not').value,usuario:usuario||null,createdAt:today()});
     ['c-nom','c-tel','c-mail','c-dir2','c-bar','c-not','c-user','c-clave'].forEach(id=>document.getElementById(id).value='');
     toast('Cliente guardado'+(usuario?' con acceso al portal':''));
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('c-btn',false,'Guardar cliente');
 };
 
@@ -3261,7 +3289,7 @@ window.deleteCliente=async function(id,usuario){
       try{await deleteDoc(doc(db,'users',usuario));}catch{}
     }
     toast('Cliente eliminado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 window.setCliFiltro=function(filtro,btn){_cliFiltro=filtro;document.querySelectorAll('#cli-fil-todos,#cli-fil-activo,#cli-fil-tibio,#cli-fil-inactivo,#cli-fil-perdido,#cli-fil-recordatorio').forEach(b=>{if(b)b.classList.remove('active');});if(btn)btn.classList.add('active');renderClientes();};
@@ -3316,7 +3344,7 @@ window.saveEditCliente=async function(){
     }
     cancelEditCliente();
     toast('Cliente actualizado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('ce-save-btn',false,'Guardar cambios');
 };
 
@@ -3391,7 +3419,7 @@ window.updStock=async function(){
     if(document.getElementById('s-precio-venta'))document.getElementById('s-precio-venta').value='';
     document.getElementById('s-sug').style.display='none';
     toast(prod+': stock actualizado'+(costo>0?' con costo FIFO':'')+(nuevoPrecio>0?' y precio actualizado':''));
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('s-btn',false,'Actualizar stock');
 };
 
@@ -3479,7 +3507,7 @@ window.saveSolEdit=async function(id,len){
   const sol=_solicitudes.find(s=>s.id===id);if(!sol)return;
   const newItems=sol.items.map((it,i)=>({...it,cantidad:parseInt(document.getElementById(`sol-it-${id}-${i}`).value)||0})).filter(it=>it.cantidad>0);
   try{await updateDoc(doc(db,'users',STORE,'solicitudes',id),{items:newItems});toast('Solicitud actualizada');}
-  catch(e){alert('Error: '+e.message);}
+  catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 window.approveSolicitud=async function(id){
@@ -3494,13 +3522,13 @@ window.approveSolicitud=async function(id){
     await setDoc(doc(db,'inventario',STORE),newInv);
     await updateDoc(doc(db,'users',STORE,'solicitudes',id),{estado:'aprobada',aprobadoPor:CU,aprobadoEn:today()});
     toast('Solicitud aprobada y stock actualizado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 window.rejectSolicitud=async function(id){
   if(!confirm('¿Rechazar esta solicitud?'))return;
   try{await updateDoc(doc(db,'users',STORE,'solicitudes',id),{estado:'rechazada',rechazadoPor:CU});toast('Solicitud rechazada');}
-  catch(e){alert('Error: '+e.message);}
+  catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // MOD 8 Solicitar stock (vendor view)
@@ -3532,7 +3560,7 @@ window.submitSolicitud=async function(){
     solItemsList=[];renderSolItemsForm();
     document.getElementById('sol-nota').value='';
     toast('Solicitud enviada al administrador');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('sol-btn',false,'Enviar solicitud');
 };
 function renderMisSolicitudes(){
@@ -3646,7 +3674,7 @@ window.addProducto=async function(){
     await setDoc(doc(db,'inventario',STORE),newInv);
     document.getElementById('p-nom').value='';document.getElementById('p-precio').value='';document.getElementById('p-alerta').value='5';document.getElementById('p-unidad').value='unidad';
     toast('Producto agregado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('p-btn',false,'Agregar producto');
 };
 window.updatePrecio=async function(id,v){
@@ -3661,7 +3689,7 @@ window.updatePrecio=async function(id,v){
       fecha:today(),hora:ftime(),cambiadoPor:CU,ts:Date.now()
     });
     toast('Precio actualizado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 window.uploadFotoProducto=function(id,nombre){
   const input=document.createElement('input');
@@ -3675,7 +3703,7 @@ window.uploadFotoProducto=function(id,nombre){
       try{
         await setDoc(doc(db,'productos',STORE),{lista:_productos.map(p=>p.id===id?{...p,foto:base64}:p)});
         toast('Foto actualizada para '+nombre);
-      }catch(e2){alert('Error: '+e2.message);}
+      }catch(e2){toast('❌ Error: '+e2.message,'error');}
     };
     reader.readAsDataURL(file);
   };
@@ -3761,7 +3789,7 @@ window.verHistorialPrecios=async function(id,nombre){
     '<table><thead><tr><th>Fecha</th><th>Hora</th><th>Cantidad</th><th>Subtotal</th></tr></thead><tbody>'+ventasRows+'</tbody></table></div>':'')+
     '</body></html>');
     w.document.close();
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 window.subirFotoProducto=async function(id,input){
@@ -3780,13 +3808,13 @@ window.subirFotoProducto=async function(id,input){
 
 window.toggleDestacado=async function(id,destacado){
   try{await setDoc(doc(db,'productos',STORE),{lista:_productos.map(p=>p.id===id?{...p,destacado}:p)});toast(destacado?'Marcado como novedad':'Quitado de novedades');}
-  catch(e){alert('Error: '+e.message);}
+  catch(e){toast('❌ Error: '+e.message,'error');}
 };
 window.updateCategoria=async function(id,categoria){
   try{await setDoc(doc(db,'productos',STORE),{lista:_productos.map(p=>p.id===id?{...p,categoria}:p)});toast('Categoría actualizada');}
-  catch(e){alert('Error: '+e.message);}
+  catch(e){toast('❌ Error: '+e.message,'error');}
 };
-window.updateUnidad=async function(id,unidad){if(!unidad)return;try{await setDoc(doc(db,'productos',STORE),{lista:_productos.map(p=>p.id===id?{...p,unidad}:p)});toast('Unidad actualizada');}catch(e){alert('Error: '+e.message);}};
+window.updateUnidad=async function(id,unidad){if(!unidad)return;try{await setDoc(doc(db,'productos',STORE),{lista:_productos.map(p=>p.id===id?{...p,unidad}:p)});toast('Unidad actualizada');}catch(e){toast('❌ Error: '+e.message,'error');}};
 window.deleteProducto=async function(id){
   if(!confirm('¿Eliminar este producto?'))return;
   try{
@@ -3794,7 +3822,7 @@ window.deleteProducto=async function(id){
     await setDoc(doc(db,'productos',STORE),{lista:_productos.filter(p=>p.id!==id)});
     if(prod){const ni={..._inv};delete ni[prod.nombre];await setDoc(doc(db,'inventario',STORE),ni);}
     toast('Producto eliminado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // ── PROMOCIONES ───────────────────────────────────────────────────────────────
@@ -3818,7 +3846,7 @@ window.savePromo=async function(){
   try{
     await setDoc(doc(db,'promociones',STORE),{lista:[..._promociones,{id:'pr'+Date.now(),nombre:nom,precio,activa:true,componentes:[...promoComps]}]});
     document.getElementById('pr-nom').value='';document.getElementById('pr-precio').value='';promoComps=[];renderPromoComps();toast('Promoción guardada');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('pr-btn',false,'Guardar promoción');
 };
 function renderPromociones(){
@@ -3829,9 +3857,9 @@ function renderPromociones(){
     return`<div class="card" style="margin-bottom:10px;padding:12px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><div style="font-weight:600;font-size:13px">${p.nombre} <span class="badge ${p.activa?'bg':'br'}">${p.activa?'Activa':'Inactivo'}</span></div><div style="font-size:12px;color:#888;margin-top:3px">${comps}</div><div style="font-size:12px;margin-top:3px">Precio: <strong>${fmt(p.precio)}</strong> · Stock: <strong>${s}</strong></div></div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><input type="number" value="${p.precio}" style="width:90px;font-size:12px;padding:5px 8px" onchange="updatePromoPrice('${p.id}',this.value)"/><div style="display:flex;gap:4px"><button class="btn bs bsm" onclick="togglePromo('${p.id}')">${p.activa?'Desactivar':'Activar'}</button><button class="btn bd bsm" onclick="deletePromo('${p.id}')">Eliminar</button></div></div></div></div>`;
   }).join('');
 }
-window.updatePromoPrice=async function(id,v){const precio=parseInt(v)||0;if(!precio)return;try{await setDoc(doc(db,'promociones',STORE),{lista:_promociones.map(p=>p.id===id?{...p,precio}:p)});toast('Precio actualizado');}catch(e){alert('Error: '+e.message);}};
-window.togglePromo=async function(id){try{await setDoc(doc(db,'promociones',STORE),{lista:_promociones.map(p=>p.id===id?{...p,activa:!p.activa}:p)});toast('Promoción actualizada');}catch(e){alert('Error: '+e.message);}};
-window.deletePromo=async function(id){if(!confirm('¿Eliminar?'))return;try{await setDoc(doc(db,'promociones',STORE),{lista:_promociones.filter(p=>p.id!==id)});toast('Eliminada');}catch(e){alert('Error: '+e.message);}};
+window.updatePromoPrice=async function(id,v){const precio=parseInt(v)||0;if(!precio)return;try{await setDoc(doc(db,'promociones',STORE),{lista:_promociones.map(p=>p.id===id?{...p,precio}:p)});toast('Precio actualizado');}catch(e){toast('❌ Error: '+e.message,'error');}};
+window.togglePromo=async function(id){try{await setDoc(doc(db,'promociones',STORE),{lista:_promociones.map(p=>p.id===id?{...p,activa:!p.activa}:p)});toast('Promoción actualizada');}catch(e){toast('❌ Error: '+e.message,'error');}};
+window.deletePromo=async function(id){if(!confirm('¿Eliminar?'))return;try{await setDoc(doc(db,'promociones',STORE),{lista:_promociones.filter(p=>p.id!==id)});toast('Eliminada');}catch(e){toast('❌ Error: '+e.message,'error');}};
 
 // ── MOD 6: DESCUENTOS ─────────────────────────────────────────────────────────
 function renderDescuentos(){
@@ -3849,13 +3877,13 @@ window.addDescuento=async function(){
     await setDoc(doc(db,'descuentos',STORE),{lista:newList});
     document.getElementById('dc-motivo').value='';document.getElementById('dc-pct').value='';
     toast('Descuento agregado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('dc-btn',false,'Agregar descuento');
 };
 window.deleteDescuento=async function(id){
   if(!confirm('¿Eliminar este descuento?'))return;
   try{await setDoc(doc(db,'descuentos',STORE),{lista:_descuentos.filter(d=>d.id!==id)});toast('Descuento eliminado');}
-  catch(e){alert('Error: '+e.message);}
+  catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // ── MOD 9: PEDIDOS ONLINE ────────────────────────────────────────────────────
@@ -3944,7 +3972,7 @@ window.confirmPedidoOnline=async function(id){
     printFichaCliente(ventaConf,cli);
     sendWhatsApp(v.telCli,`Buenas noticias ${v.cliente}! Tu pedido fue confirmado y ya está siendo preparado con todo el cariño de Granja Los Abuelos.`);
     toast('Pedido confirmado — se imprimieron ticket y ficha del cliente');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 window.changeStatus=async function(id,newStatus){
@@ -3967,7 +3995,7 @@ window.changeStatus=async function(id,newStatus){
     if(msgs[newStatus])sendWhatsApp(v.telCli,msgs[newStatus]);
     sendPushNotification(v.clienteId,newStatus,v.cliente);
     toast('Estado actualizado: '+statusLabel(newStatus));
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 function sendPushNotification(clienteId,estado,nombre){
@@ -3993,13 +4021,13 @@ window.doCancelPedido=async function(id){
     await updateDoc(doc(db,'users',STORE,'ventas',id),{estado:'cancelado',motivoCancelacion:motivo,canceladoPor:CU});
     sendWhatsApp(v.telCli,`${v.cliente}, lamentablemente tu pedido fue cancelado. Te contamos porqué: ${motivo}. Ante cualquier consulta contactanos. Granja Los Abuelos`);
     toast('Pedido cancelado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // Recordatorios enviados (en memoria de sesión)
 let _recordatoriosEnviados=new Set();
 
-window.toggleNoRecordatorio=async function(id,noRec){try{await updateDoc(doc(db,'users',STORE,'clientes',id),{noRecordatorio:noRec});toast(noRec?'Marcado como no molestar':'Recordatorios reactivados');}catch(e){alert('Error: '+e.message);}};
+window.toggleNoRecordatorio=async function(id,noRec){try{await updateDoc(doc(db,'users',STORE,'clientes',id),{noRecordatorio:noRec});toast(noRec?'Marcado como no molestar':'Recordatorios reactivados');}catch(e){toast('❌ Error: '+e.message,'error');}};
 
 window.sendRecordatorio=async function(tel,nombre,clienteId){
   // Check if reminder was sent within last 5 days
@@ -4195,6 +4223,20 @@ body{font-family:-apple-system,sans-serif;margin:0;padding:0;color:#1a1a1a}
 function renderConfiguracion(){
   switchCfgTab('negocio', document.getElementById('cfg-tab-negocio'));
 }
+window.saveCfgSegmentos=async function(){
+  const seg={
+    activo:parseInt(document.getElementById('cfg-seg-activo')?.value)||10,
+    tibio:parseInt(document.getElementById('cfg-seg-tibio')?.value)||30,
+    inactivo:parseInt(document.getElementById('cfg-seg-inactivo')?.value)||90,
+  };
+  try{
+    const snap=await getDoc(doc(db,'config',STORE));
+    const ex=snap.exists()?snap.data():{};
+    await setDoc(doc(db,'config',STORE),{...ex,avanzado:{...(ex.avanzado||{}),segmentos:seg}});
+    toast('Categorías de clientes guardadas');
+  }catch(e){toast('❌ Error: '+e.message,'error');}
+};
+
 window.showFidSub=function(sub,btn){
   ['descuentos','niveles','sistema','mensajes'].forEach(function(s){
     const el=document.getElementById('fid-sec-'+s);if(el)el.style.display='none';
@@ -4227,6 +4269,7 @@ window.saveCfgNegocio=async function(){
     nombre:document.getElementById('cfg-nombre-local').value.trim(),
     dir:document.getElementById('cfg-dir-local').value.trim(),
     tel:document.getElementById('cfg-tel-local').value.trim(),
+    telInterno:document.getElementById('cfg-tel-interno')?.value.trim()||'',
     horario:document.getElementById('cfg-horario').value.trim(),
     msgRecordatorio:document.getElementById('cfg-msg-recordatorio')?.value.trim()||''
   };
@@ -4237,7 +4280,7 @@ window.saveCfgNegocio=async function(){
     // Update local name in topbar
     if(neg.nombre)document.getElementById('top-local').textContent=neg.nombre;
     toast('Datos del negocio guardados');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 function renderCfgNegocioActual(){
@@ -4267,7 +4310,7 @@ window.addCategoria=async function(){
     document.getElementById('cfg-cat-nombre').value='';
     document.getElementById('cfg-cat-emoji').value='';
     toast('Categoría agregada');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 window.deleteCategoria=async function(nombre){
@@ -4277,7 +4320,7 @@ window.deleteCategoria=async function(nombre){
     const ex=snap.exists()?snap.data():{};
     await setDoc(doc(db,'config',STORE),{...ex,categorias:_categorias.filter(c=>c.nombre!==nombre)});
     toast('Categoría eliminada');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 function renderDescuentosAutoList(){
@@ -4322,7 +4365,7 @@ window.addMetodoPago=async function(){
     await setDoc(doc(db,'config',STORE),{...ex,metodosPago:newPagos});
     document.getElementById('cfg-pago-nuevo').value='';
     toast('Método de pago agregado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 window.toggleMetodoPago=async function(nombre,activo){
@@ -4330,7 +4373,7 @@ window.toggleMetodoPago=async function(nombre,activo){
     const snap=await getDoc(doc(db,'config',STORE));
     const ex=snap.exists()?snap.data():{};
     await setDoc(doc(db,'config',STORE),{...ex,metodosPago:_metodosPago.map(m=>m.nombre===nombre?{...m,activo}:m)});
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 function renderCfgPagos(){
@@ -4355,7 +4398,7 @@ window.saveCfgPedidos=async function(){
     const existing=cfgSnap.exists()?cfgSnap.data():{};
     await setDoc(doc(db,'config',STORE),{...existing,pedidos:ped});
     toast('Configuración de pedidos guardada');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 function renderCfgPedidosActual(){
@@ -4401,7 +4444,7 @@ window.addGasto=async function(){
     document.getElementById('gasto-monto').value='';
     document.getElementById('gasto-obs').value='';
     toast('Gasto registrado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('gasto-btn',false,'Registrar gasto');
 };
 
@@ -4420,7 +4463,7 @@ function renderGastos(){
 window.deleteGasto=async function(id){
   if(!confirm('¿Eliminar este gasto?'))return;
   try{await deleteDoc(doc(db,'users',STORE,'gastos',id));toast('Gasto eliminado');}
-  catch(e){alert('Error: '+e.message);}
+  catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // Descuentos automáticos
@@ -4441,7 +4484,7 @@ window.addDescuentoAuto=async function(){
     document.getElementById('dc-auto-pct').value='';document.getElementById('dc-auto-nombre').value='';
     document.querySelectorAll('#dc-auto-dias input').forEach(i=>i.checked=false);
     toast('Descuento automático guardado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('dc-auto-btn',false,'Agregar descuento automático');
 };
 
@@ -4459,7 +4502,7 @@ window.toggleDcAutoVisible=async function(id,visible){
     const updated=_descuentosAuto.map(d=>d.id===id?{...d,visible}:d);
     await setDoc(doc(db,'config',STORE),{...ex,descuentosAuto:updated});
     toast(visible?'Descuento visible en el portal':'Descuento oculto del portal');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 window.deleteDescuentoAuto=async function(id){
@@ -4470,7 +4513,7 @@ window.deleteDescuentoAuto=async function(id){
     const existing=cfgSnap.exists()?cfgSnap.data():{};
     await setDoc(doc(db,'config',STORE),{...existing,descuentosAuto:newList});
     toast('Descuento eliminado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 function renderDescuentoAutoSelect(){
@@ -4501,12 +4544,12 @@ window.addFranja=async function(){
   try{
     await setDoc(doc(db,'franjas',STORE),{lista:[..._franjas,f]});
     document.getElementById('franja-input').value='';toast('Franja agregada');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 window.removeFranja=async function(i){
   const nf=[..._franjas];nf.splice(i,1);
   try{await setDoc(doc(db,'franjas',STORE),{lista:nf});toast('Franja eliminada');}
-  catch(e){alert('Error: '+e.message);}
+  catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // ── MOD 10: CAJA MEJORADA ─────────────────────────────────────────────────────
@@ -4545,7 +4588,7 @@ window.reabrirCaja=async function(){
     _cajaCerradaHoy=false;
     updateCajaEstado();
     toast('Caja reabierta. Esta acción quedó registrada.');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 function renderCaja(){
@@ -4683,7 +4726,7 @@ window.confirmarCierreCaja=async function(){
         }
       },500);
     }
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   btn.innerHTML='Confirmar cierre y guardar';btn.disabled=false;
 };
 
@@ -4749,14 +4792,14 @@ window.saveEditVenta=async function(){
   try{
     await updateDoc(doc(db,'users',STORE,'ventas',editVentaId),{cliente:document.getElementById('ev-cli').value,canal:document.getElementById('ev-canal').value,pago:document.getElementById('ev-pago').value,obs:document.getElementById('ev-obs').value,items:editItems,total:editTotal});
     cancelEdit();toast('Venta actualizada');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('ev-save-btn',false,'Guardar cambios');
 };
 window.cancelEdit=function(){editVentaId=null;editItems=[];editTotal=0;document.getElementById('edit-wrap').style.display='none';};
 window.deleteVenta=async function(id){
   if(!confirm('¿Eliminar esta venta?'))return;setSyncDot('syncing');
   try{await deleteDoc(doc(db,'users',STORE,'ventas',id));toast('Venta eliminada');}
-  catch(e){alert('Error: '+e.message);}
+  catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // ── EMPLEADOS ─────────────────────────────────────────────────────────────────
@@ -4835,7 +4878,7 @@ window.addEmp=async function(){
     await addDoc(collection(db,'users',STORE,'empleados'),{nombre:nom,rol:document.getElementById('e-rol').value,tel:document.getElementById('e-tel').value,usuario:usuario||null,createdAt:today()});
     ['e-nombre','e-apellido','e-tel','e-user','e-pass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     toast('Empleado guardado'+(usuario?' con acceso al sistema':''));
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('e-btn',false,'Guardar empleado');
 };
 window.delEmp=async function(id,usuario){
@@ -4844,7 +4887,7 @@ window.delEmp=async function(id,usuario){
     await deleteDoc(doc(db,'users',STORE,'empleados',id));
     if(usuario)await deleteDoc(doc(db,'users',usuario));
     toast('Empleado eliminado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // ── FICHA Y RECIBO DE EMPLEADO ───────────────────────────────────────────────
@@ -5072,7 +5115,7 @@ window.toggleActivoEmp=async function(id,currentlyActivo){
   try{
     await updateDoc(doc(db,'users',STORE,'empleados',id),{activo:!currentlyActivo});
     toast(currentlyActivo?'Empleado desactivado':'Empleado activado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 let _resetUserId=null;
@@ -5116,7 +5159,7 @@ window.doResetPass=async function(){
       });
     }
     closeResetPass();toast('Contraseña actualizada para: '+_resetUserId);
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('rp-btn',false,'Guardar nueva contraseña');
 };
 
@@ -5162,7 +5205,7 @@ window.saveEditEmp=async function(){
       } else {alert('Ese usuario ya existe. Elegí otro.');}
     }
     cancelEditEmp();toast('Empleado actualizado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('ee-save-btn',false,'Guardar cambios');
 };
 
@@ -5171,19 +5214,21 @@ window.showCliTab=function(tab,btn){
   document.querySelectorAll('.cli-nav button').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   // Hide all sections
-  ['catalogo','novedades','mis-pedidos','mensajes','descuentos','mis-datos','info-local'].forEach(t=>{
+  ['catalogo','mis-pedidos','beneficios','mi-cuenta'].forEach(t=>{
     const el=document.getElementById('cli-sec-'+t);
     if(el)el.style.display=tab===t?'block':'none';
   });
-  if(tab==='catalogo')renderCliCatalog();
+    if(tab==='catalogo'){
+    // Reset to preview mode
+    const prev=document.getElementById('cli-destacados-preview');
+    const full=document.getElementById('cli-catalogo-completo');
+    if(prev)prev.style.display='block';
+    if(full)full.style.display='none';
+    renderDestacadosPreview();
+  }
   if(tab==='mis-pedidos')renderMisPedidos();
-
-  if(tab==='novedades')renderCliNovedades();
-  if(tab==='descuentos')renderDescuentosPortal();
-  if(tab==='mis-datos')renderMisDatos();
-  if(tab==='mensajes')renderCliMensajes();
-  if(tab==='info-local')renderInfoLocal();
-  if(tab==='mensajes')renderCliMensajes();
+  if(tab==='beneficios')renderBeneficios();
+  if(tab==='mi-cuenta')renderMiCuenta();
 };
 
 function renderCliCatalog(){
@@ -5228,6 +5273,43 @@ function renderCliCatalog(){
   renderCliCart();
 }
 
+window.iniciarPedido=function(){
+  // Hide preview, show full catalog
+  const prev=document.getElementById('cli-destacados-preview');
+  const full=document.getElementById('cli-catalogo-completo');
+  if(prev)prev.style.display='none';
+  if(full)full.style.display='block';
+  renderCliCatalog();
+  renderPromosEnProductos();
+  // Scroll to top of catalog
+  if(full)full.scrollIntoView({behavior:'smooth',block:'start'});
+};
+
+function renderDestacadosPreview(){
+  const el=document.getElementById('cli-destacados-grid');if(!el)return;
+  const dest=_productos.filter(p=>p.destacado);
+  if(!dest.length){
+    // No destacados - show iniciar pedido directly
+    const prev=document.getElementById('cli-destacados-preview');
+    const full=document.getElementById('cli-catalogo-completo');
+    if(prev)prev.style.display='none';
+    if(full)full.style.display='block';
+    renderCliCatalog();
+    return;
+  }
+  el.innerHTML=dest.map(p=>{
+    const stock=_inv[p.nombre]?.stock||0;
+    const foto=p.foto?'<img src="'+p.foto+'" style="width:100%;height:120px;object-fit:cover;border-radius:8px 8px 0 0;display:block"/>':
+      '<div style="width:100%;height:80px;background:#f5f4f0;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-size:32px">⭐</div>';
+    return'<div class="prod-card" style="border:2px solid var(--primary)">'+foto+
+      '<div style="background:var(--primary);color:#fff;font-size:9px;font-weight:700;text-align:center;padding:1px">DESTACADO</div>'+
+      '<div class="prod-card-nom">'+p.nombre+'</div>'+
+      '<div class="prod-card-precio">'+fmt(p.precio)+'</div>'+
+      '<button class="btn bp" style="width:100%;font-size:12px;padding:6px" '+(stock===0?'disabled':'')+
+      ' onclick="addToCart('prod',''+p.nombre+'','+p.precio+')">+ Al carrito</button></div>';
+  }).join('');
+}
+
 window.borrarFiltros=function(){
   const buscar=document.getElementById('cli-buscar');if(buscar)buscar.value='';
   const catFil=document.getElementById('cli-categoria-fil');if(catFil)catFil.value='';
@@ -5235,6 +5317,43 @@ window.borrarFiltros=function(){
   // Reset category buttons in banner
   document.querySelectorAll('#cli-cats-rapidas button').forEach(b=>{b.style.background='rgba(255,255,255,0.15)';});
 };
+
+window.iniciarPedido=function(){
+  // Hide preview, show full catalog
+  const prev=document.getElementById('cli-destacados-preview');
+  const full=document.getElementById('cli-catalogo-completo');
+  if(prev)prev.style.display='none';
+  if(full)full.style.display='block';
+  renderCliCatalog();
+  renderPromosEnProductos();
+  // Scroll to top of catalog
+  if(full)full.scrollIntoView({behavior:'smooth',block:'start'});
+};
+
+function renderDestacadosPreview(){
+  const el=document.getElementById('cli-destacados-grid');if(!el)return;
+  const dest=_productos.filter(p=>p.destacado);
+  if(!dest.length){
+    // No destacados - show iniciar pedido directly
+    const prev=document.getElementById('cli-destacados-preview');
+    const full=document.getElementById('cli-catalogo-completo');
+    if(prev)prev.style.display='none';
+    if(full)full.style.display='block';
+    renderCliCatalog();
+    return;
+  }
+  el.innerHTML=dest.map(p=>{
+    const stock=_inv[p.nombre]?.stock||0;
+    const foto=p.foto?'<img src="'+p.foto+'" style="width:100%;height:120px;object-fit:cover;border-radius:8px 8px 0 0;display:block"/>':
+      '<div style="width:100%;height:80px;background:#f5f4f0;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-size:32px">⭐</div>';
+    return'<div class="prod-card" style="border:2px solid var(--primary)">'+foto+
+      '<div style="background:var(--primary);color:#fff;font-size:9px;font-weight:700;text-align:center;padding:1px">DESTACADO</div>'+
+      '<div class="prod-card-nom">'+p.nombre+'</div>'+
+      '<div class="prod-card-precio">'+fmt(p.precio)+'</div>'+
+      '<button class="btn bp" style="width:100%;font-size:12px;padding:6px" '+(stock===0?'disabled':'')+
+      ' onclick="addToCart('prod',''+p.nombre+'','+p.precio+')">+ Al carrito</button></div>';
+  }).join('');
+}
 
 window.borrarFiltros=function(){
   const buscar=document.getElementById('cli-buscar');if(buscar)buscar.value='';
@@ -5422,7 +5541,7 @@ window.saveMisDatos=async function(){
     CLI_DATA={...CLI_DATA,...datos};
     document.getElementById('misdatos-ok').style.display='block';
     setTimeout(()=>{const el=document.getElementById('misdatos-ok');if(el)el.style.display='none';},3000);
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('misdatos-btn',false,'Guardar cambios');
 };
 
@@ -5507,7 +5626,7 @@ window.reclamarCupon=async function(){
     const btnRec=document.getElementById('cli-btn-reclamar');
     if(btnRec)btnRec.style.display='none';
     toast('🎉 Cupón reclamado! Tu código: GLA-'+codigo);
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 let _fechaProgramada=null;
@@ -5665,7 +5784,7 @@ window.submitPedidoOnline=async function(){
     renderCliCart();
     toast('¡Pedido enviado! Te avisamos cuando lo confirmemos.');
     document.getElementById('cli-tab-ped').click();
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   btn.innerHTML='Confirmar pedido';btn.disabled=false;
 };
 
@@ -6019,7 +6138,7 @@ window.saveCfgMensajes=async function(){
     const ex=snap.exists()?snap.data():{};
     await setDoc(doc(db,'config',STORE),{...ex,mensajesWA:msgs});
     toast('Mensajes guardados');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 window.resetCfgMensajes=async function(){
@@ -6029,7 +6148,7 @@ window.resetCfgMensajes=async function(){
     const ex=snap.exists()?snap.data():{};
     await setDoc(doc(db,'config',STORE),{...ex,mensajesWA:{}});
     toast('Mensajes restaurados');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // ── CONFIGURACIÓN AVANZADA ────────────────────────────────────────────────────
@@ -6038,6 +6157,9 @@ function renderCfgAvanzado(){
   const fid=_cfgPedidos?.fidelizacion||{};
   const el=(id)=>document.getElementById(id);
   if(el('cfg-dias-inactividad'))el('cfg-dias-inactividad').value=av.diasInactividad||10;
+  if(el('cfg-seg-activo'))el('cfg-seg-activo').value=av.segmentos?.activo||10;
+  if(el('cfg-seg-tibio'))el('cfg-seg-tibio').value=av.segmentos?.tibio||30;
+  if(el('cfg-seg-inactivo'))el('cfg-seg-inactivo').value=av.segmentos?.inactivo||90;
   if(el('cfg-color-primary'))el('cfg-color-primary').value=av.colorPrimary||'#D85A30';
   if(el('cfg-color-primary-hex'))el('cfg-color-primary-hex').value=av.colorPrimary||'#D85A30';
   if(el('cfg-max-items'))el('cfg-max-items').value=av.maxItems||20;
@@ -6066,7 +6188,7 @@ window.saveCfgAvanzado=async function(){
     // Apply color immediately
     document.documentElement.style.setProperty('--primary',color);
     toast('Configuración avanzada guardada');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 window.saveCfgFidelizacion=async function(){
@@ -6083,7 +6205,7 @@ window.saveCfgFidelizacion=async function(){
     const ped={...((ex.pedidos)||{}),fidelizacion:fid};
     await setDoc(doc(db,'config',STORE),{...ex,pedidos:ped});
     toast('Configuración de fidelización guardada');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // ── COUPON APPLY FUNCTIONS ────────────────────────────────────────────────────
@@ -6194,7 +6316,7 @@ window.loadCuponesAdmin=async function(){
 window.anularCupon=async function(id){
   if(!confirm('¿Anular este cupón?'))return;
   try{await updateDoc(doc(db,'users',STORE,'cupones',id),{usado:true,anuladoManualmente:true});toast('Cupón anulado');}
-  catch(e){alert('Error: '+e.message);}
+  catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // ── CALENDARIO ───────────────────────────────────────────────────────────────
@@ -6341,14 +6463,14 @@ window.saveEvento=async function(){
     if(_editingEventoId)await updateDoc(doc(db,'users',STORE,'eventos',_editingEventoId),ev);
     else await addDoc(collection(db,'users',STORE,'eventos'),ev);
     closeCalModal();toast('Evento guardado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('cal-ev-btn',false,'Guardar evento');
 };
 
 window.deleteEvento=async function(){
   if(!_editingEventoId||!confirm('¿Eliminar este evento?'))return;
   try{await deleteDoc(doc(db,'users',STORE,'eventos',_editingEventoId));closeCalModal();toast('Evento eliminado');}
-  catch(e){alert('Error: '+e.message);}
+  catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 function checkEventoAlerts(){
@@ -6387,7 +6509,7 @@ window.addCajaChica=async function(){
     document.getElementById('cc-monto').value='';
     document.getElementById('cc-detalle').value='';
     toast('Movimiento registrado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 function renderCajaChica(){
@@ -6453,7 +6575,7 @@ window.saveMsg=async function(){
     document.getElementById('msg-cuerpo').value='';
     document.getElementById('msg-form-title').textContent='Nuevo mensaje';
     toast('Mensaje publicado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
   setBtn('msg-save-btn',false,'Publicar mensaje');
 };
 
@@ -6478,13 +6600,13 @@ window.toggleMsg=async function(id,activo){
   try{
     await updateDoc(doc(db,'users',STORE,'mensajes',id),{activo,tsToggle:Date.now()});
     toast(activo?'Mensaje activado':'Mensaje desactivado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 window.deleteMsg=async function(id){
   if(!confirm('¿Eliminar este mensaje?'))return;
   try{await deleteDoc(doc(db,'users',STORE,'mensajes',id));toast('Mensaje eliminado');}
-  catch(e){alert('Error: '+e.message);}
+  catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // Client portal: check new messages on login
@@ -6553,7 +6675,7 @@ window.imprimirArchivo=async function(id){
     '</tbody></table></div>':'')+
     '</body></html>');
     w.document.close();
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // Auto archivado mensual - run on login if needed
@@ -6719,7 +6841,7 @@ window.addNivel=async function(){
     renderCfgNiveles();
     // Clear inputs
     ['cfg-nv-nombre','cfg-nv-emoji','cfg-nv-umbral','cfg-nv-dto'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 window.deleteNivel=async function(nombre){
@@ -6730,7 +6852,7 @@ window.deleteNivel=async function(nombre){
     const ex=snap.exists()?snap.data():{};
     await setDoc(doc(db,'config',STORE),{...ex,nivelesCliente:nuevos});
     toast('Nivel eliminado');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // ── QR CODE ───────────────────────────────────────────────────────────────────
@@ -6950,7 +7072,7 @@ window.editarRegistro=async function(tipo,id){
       await updateDoc(doc(db,'users',STORE,'ventas',id),{total:parseFloat(nuevoTotal)||v.total,obs:nuevoObs||''});
       await logAuditoria('modificó','venta','Edición manual venta '+id,'Total: $'+v.total,'Total: $'+nuevoTotal);
       toast('Venta actualizada');
-    }catch(e){alert('Error: '+e.message);}
+    }catch(e){toast('❌ Error: '+e.message,'error');}
   }
   if(tipo==='gasto'){
     const g=_gastos.find(x=>x.id===id);if(!g)return;
@@ -6960,7 +7082,7 @@ window.editarRegistro=async function(tipo,id){
       await updateDoc(doc(db,'users',STORE,'gastos',id),{monto:parseFloat(nuevoMonto)||g.monto});
       await logAuditoria('modificó','gasto','Edición gasto '+g.descripcion,'$'+g.monto,'$'+nuevoMonto);
       toast('Gasto actualizado');
-    }catch(e){alert('Error: '+e.message);}
+    }catch(e){toast('❌ Error: '+e.message,'error');}
   }
   if(tipo==='cajaChica'){
     const m=_cajaChica.find(x=>x.id===id);if(!m)return;
@@ -6971,7 +7093,7 @@ window.editarRegistro=async function(tipo,id){
       await updateDoc(doc(db,'users',STORE,'cajaChica',id),{monto:signo*parseFloat(nuevoMonto),montoAbs:parseFloat(nuevoMonto)});
       await logAuditoria('modificó','caja','Edición caja chica '+m.tipo,'$'+Math.abs(m.monto),'$'+nuevoMonto);
       toast('Movimiento actualizado');
-    }catch(e){alert('Error: '+e.message);}
+    }catch(e){toast('❌ Error: '+e.message,'error');}
   }
 };
 
@@ -7042,7 +7164,7 @@ window.saveCfgMensajesFid=async function(){
     const ex=snap.exists()?snap.data():{};
     await setDoc(doc(db,'config',STORE),{...ex,mensajesWA:msgs});
     toast('Mensajes guardados');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // Populate fidelizacion mensajes when tab opens
@@ -7073,7 +7195,127 @@ function renderCfgMensajesFid(){
   });
 }
 
+// ── NUEVAS SECCIONES PORTAL ───────────────────────────────────────────────────
+function renderBeneficios(){
+  // Ahorro último mes
+  const hace30=new Date();hace30.setDate(hace30.getDate()-30);const f30=hace30.toISOString().split('T')[0];
+  const ahorro=(_cupones||[]).filter(cup=>cup.clienteId===CU&&cup.usado&&cup.usadoEn>=f30)
+    .reduce((a,cup)=>a+(cup.descuentoAplicado||0),0);
+  const aEl=document.getElementById('cli-ahorro-monto');
+  if(aEl)aEl.textContent='$'+Math.round(ahorro).toLocaleString('es-AR');
+  // Nivel
+  const nEl=document.getElementById('cli-nivel-beneficios');
+  if(nEl&&CLI_DATA)renderNivelEn(nEl);
+  // Cupones
+  const cEl=document.getElementById('cli-cupones-beneficios');
+  if(cEl)renderMisCuponesEn(cEl);
+  // Descuentos del local
+  const dEl=document.getElementById('cli-descuentos-beneficios');
+  if(dEl){
+    const visibles=(_descuentosAuto||[]).filter(d=>d.activo&&d.visible!==false);
+    if(!visibles.length){dEl.innerHTML='<div class="empty">Sin descuentos activos</div>';}
+    else{
+      const dias=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+      dEl.innerHTML=visibles.map(d=>'<div class="pr"><div><div style="font-weight:600">'+d.nombre+'</div>'+
+        '<div style="font-size:12px;color:#888">'+d.dias.map(n=>dias[n]).join(', ')+
+        (d.horaDesde?' · '+d.horaDesde+' a '+d.horaHasta:'')+' · '+d.pago+'</div></div>'+
+        '<span style="background:#EAF3DE;color:#1D6B48;padding:3px 10px;border-radius:10px;font-weight:700">'+d.porcentaje+'% OFF</span></div>').join('');
+    }
+  }
+}
+
+function renderNivelEn(el){
+  if(!CLI_DATA)return;
+  const fakeCli={nombre:CLI_DATA.nombre};
+  const prog=getNivelProgress(fakeCli);
+  const actual=prog.actual;const sig=prog.siguiente;
+  const pct=sig?Math.min(100,Math.round(prog.comprasMes/sig.umbral*100)):100;
+  el.innerHTML='<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
+    '<div style="font-size:32px">'+actual.emoji+'</div>'+
+    '<div><div style="font-weight:700;font-size:16px">'+actual.nombre+'</div>'+
+    (actual.dto?'<div style="font-size:12px;color:var(--success)">'+actual.dto+'% dto automático</div>':'')+
+    '</div></div>'+
+    (sig?'<div style="font-size:12px;color:#888;margin-bottom:6px">Próximo: '+sig.emoji+' '+sig.nombre+'</div>'+
+    '<div style="background:#f0ede8;border-radius:8px;height:8px"><div style="background:var(--primary);height:100%;width:'+pct+'%;border-radius:8px"></div></div>':
+    '<div style="color:var(--success)">🎉 ¡Nivel máximo!</div>');
+}
+
+function renderMiCuenta(){
+  if(!CLI_DATA)return;
+  // Fill datos form
+  [['misdatos-nombre','nombre'],['misdatos-tel','tel'],['misdatos-mail','mail'],
+   ['misdatos-dir','dir'],['misdatos-barrio','barrio']].forEach(([id,key])=>{
+    const el=document.getElementById(id);if(el)el.value=CLI_DATA[key]||'';
+  });
+  // Show mensajes del local
+  const msgs=window._mensajesActivos||[];
+  const mEl=document.getElementById('cli-mensajes-cuenta');
+  const mWrap=document.getElementById('cli-mensajes-cuenta-wrap');
+  if(mEl&&msgs.length){
+    if(mWrap)mWrap.style.display='block';
+    mEl.innerHTML=msgs.map(m=>'<div style="padding:10px;border-bottom:1px solid var(--border)"><div style="font-weight:600;font-size:14px">'+m.titulo+'</div><div style="font-size:12px;color:#555;margin-top:4px">'+m.cuerpo+'</div></div>').join('');
+  }
+  // Render local info
+  renderInfoLocal();
+}
+
+// ── CIERRES DE CAJA ──────────────────────────────────────────────────────────
+window.loadCierresCaja=async function(){
+  const el=document.getElementById('inf-cierres-caja');if(!el)return;
+  el.innerHTML='<div class="empty">Cargando...</div>';
+  try{
+    const snap=await getDocs(collection(db,'users',STORE,'cierres'));
+    const mesActual=today().substring(0,7);
+    const cierres=snap.docs.map(d=>({id:d.id,...d.data()}))
+      .filter(c=>c.fecha&&c.fecha.startsWith(mesActual))
+      .sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    if(!cierres.length){el.innerHTML='<div class="empty">Sin cierres este mes</div>';return;}
+    el.innerHTML=cierres.map(ci=>'<div class="pr" style="cursor:pointer" onclick="verDetalleCierre(''+ci.id+'')">'+
+      '<div><div style="font-weight:600">'+fdate(ci.fecha)+'</div>'+
+      '<div style="font-size:12px;color:#888">Total: '+fmt(ci.totalDia||0)+' · '+ci.cantVentas+' ventas</div></div>'+
+      '<button class="btn bs bsm" onclick="event.stopPropagation();verDetalleCierre(''+ci.id+'')">Ver detalle</button>'+
+      '</div>').join('');
+  }catch(e){el.innerHTML='<div class="empty">Error cargando cierres</div>';}
+};
+
+window.verDetalleCierre=async function(id){
+  try{
+    const snap=await getDocs(collection(db,'users',STORE,'cierres'));
+    const ci=snap.docs.find(d=>d.id===id)?.data();
+    if(!ci){alert('Cierre no encontrado');return;}
+    const w=window.open('','_cierre','width=600,height=700');
+    w.document.write('<!DOCTYPE html><html><head><title>Cierre '+ci.fecha+'</title>'+
+    '<style>body{font-family:-apple-system,sans-serif;padding:20px;background:#f5f4f0}'+
+    '.card{background:#fff;border-radius:10px;padding:16px;margin-bottom:14px}'+
+    'table{width:100%;border-collapse:collapse}th{background:#1a1a1a;color:#fff;padding:7px;text-align:left;font-size:12px}td{padding:7px;border-bottom:1px solid #f0ede8;font-size:13px}'+
+    '@media print{button{display:none}}</style></head><body>'+
+    '<button onclick="window.print()" style="margin-bottom:14px;padding:8px 20px;border-radius:8px;cursor:pointer;border:1px solid #ccc">🖨 Imprimir</button>'+
+    '<div class="card"><h2 style="margin:0 0 4px;color:#D85A30">Cierre de caja</h2>'+
+    '<div style="color:#888;font-size:13px">'+fdate(ci.fecha)+'</div></div>'+
+    '<div class="card"><table>'+
+    '<tr><th>Concepto</th><th>Monto</th></tr>'+
+    '<tr><td>Total facturado</td><td><strong>$'+Math.round(ci.totalDia||0).toLocaleString('es-AR')+'</strong></td></tr>'+
+    '<tr><td>Cantidad de ventas</td><td>'+ci.cantVentas+'</td></tr>'+
+    (ci.totalEfectivo?'<tr><td>Efectivo</td><td>$'+Math.round(ci.totalEfectivo).toLocaleString('es-AR')+'</td></tr>':'')+
+    (ci.totalTransferencia?'<tr><td>Transferencia</td><td>$'+Math.round(ci.totalTransferencia).toLocaleString('es-AR')+'</td></tr>':'')+
+    (ci.totalTarjeta?'<tr><td>Tarjeta</td><td>$'+Math.round(ci.totalTarjeta).toLocaleString('es-AR')+'</td></tr>':'')+
+    (ci.totalDescuentos?'<tr><td>Descuentos aplicados</td><td>-$'+Math.round(ci.totalDescuentos).toLocaleString('es-AR')+'</td></tr>':'')+
+    (ci.cupones?'<tr><td>Cupones usados</td><td>'+ci.cupones+'</td></tr>':'')+
+    (ci.gastosDia?'<tr><td>Gastos del día</td><td>-$'+Math.round(ci.gastosDia).toLocaleString('es-AR')+'</td></tr>':'')+
+    (ci.gananciaNeta?'<tr><td><strong>Ganancia neta</strong></td><td><strong>$'+Math.round(ci.gananciaNeta).toLocaleString('es-AR')+'</strong></td></tr>':'')+
+    '</table></div>'+
+    '</body></html>');
+    w.document.close();
+  }catch(e){toast('❌ Error: '+e.message,'error');}
+};
+
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('form-login')?.style.display!=='none')doLogin();});
+// Check public catalog on load
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',()=>checkCatalogoPublico());
+} else {
+  checkCatalogoPublico();
+}
 
 // ── TURNOS ───────────────────────────────────────────────────────────────────
 async function initTurnos(){
@@ -7117,7 +7359,7 @@ window.registrarTurno=async function(){
     await addDoc(collection(db,'users',STORE,'turnos'),{empleado:CU,fecha:hoy,hora,tipo,ts:Date.now()});
     toast(tipo==='entrada'?'Entrada registrada: '+hora:'Salida registrada: '+hora);
     initTurnos();
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 // ── GESTIÓN DE DATOS ──────────────────────────────────────────────────────────
@@ -7158,7 +7400,7 @@ window.archivarVentasAntiguas=async function(){
     await batch.commit();
     if(infoEl)infoEl.innerHTML='<span style="color:var(--success)">✓ '+count+' ventas archivadas correctamente</span>';
     toast(count+' ventas antiguas archivadas');
-  }catch(e){alert('Error: '+e.message);}
+  }catch(e){toast('❌ Error: '+e.message,'error');}
 };
 
 window.gdConfirm=function(action,msg){
