@@ -6778,7 +6778,7 @@ function checkCatalogoPublico(){
     startClienteListeners();
     // Set nav to only show catalog
     const nav=document.querySelector('.cli-nav');
-    if(nav)nav.innerHTML='<button class="active" onclick="showCliTab('catalogo',this)">Ver productos</button>';
+    if(nav)nav.innerHTML='<button class="active" onclick="showCliTab(\'catalogo\',this)">Ver productos</button>';
     // Set welcome message
     const nom=document.getElementById('cli-nombre');if(nom)nom.textContent='Catálogo público';
     // Show catalog after a small delay to let data load
