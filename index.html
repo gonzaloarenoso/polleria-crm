@@ -5330,30 +5330,7 @@ window.iniciarPedido=function(){
   if(full)full.scrollIntoView({behavior:'smooth',block:'start'});
 };
 
-function renderDestacadosPreview(){
-  const el=document.getElementById('cli-destacados-grid');if(!el)return;
-  const dest=_productos.filter(p=>p.destacado);
-  if(!dest.length){
-    // No destacados - show iniciar pedido directly
-    const prev=document.getElementById('cli-destacados-preview');
-    const full=document.getElementById('cli-catalogo-completo');
-    if(prev)prev.style.display='none';
-    if(full)full.style.display='block';
-    renderCliCatalog();
-    return;
-  }
-  el.innerHTML=dest.map(p=>{
-    const stock=_inv[p.nombre]?.stock||0;
-    const foto=p.foto?'<img src="'+p.foto+'" style="width:100%;height:120px;object-fit:cover;border-radius:8px 8px 0 0;display:block"/>':
-      '<div style="width:100%;height:80px;background:#f5f4f0;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-size:32px">⭐</div>';
-    return'<div class="prod-card" style="border:2px solid var(--primary)">'+foto+
-      '<div style="background:var(--primary);color:#fff;font-size:9px;font-weight:700;text-align:center;padding:1px">DESTACADO</div>'+
-      '<div class="prod-card-nom">'+p.nombre+'</div>'+
-      '<div class="prod-card-precio">'+fmt(p.precio)+'</div>'+
-      '<button class="btn bp" style="width:100%;font-size:12px;padding:6px" '+(stock===0?'disabled':'')+
-      ' onclick="addToCart('prod',''+p.nombre+'','+p.precio+')">+ Al carrito</button></div>';
-  }).join('');
-}
+
 
 window.borrarFiltros=function(){
   const buscar=document.getElementById('cli-buscar');if(buscar)buscar.value='';
