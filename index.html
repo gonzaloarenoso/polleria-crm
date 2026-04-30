@@ -1252,49 +1252,43 @@ tr:hover td{background:#fafaf8}
 
         <!-- MENSAJES -->
         <div id="fid-sec-mensajes" style="display:none">
-          <!-- Mensajes a clientes (moved from main menu) -->
-          <div id="msg-admin-form-wrap-cfg">
-            <div class="card" style="max-width:100%;margin-bottom:16px">
-              <h3 id="msg-form-title-cfg">✉ Nuevo mensaje a clientes</h3>
-              <label>Título del mensaje</label>
-              <input type="text" id="msg-titulo-cfg" placeholder="Ej: Novedad importante, Oferta especial..."/>
+          <!-- Publicar mensajes a clientes -->
+          <div class="g2" style="margin-bottom:16px">
+            <div class="card">
+              <h3>Nuevo mensaje a clientes</h3>
+              <label>Título</label>
+              <input type="text" id="msg-titulo" placeholder="Ej: Promo imperdible!"/>
               <label>Mensaje</label>
-              <textarea id="msg-cuerpo-cfg" rows="4" placeholder="Escribí el mensaje para tus clientes..."></textarea>
-              <div class="g2" style="margin-top:8px">
-                <div>
-                  <label>Duración</label>
-                  <select id="msg-duracion-cfg">
-                    <option value="1">1 día</option>
-                    <option value="3">3 días</option>
-                    <option value="7" selected>7 días</option>
-                    <option value="14">14 días</option>
-                    <option value="30">30 días</option>
-                    <option value="0">Sin vencimiento</option>
-                  </select>
-                </div>
-                <div>
-                  <label>Estado</label>
-                  <div style="display:flex;gap:10px;margin-top:6px">
-                    <label style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;font-size:13px">
-                      <input type="checkbox" id="msg-activo-cfg" checked style="width:16px"/>
-                      <span>Activar al publicar</span>
-                    </label>
-                  </div>
-                </div>
+              <textarea id="msg-cuerpo" rows="3" placeholder="Escribí el mensaje..."></textarea>
+              <label>Duración</label>
+              <select id="msg-duracion">
+                <option value="1">1 día</option>
+                <option value="3">3 días</option>
+                <option value="7" selected>7 días</option>
+                <option value="14">14 días</option>
+                <option value="30">30 días</option>
+                <option value="0">Sin vencimiento</option>
+              </select>
+              <div style="display:flex;gap:10px;margin-top:8px">
+                <label style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;font-size:13px">
+                  <input type="checkbox" id="msg-activo" checked style="width:16px"/>
+                  <span>Activar al publicar</span>
+                </label>
               </div>
-              <div class="row" style="margin-top:14px">
-                <button class="btn bp" id="msg-save-btn-cfg" onclick="saveMsgCfg()">Publicar mensaje</button>
+              <div class="row" style="margin-top:12px">
+                <button class="btn bp" id="msg-save-btn" onclick="saveMsg()">Publicar</button>
+                <button class="btn bs" onclick="cancelEditMsg()">Cancelar</button>
               </div>
             </div>
-          </div>
-          <div class="card" style="margin-bottom:16px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-              <h3 style="margin-bottom:0">Mensajes publicados</h3>
-              <span id="msg-count-cfg" class="badge bb">0</span>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                <h3 style="margin-bottom:0">Mensajes publicados</h3>
+                <span id="msg-count" class="badge bb">0</span>
+              </div>
+              <div id="msg-lista"><div class="empty">Sin mensajes publicados</div></div>
             </div>
-            <div id="msg-lista-cfg"><div class="empty">Sin mensajes publicados</div></div>
           </div>
-          <hr style="border:none;border-top:2px solid var(--border);margin:16px 0"/>
+          <hr style="border:none;border-top:2px solid var(--border);margin:0 0 16px"/>
           <div class="card">
             <h3>Mensajes de WhatsApp por estado</h3>
             <div style="font-size:12px;color:#888;margin-bottom:12px">Usá <strong>[nombre]</strong> para el nombre del cliente y <strong>[local]</strong> para el nombre del local.</div>
@@ -2556,7 +2550,6 @@ function startListeners(){
     _mensajesAdmin=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.ts-a.ts);
     _mensajesAdmin=snap.docs.map(d=>({id:d.id,...d.data()}));
     if(document.getElementById('sec-mensajes-admin')?.classList.contains('active'))renderMensajesAdmin();
-    renderMensajesCfg();
     updateNotifBadge();
   }));
   // Eventos listener
@@ -4292,7 +4285,7 @@ window.showFidSub=function(sub,btn){
   if(sub==='descuentos'){renderDescuentosAutoList();renderDescuentosList();}
   if(sub==='niveles'){renderCfgNiveles();loadCuponesAdmin();}
   if(sub==='sistema')renderCfgAvanzado();
-  if(sub==='mensajes'){renderCfgMensajes();renderMensajesCfg();}
+  if(sub==='mensajes'){renderCfgMensajes();if(typeof renderMensajesAdmin==='function')renderMensajesAdmin();}
 };
 
 window.switchCfgTab=function(tab,btn){
@@ -6576,38 +6569,6 @@ function renderMensajesAdmin(){
   }).join('');
 }
 
-window.saveMsgCfg=async function(){
-  // Mirror of saveMsg using -cfg suffixed IDs
-  const titulo=document.getElementById('msg-titulo-cfg')?.value.trim();
-  const cuerpo=document.getElementById('msg-cuerpo-cfg')?.value.trim();
-  const duracion=parseInt(document.getElementById('msg-duracion-cfg')?.value)||7;
-  const activo=document.getElementById('msg-activo-cfg')?.checked!==false;
-  if(!titulo||!cuerpo){toast('Completá título y mensaje','error');return;}
-  const vence=duracion>0?new Date(Date.now()+duracion*86400000).toISOString().split('T')[0]:null;
-  try{
-    await addDoc(collection(db,'users',STORE,'mensajes'),{titulo,cuerpo,activo,vence,ts:Date.now(),publicadoPor:CU||'admin'});
-    document.getElementById('msg-titulo-cfg').value='';
-    document.getElementById('msg-cuerpo-cfg').value='';
-    renderMensajesCfg();
-    toast('Mensaje publicado');
-  }catch(e){toast('❌ Error: '+e.message,'error');}
-};
-
-function renderMensajesCfg(){
-  const el=document.getElementById('msg-lista-cfg');if(!el)return;
-  const cnt=document.getElementById('msg-count-cfg');
-  const now=new Date();
-  const activos=(_mensajesAdmin||[]).filter(m=>!m.vence||new Date(m.vence)>=now);
-  if(cnt)cnt.textContent=activos.length;
-  if(!activos.length){el.innerHTML='<div class="empty">Sin mensajes publicados</div>';return;}
-  el.innerHTML=activos.map(m=>'<div class="pr"><div><div style="font-weight:600">'+m.titulo+'</div>'+
-    '<div style="font-size:12px;color:#888">'+m.cuerpo.substring(0,60)+'...</div>'+
-    '<div style="font-size:11px;color:#aaa">'+(m.vence?'Vence: '+m.vence:'Sin vencimiento')+'</div></div>'+
-    '<div style="display:flex;gap:4px">'+
-    '<button class="btn bs bsm" onclick="toggleMsg(this.dataset.id,'+(!0)+')" data-id="'+m.id+'">'+(m.activo?'Desactivar':'Activar')+'</button>'+
-    '<button class="btn bd bsm" onclick="deleteMsg(this.dataset.id)" data-id="'+m.id+'">✕</button>'+
-    '</div></div>').join('');
-}
 
 window.saveMsg=async function(){
   const titulo=document.getElementById('msg-titulo').value.trim();
