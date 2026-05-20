@@ -6570,8 +6570,8 @@ function renderMensajesCfg(){
   const el=document.getElementById('msg-lista-cfg');if(!el)return;
   const cnt=document.getElementById('msg-count-cfg');
   const hoy=today();
-  const activos=_mensajes.filter(m=>m.activo&&(!m.vence||m.vence>=hoy));
-  const todos=_mensajes;
+  const activos=_mensajesAdmin.filter(m=>m.activo&&(!m.vence||m.vence>=hoy));
+  const todos=_mensajesAdmin;
   if(cnt)cnt.textContent=activos.length;
   if(!todos.length){el.innerHTML='<div class="empty">Sin mensajes publicados</div>';return;}
   el.innerHTML=todos.map(m=>{
@@ -6627,7 +6627,7 @@ window.cancelEditMsgCfg=function(){
 };
 
 window.editMsgCfg=function(id){
-  const m=_mensajes.find(x=>x.id===id);if(!m)return;
+  const m=_mensajesAdmin.find(x=>x.id===id);if(!m)return;
   _editingMsgIdCfg=id;
   document.getElementById('msg-titulo-cfg').value=m.titulo||'';
   document.getElementById('msg-cuerpo-cfg').value=m.cuerpo||'';
