@@ -3067,15 +3067,23 @@ window.applyDiscount=function(){
 };
 
 function renderTotales(){
-  const el=document.getElementById('v-totales');const total=document.getElementById('v-total');
-  if(ventaDescuento&&itemTotal>0){
-    const monto=Math.round(itemTotal*ventaDescuento.porcentaje/100);
-    const final=itemTotal-monto;
-    el.innerHTML=`<div style="display:flex;justify-content:space-between;font-size:13px;color:#888"><span>Subtotal</span><span>${fmt(itemTotal)}</span></div><div style="display:flex;justify-content:space-between;font-size:13px;color:var(--danger)"><span>Descuento -${ventaDescuento.porcentaje}%</span><span>-${fmt(monto)}</span></div><div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;margin-top:4px"><span>Total</span><span>${fmt(final)}</span></div>`;
-    total.textContent=fmt(final);
+  const el=document.getElementById('v-totales');
+  if(!el)return;
+  const descMonto=ventaDescuento&&itemTotal>0?Math.round(itemTotal*ventaDescuento.porcentaje/100):0;
+  const subtotalConDesc=itemTotal-descMonto;
+  const cuponMonto=_cuponAplicado&&subtotalConDesc>=(_cuponAplicado.minCompra||0)
+    ?Math.min(Math.round(subtotalConDesc*_cuponAplicado.descPct/100),_cuponAplicado.maxDescuento||9999):0;
+  const final=subtotalConDesc-cuponMonto;
+  let html='';
+  if(descMonto>0||cuponMonto>0){
+    html+=`<div style="display:flex;justify-content:space-between;font-size:13px;color:#888"><span>Subtotal</span><span>${fmt(itemTotal)}</span></div>`;
+    if(descMonto>0)html+=`<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--danger)"><span>Descuento -${ventaDescuento.porcentaje}% (${ventaDescuento.motivo})</span><span>-${fmt(descMonto)}</span></div>`;
+    if(cuponMonto>0)html+=`<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--danger)"><span>Cupón GLA-${_cuponAplicado.codigo} -${_cuponAplicado.descPct}%</span><span>-${fmt(cuponMonto)}</span></div>`;
+    html+=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;margin-top:4px"><span>Total</span><span id="v-total">${fmt(final)}</span></div>`;
   } else {
-    el.innerHTML=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px"><span>Total</span><span id="v-total">${fmt(itemTotal)}</span></div>`;
+    html=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px"><span>Total</span><span id="v-total">${fmt(itemTotal)}</span></div>`;
   }
+  el.innerHTML=html;
 }
 
 let _tipoVenta='venta';
