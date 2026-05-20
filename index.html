@@ -6585,9 +6585,9 @@ function renderMensajesCfg(){
       '<div style="font-size:11px;color:#888;margin-top:4px">'+new Date(m.ts).toLocaleString('es-AR')+' · '+venc+'</div></div>'+
       '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'+
       '<span style="font-size:11px;font-weight:600;color:'+estadoColor+'">'+estadoLbl+'</span>'+
-      '<button class="btn bs bsm" onclick="toggleMsgActivoCfg(''+m.id+'','+!m.activo+')">'+(m.activo?'Desactivar':'Activar')+'</button>'+
-      '<button class="btn bs bsm" onclick="editMsgCfg(''+m.id+'')">Editar</button>'+
-      '<button class="btn bd bsm" onclick="deleteMsgCfg(''+m.id+'')">Eliminar</button>'+
+      '<button class="btn bs bsm" onclick="toggleMsgActivoCfg(\''+m.id+'\','+!m.activo+')">'+(m.activo?'Desactivar':'Activar')+'</button>'+
+      '<button class="btn bs bsm" onclick="editMsgCfg(\''+m.id+'\')">' + 'Editar</button>'+
+      '<button class="btn bd bsm" onclick="deleteMsgCfg(\''+m.id+'\')">' + 'Eliminar</button>'+
       '</div></div></div>';
   }).join('');
 }
