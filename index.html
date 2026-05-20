@@ -6579,13 +6579,16 @@ window.addCajaChica=async function(){
   if(!monto){alert('Ingresá un monto');return;}
   const esEgreso=['retiro','adelanto','proveedor','gasto'].includes(tipo);
   try{
-    await addDoc(collection(db,'users',STORE,'caja-chica'),{
+    const docRef=await addDoc(collection(db,'users',STORE,'caja-chica'),{
       tipo,monto:esEgreso?-Math.abs(monto):Math.abs(monto),
       montoAbs:Math.abs(monto),esEgreso,
       detalle,fecha:today(),hora:ftime(),creadoPor:CU,ts:Date.now()
     });
+    // Update local array immediately (don't wait for listener)
+    _cajaChica.unshift({id:docRef.id,tipo,monto:esEgreso?-Math.abs(monto):Math.abs(monto),montoAbs:Math.abs(monto),esEgreso,detalle,fecha:today(),hora:ftime(),creadoPor:CU,ts:Date.now()});
     document.getElementById('cc-monto').value='';
     document.getElementById('cc-detalle').value='';
+    renderCajaChica();
     toast('Movimiento registrado');
   }catch(e){alert('Error: '+e.message);}
 };
