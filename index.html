@@ -362,7 +362,7 @@ tr:hover td{background:#fafaf8}
           <!-- Venta sin cliente -->
           <div id="v-sin-cliente-wrap" style="margin-bottom:8px">
             <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;font-size:12px;color:#888">
-              <input type="checkbox" id="v-sin-cliente" style="width:15px;height:15px" onchange="toggleVentaSinCliente(this.checked)"/>
+              <input type="checkbox" id="v-sin-cliente" style="width:15px;height:15px" onchange="window.toggleVentaSinCliente&&window.toggleVentaSinCliente(this.checked)"/>
               <span>Venta rápida sin cliente (mostrador)</span>
             </label>
           </div>
@@ -2915,6 +2915,34 @@ window.reprintTicket=function(id){
 };
 
 // ── NUEVA VENTA (updated with discount MOD 6) ──────────────────────────────────
+// ── VENTA SIN CLIENTE ────────────────────────────────────────────────────────
+window._ventaSinCliente=false;
+window.toggleVentaSinCliente=function(checked){
+  window._ventaSinCliente=checked;
+  const cliSection=document.getElementById('v-cli-section');
+  if(cliSection)cliSection.style.display=checked?'none':'block';
+  if(checked){
+    selectedClienteId='__mostrador__';
+    window._selectedClienteUsuario=null;
+    const okBox=document.getElementById('v-cli-ok');if(okBox)okBox.style.display='none';
+    let ind=document.getElementById('v-sin-cli-ind');
+    if(!ind){
+      ind=document.createElement('div');ind.id='v-sin-cli-ind';
+      ind.style.cssText='background:#EAF3DE;border-radius:8px;padding:6px 12px;margin-top:6px;font-size:12px;color:#3B6D11';
+      ind.textContent='✓ Venta registrada como "Mostrador"';
+      const wrap=document.getElementById('v-sin-cliente-wrap');
+      if(wrap)wrap.appendChild(ind);
+    }
+    ventaDescuento=null;
+    const ds=document.getElementById('v-desc');if(ds){ds.value='';ds.disabled=false;}
+    const db2=document.getElementById('v-desc-box');if(db2)db2.style.display='none';
+    renderTotales();
+  } else {
+    selectedClienteId=null;window._selectedClienteUsuario=null;window._ventaSinCliente=false;
+    const ind=document.getElementById('v-sin-cli-ind');if(ind)ind.remove();
+  }
+};
+
 window.searchCli=function(val){
   const dd=document.getElementById('cli-dd');
   const notFound=document.getElementById('v-cli-notfound');
