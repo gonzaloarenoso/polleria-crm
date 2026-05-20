@@ -2003,6 +2003,7 @@ let _editingEventoId=null;
 let _misPedidos=[];
 let _unsubs=[];
 let items=[], itemTotal=0, ventaDescuento=null;
+let _cuponAplicado=null;
 let editVentaId=null, editItems=[], editTotal=0;
 let promoComps=[];
 let solItems=[];
@@ -6395,7 +6396,6 @@ window.saveCfgFidelizacion=async function(){
 };
 
 // ── COUPON APPLY FUNCTIONS ────────────────────────────────────────────────────
-let _cuponAplicado=null; // {id, codigo, descPct, maxDescuento, minCompra}
 
 window.aplicarCuponVenta=async function(){
   const codigo=document.getElementById('v-cupon')?.value.trim();
