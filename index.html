@@ -3072,7 +3072,7 @@ function renderTotales(){
   if(!el)return;
   const descMonto=ventaDescuento&&itemTotal>0?Math.round(itemTotal*ventaDescuento.porcentaje/100):0;
   const subtotalConDesc=itemTotal-descMonto;
-  const cuponMonto=_cuponAplicado&&subtotalConDesc>=(_cuponAplicado.minCompra||0)
+  const cuponMonto=_cuponAplicado&&itemTotal>=(_cuponAplicado.minCompra||0)
     ?Math.min(Math.round(subtotalConDesc*_cuponAplicado.descPct/100),_cuponAplicado.maxDescuento||9999):0;
   const final=subtotalConDesc-cuponMonto;
   let html='';
@@ -6407,7 +6407,16 @@ window.aplicarCuponVenta=async function(){
     _cuponAplicado=null;renderTotales();return;
   }
   _cuponAplicado=cupon;
-  if(msgEl){msgEl.style.display='block';msgEl.style.color='var(--success)';msgEl.textContent='Cupón aplicado: '+cupon.descPct+'% de descuento (máx $'+cupon.maxDescuento.toLocaleString('es-AR')+')';}
+  if(msgEl){
+    msgEl.style.display='block';
+    if(itemTotal<(cupon.minCompra||0)){
+      msgEl.style.color='var(--warn)';
+      msgEl.textContent='Cupón guardado pero requiere compra mínima de $'+cupon.minCompra.toLocaleString('es-AR')+'. Agregá más productos.';
+    } else {
+      msgEl.style.color='var(--success)';
+      msgEl.textContent='Cupón aplicado: '+cupon.descPct+'% de descuento (máx $'+cupon.maxDescuento.toLocaleString('es-AR')+')';
+    }
+  }
   renderTotales();
 };
 
