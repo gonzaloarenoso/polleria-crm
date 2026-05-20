@@ -540,7 +540,6 @@ tr:hover td{background:#fafaf8}
           <div class="card">
             <h3>Agregar producto</h3>
             <label>Nombre del producto</label><input type="text" id="p-nom" placeholder="Ej: Pollo entero"/>
-            <label>Precio de venta ($)</label><input type="number" id="p-precio" placeholder="Ej: 2800"/>
             <label>Categoría</label>
             <select id="p-categoria"><option value="">Sin categoría</option></select>
             <label>Unidad de medida</label>
@@ -641,7 +640,10 @@ tr:hover td{background:#fafaf8}
 
     <!-- PEDIDOS ONLINE (MOD 9) -->
     <div id="sec-pedidos-online" class="sec">
-      <div class="stitle">Pedidos online</div>
+      <div class="stitle" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Pedidos online</span>
+        <button id="portal-toggle-btn" onclick="togglePortalActivo()" style="font-size:12px;padding:6px 14px;border-radius:20px;border:2px solid var(--success);background:transparent;color:var(--success);font-weight:600;cursor:pointer">🟢 Portal activo</button>
+      </div>
       <div id="po-franjas-admin" style="display:none;margin-bottom:16px">
         <div class="card">
           <h3>Franjas horarias de entrega</h3>
@@ -1294,7 +1296,76 @@ tr:hover td{background:#fafaf8}
 
         <!-- MENSAJES -->
         <div id="fid-sec-mensajes" style="display:none">
-          <div class="card">
+          <!-- PORTAL ACTIVO/INACTIVO -->
+          <div class="card" style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <h3 style="margin-bottom:4px">Estado del portal de clientes</h3>
+                <div style="font-size:12px;color:#888">Cuando está desactivado, los clientes ven el mensaje configurado abajo.</div>
+              </div>
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0">
+                <span id="portal-estado-lbl" style="font-size:13px;font-weight:600;color:var(--success)">🟢 Activo</span>
+                <div style="position:relative;width:48px;height:26px">
+                  <input type="checkbox" id="portal-activo-toggle" checked style="opacity:0;width:0;height:0;position:absolute" onchange="togglePortalActivo(this.checked)"/>
+                  <span id="portal-toggle-track" onclick="document.getElementById('portal-activo-toggle').click()" style="position:absolute;inset:0;background:var(--success);border-radius:26px;cursor:pointer;transition:.3s"></span>
+                  <span id="portal-toggle-thumb" onclick="document.getElementById('portal-activo-toggle').click()" style="position:absolute;left:3px;top:3px;width:20px;height:20px;background:#fff;border-radius:50%;cursor:pointer;transition:.3s"></span>
+                </div>
+              </label>
+            </div>
+            <div id="portal-msg-wrap" style="margin-top:12px;display:none">
+              <label>Mensaje para clientes cuando el portal está cerrado</label>
+              <textarea id="portal-msg-cerrado" rows="3" placeholder="Ej: Estamos fuera de horario. Volvemos mañana a las 8hs. ¡Gracias!"></textarea>
+              <button class="btn bp bsm" style="margin-top:8px" onclick="savePortalConfig()">Guardar mensaje</button>
+            </div>
+          </div>
+          <!-- MENSAJES A CLIENTES -->
+          <div id="msg-admin-form-wrap-cfg">
+            <div class="card">
+              <h3 id="msg-form-title-cfg">Nuevo mensaje</h3>
+              <label>Título del mensaje</label>
+              <input type="text" id="msg-titulo-cfg" placeholder="Ej: Novedad importante, Oferta especial..."/>
+              <label>Mensaje</label>
+              <textarea id="msg-cuerpo-cfg" rows="4" placeholder="Escribí el mensaje para tus clientes..."></textarea>
+              <div class="g2" style="margin-top:8px">
+                <div>
+                  <label>Duración del mensaje</label>
+                  <select id="msg-duracion-cfg">
+                    <option value="1">1 día</option>
+                    <option value="3">3 días</option>
+                    <option value="7" selected>7 días</option>
+                    <option value="14">14 días</option>
+                    <option value="30">30 días</option>
+                    <option value="0">Sin vencimiento</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Visibilidad</label>
+                  <select id="msg-visibilidad-cfg">
+                    <option value="todos">Todos los clientes</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+                <label style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;font-size:13px">
+                  <input type="checkbox" id="msg-activo-cfg" checked style="width:16px"/>
+                  <span>Activar mensaje al publicar</span>
+                </label>
+              </div>
+              <div class="row" style="margin-top:14px">
+                <button class="btn bp" id="msg-save-btn-cfg" onclick="saveMsgCfg()">Publicar mensaje</button>
+                <button class="btn bs" onclick="cancelEditMsgCfg()">Cancelar</button>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:0">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <h3 style="margin-bottom:0">Mensajes publicados</h3>
+              <span id="msg-count-cfg" class="badge bb">0</span>
+            </div>
+            <div id="msg-lista-cfg"><div class="empty">Sin mensajes publicados</div></div>
+          </div>
+          <!-- MENSAJES WHATSAPP -->
+          <div class="card" style="margin-top:12px">
             <h3>Mensajes de WhatsApp por estado</h3>
             <div style="font-size:12px;color:#888;margin-bottom:12px">Usá <strong>[nombre]</strong> para el nombre del cliente y <strong>[local]</strong> para el nombre del local.</div>
             <label>✅ Pedido confirmado</label><textarea id="wa-confirmado" rows="2" placeholder="Buenas noticias [nombre]!..."></textarea>
@@ -1967,8 +2038,8 @@ function statusClass(s){
 }
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
-const ADMIN_TABS=[['dashboard','Panel'],['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['ventas-dia','Ventas'],['caja','Caja'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['mensajes-admin','✉ Mensajes'],['configuracion','⚙ Configuración']];
-const VEND_TABS=[['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['mensajes-admin','✉ Mensajes'],['calendario','📅 Calendario'],['turnos','Mis turnos']];
+const ADMIN_TABS=[['dashboard','Panel'],['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['ventas-dia','Ventas'],['caja','Caja'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['configuracion','⚙ Configuración']];
+const VEND_TABS=[['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['calendario','📅 Calendario'],['turnos','Mis turnos']];
 
 function buildNav(role){
   const tabs=role==='admin'?ADMIN_TABS:VEND_TABS;
@@ -2387,6 +2458,31 @@ async function loginSuccess(u,userData){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('l-btn').innerHTML='Ingresar';document.getElementById('l-btn').disabled=false;
   if(USER_ROLE==='cliente'){
+    // Check portal status before showing
+    try{
+      const cfgSnap=await getDocs(collection(db,'users',STORE,'config'));
+      const portalCfg=cfgSnap.docs.find(d=>d.id==='portal');
+      const portalActivo=portalCfg?portalCfg.data().activo!==false:true;
+      const portalMsg=portalCfg?portalCfg.data().mensajeCerrado||'El portal está temporalmente cerrado. Volvemos pronto.':'El portal está temporalmente cerrado. Volvemos pronto.';
+      if(!portalActivo){
+        document.getElementById('loading-screen').style.display='none';
+        document.getElementById('login-screen').style.display='none';
+        let bloq=document.getElementById('portal-bloqueado');
+        if(!bloq){
+          bloq=document.createElement('div');bloq.id='portal-bloqueado';
+          bloq.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px;text-align:center;background:var(--bg)';
+          bloq.innerHTML='<div style="font-size:48px;margin-bottom:16px">🔒</div>'+
+            '<div style="font-size:22px;font-weight:700;margin-bottom:12px">Portal cerrado</div>'+
+            '<div style="font-size:15px;color:#666;max-width:380px;line-height:1.6" id="portal-bloq-msg">'+portalMsg+'</div>'+
+            '<div style="margin-top:24px;font-size:13px;color:#aaa">Granja Los Abuelos</div>';
+          document.body.appendChild(bloq);
+        } else {
+          document.getElementById('portal-bloq-msg').textContent=portalMsg;
+          bloq.style.display='flex';
+        }
+        return;
+      }
+    }catch(e){console.log('Portal cfg check failed:',e);}
     document.getElementById('cliente-screen').style.display='block';
     const cliLocalEl=document.getElementById('cli-local-name');if(cliLocalEl)cliLocalEl.textContent=localName;
     document.getElementById('cli-nombre').textContent=userData.nombre||u;
@@ -2533,13 +2629,14 @@ function startListeners(){
   _unsubs.push(onSnapshot(collection(db,'users',STORE,'mensajes'),snap=>{
     _mensajesAdmin=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.ts-a.ts);
     if(document.getElementById('sec-mensajes-admin')?.classList.contains('active'))renderMensajesAdmin();
+    renderMensajesCfg();
     updateNotifBadge();
   }));
   // Eventos listener
   _unsubs.push(onSnapshot(collection(db,'users',STORE,'eventos'),snap=>{
     _eventos=snap.docs.map(d=>({id:d.id,...d.data()}));
     if(document.getElementById('sec-calendario')?.classList.contains('active'))renderCalendario();
-    checkEventAlertas();
+    if(typeof window.checkEventAlertas==="function")window.checkEventAlertas();
     setSyncDot('ok');
   }));
   _unsubs.push(onSnapshot(collection(db,'users',STORE,'gastos'),snap=>{
@@ -3025,7 +3122,7 @@ window.limpiar=function(){
 };
 
 window.clearClienteSel=function(){
-  selectedClienteId=null;window._selectedClienteUsuario=null;_ventaSinCliente=false;
+  selectedClienteId=null;window._selectedClienteUsuario=null;window._ventaSinCliente=false;
   const scb=document.getElementById('v-sin-cliente');if(scb)scb.checked=false;
   const ind=document.getElementById('v-sin-cli-ind');if(ind)ind.remove();
   document.getElementById('v-cli').value='';
@@ -3081,6 +3178,11 @@ window.doQuickReg=async function(){
 };
 
 window.confirmar=async function(){
+  // Si es venta mostrador, forzar selectedClienteId aunque no esté seteado
+  if(window._ventaSinCliente){
+    selectedClienteId='__mostrador__';
+    window._selectedClienteUsuario=null;
+  }
   if(!selectedClienteId){
     document.getElementById('v-cli').style.display='block';
     document.getElementById('v-cli').focus();
@@ -3116,9 +3218,9 @@ window.confirmar=async function(){
   const finalTotal=itemTotal-descMonto;
   const venta={
     ts:now.getTime(),fecha:today(),hora:ftime(),
-    canal:_ventaSinCliente?'Mostrador':'Mostrador',
-    cliente:_ventaSinCliente?'Mostrador':(document.getElementById('v-cli').value||'Mostrador'),
-    clienteId:_ventaSinCliente?'__mostrador__':(window._selectedClienteUsuario||selectedClienteId||null),
+    canal:window._ventaSinCliente?'Mostrador':'Mostrador',
+    cliente:window._ventaSinCliente?'Mostrador':(document.getElementById('v-cli').value||'Mostrador'),
+    clienteId:window._ventaSinCliente?'__mostrador__':(window._selectedClienteUsuario||selectedClienteId||null),
     dir:document.getElementById('v-dir').value,
     telCli:document.getElementById('v-teli').value,
     obs:document.getElementById('v-obs').value,
@@ -4269,7 +4371,7 @@ window.showFidSub=function(sub,btn){
   if(sub==='descuentos'){renderDescuentosAutoList();renderDescuentosList();}
   if(sub==='niveles'){renderCfgNiveles();loadCuponesAdmin();}
   if(sub==='sistema')renderCfgAvanzado();
-  if(sub==='mensajes')renderCfgMensajes();
+  if(sub==='mensajes'){loadPortalConfig();renderMensajesCfg();}
 };
 
 window.switchCfgTab=function(tab,btn){
@@ -6393,7 +6495,156 @@ window.loadCuponesAdmin=async function(){
 
 window.anularCupon=async function(id){
   if(!confirm('¿Anular este cupón?'))return;
-  try{await updateDoc(doc(db,'users',STORE,'cupones',id),{usado:true,anuladoManualmente:true});toast('Cupón anulado');}
+  try{
+    await deleteDoc(doc(db,'users',STORE,'cupones',id));
+    toast('Cupón anulado');
+    renderCupones();
+  }catch(e){alert('Error: '+e.message);}
+};
+
+// ── PORTAL ACTIVO/INACTIVO ────────────────────────────────────────────────────
+let _portalActivo=true;
+
+window.togglePortalActivo=async function(estado){
+  if(typeof estado==='undefined') estado=!_portalActivo;
+  _portalActivo=estado;
+  try{
+    await setDoc(doc(db,'users',STORE,'config','portal'),{activo:estado},{merge:true});
+    // Update toggle in Configuración
+    const chk=document.getElementById('portal-activo-toggle');
+    if(chk)chk.checked=estado;
+    const lbl=document.getElementById('portal-estado-lbl');
+    if(lbl){lbl.textContent=estado?'🟢 Activo':'🔴 Desactivado';lbl.style.color=estado?'var(--success)':'var(--danger)';}
+    const track=document.getElementById('portal-toggle-track');
+    if(track)track.style.background=estado?'var(--success)':'var(--danger)';
+    const thumb=document.getElementById('portal-toggle-thumb');
+    if(thumb)thumb.style.left=estado?'3px':'25px';
+    const wrap=document.getElementById('portal-msg-wrap');
+    if(wrap)wrap.style.display=estado?'none':'block';
+    // Update button in Pedidos online
+    const btn=document.getElementById('portal-toggle-btn');
+    if(btn){
+      btn.textContent=estado?'🟢 Portal activo':'🔴 Portal desactivado';
+      btn.style.borderColor=estado?'var(--success)':'var(--danger)';
+      btn.style.color=estado?'var(--success)':'var(--danger)';
+    }
+    toast(estado?'Portal activado':'Portal desactivado');
+  }catch(e){toast('Error: '+e.message,'error');}
+};
+
+window.savePortalConfig=async function(){
+  const msg=document.getElementById('portal-msg-cerrado')?.value.trim()||'El portal está temporalmente cerrado. Volvemos pronto.';
+  try{
+    await setDoc(doc(db,'users',STORE,'config','portal'),{mensajeCerrado:msg},{merge:true});
+    toast('Mensaje guardado');
+  }catch(e){toast('Error: '+e.message,'error');}
+};
+
+// Load portal config when fidelizacion/mensajes tab opens
+async function loadPortalConfig(){
+  try{
+    const snap=await getDocs(collection(db,'users',STORE,'config'));
+    const cfg=snap.docs.find(d=>d.id==='portal')?.data()||{};
+    _portalActivo=cfg.activo!==false;
+    const chk=document.getElementById('portal-activo-toggle');
+    if(chk)chk.checked=_portalActivo;
+    const lbl=document.getElementById('portal-estado-lbl');
+    if(lbl){lbl.textContent=_portalActivo?'🟢 Activo':'🔴 Desactivado';lbl.style.color=_portalActivo?'var(--success)':'var(--danger)';}
+    const track=document.getElementById('portal-toggle-track');
+    if(track)track.style.background=_portalActivo?'var(--success)':'var(--danger)';
+    const thumb=document.getElementById('portal-toggle-thumb');
+    if(thumb)thumb.style.left=_portalActivo?'3px':'25px';
+    const wrap=document.getElementById('portal-msg-wrap');
+    if(wrap)wrap.style.display=_portalActivo?'none':'block';
+    const msgEl=document.getElementById('portal-msg-cerrado');
+    if(msgEl&&cfg.mensajeCerrado)msgEl.value=cfg.mensajeCerrado;
+    const btn=document.getElementById('portal-toggle-btn');
+    if(btn){btn.textContent=_portalActivo?'🟢 Portal activo':'🔴 Portal desactivado';btn.style.borderColor=_portalActivo?'var(--success)':'var(--danger)';btn.style.color=_portalActivo?'var(--success)':'var(--danger)';}
+    renderMensajesCfg();
+  }catch(e){console.log('loadPortalConfig error:',e);}
+}
+
+// Mensajes admin desde Configuración (IDs con sufijo -cfg)
+let _editingMsgIdCfg=null;
+function renderMensajesCfg(){
+  const el=document.getElementById('msg-lista-cfg');if(!el)return;
+  const cnt=document.getElementById('msg-count-cfg');
+  const hoy=today();
+  const activos=_mensajes.filter(m=>m.activo&&(!m.vence||m.vence>=hoy));
+  const todos=_mensajes;
+  if(cnt)cnt.textContent=activos.length;
+  if(!todos.length){el.innerHTML='<div class="empty">Sin mensajes publicados</div>';return;}
+  el.innerHTML=todos.map(m=>{
+    const venc=m.vence?'Vence: '+m.vence:'Sin vencimiento';
+    const estadoColor=m.activo&&(!m.vence||m.vence>=hoy)?'var(--success)':'var(--danger)';
+    const estadoLbl=m.activo&&(!m.vence||m.vence>=hoy)?'Activo':'Inactivo';
+    return'<div class="card" style="margin-bottom:8px;padding:12px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'+
+      '<div style="flex:1"><div style="font-weight:700;font-size:14px">'+m.titulo+'</div>'+
+      '<div style="font-size:12px;color:#555;margin-top:4px">'+m.cuerpo+'</div>'+
+      '<div style="font-size:11px;color:#888;margin-top:4px">'+new Date(m.ts).toLocaleString('es-AR')+' · '+venc+'</div></div>'+
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'+
+      '<span style="font-size:11px;font-weight:600;color:'+estadoColor+'">'+estadoLbl+'</span>'+
+      '<button class="btn bs bsm" onclick="toggleMsgActivoCfg(''+m.id+'','+!m.activo+')">'+(m.activo?'Desactivar':'Activar')+'</button>'+
+      '<button class="btn bs bsm" onclick="editMsgCfg(''+m.id+'')">Editar</button>'+
+      '<button class="btn bd bsm" onclick="deleteMsgCfg(''+m.id+'')">Eliminar</button>'+
+      '</div></div></div>';
+  }).join('');
+}
+
+window.saveMsgCfg=async function(){
+  const titulo=document.getElementById('msg-titulo-cfg').value.trim();
+  const cuerpo=document.getElementById('msg-cuerpo-cfg').value.trim();
+  const duracion=parseInt(document.getElementById('msg-duracion-cfg').value)||7;
+  const activo=document.getElementById('msg-activo-cfg').checked;
+  if(!titulo||!cuerpo){alert('Completá título y mensaje');return;}
+  const hoy=today();
+  const vence=duracion>0?new Date(Date.now()+duracion*86400000).toISOString().slice(0,10):null;
+  setBtn('msg-save-btn-cfg',true,'Guardando...');
+  try{
+    if(_editingMsgIdCfg){
+      await updateDoc(doc(db,'users',STORE,'mensajes',_editingMsgIdCfg),{titulo,cuerpo,vence,activo,ts:Date.now()});
+      _editingMsgIdCfg=null;
+    } else {
+      await addDoc(collection(db,'users',STORE,'mensajes'),{titulo,cuerpo,vence,activo,ts:Date.now(),creadoPor:CU});
+    }
+    document.getElementById('msg-titulo-cfg').value='';
+    document.getElementById('msg-cuerpo-cfg').value='';
+    document.getElementById('msg-activo-cfg').checked=true;
+    document.getElementById('msg-form-title-cfg').textContent='Nuevo mensaje';
+    setBtn('msg-save-btn-cfg',false,'Publicar mensaje');
+    toast('Mensaje guardado');
+    renderMensajesCfg();
+  }catch(e){alert('Error: '+e.message);setBtn('msg-save-btn-cfg',false,'Publicar mensaje');}
+};
+
+window.cancelEditMsgCfg=function(){
+  _editingMsgIdCfg=null;
+  document.getElementById('msg-titulo-cfg').value='';
+  document.getElementById('msg-cuerpo-cfg').value='';
+  document.getElementById('msg-form-title-cfg').textContent='Nuevo mensaje';
+  document.getElementById('msg-save-btn-cfg').textContent='Publicar mensaje';
+};
+
+window.editMsgCfg=function(id){
+  const m=_mensajes.find(x=>x.id===id);if(!m)return;
+  _editingMsgIdCfg=id;
+  document.getElementById('msg-titulo-cfg').value=m.titulo||'';
+  document.getElementById('msg-cuerpo-cfg').value=m.cuerpo||'';
+  document.getElementById('msg-activo-cfg').checked=!!m.activo;
+  document.getElementById('msg-form-title-cfg').textContent='Editando mensaje';
+  document.getElementById('msg-save-btn-cfg').textContent='Guardar cambios';
+  document.getElementById('fid-sec-mensajes').scrollIntoView({behavior:'smooth'});
+};
+
+window.toggleMsgActivoCfg=async function(id,nuevoEstado){
+  try{await updateDoc(doc(db,'users',STORE,'mensajes',id),{activo:nuevoEstado});renderMensajesCfg();toast(nuevoEstado?'Mensaje activado':'Mensaje desactivado');}
+  catch(e){alert('Error: '+e.message);}
+};
+
+window.deleteMsgCfg=async function(id){
+  if(!confirm('¿Eliminar este mensaje?'))return;
+  try{await deleteDoc(doc(db,'users',STORE,'mensajes',id));renderMensajesCfg();toast('Mensaje eliminado');}
   catch(e){alert('Error: '+e.message);}
 };
 
@@ -6551,7 +6802,7 @@ window.deleteEvento=async function(){
   catch(e){alert('Error: '+e.message);}
 };
 
-function checkEventoAlerts(){
+window.checkEventAlertas=function(){
   if(USER_ROLE!=='admin')return;
   const hoy=new Date();
   const alertas=_eventos.filter(ev=>{
