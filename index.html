@@ -2590,7 +2590,7 @@ function startListeners(){
   }));
   _unsubs.push(onSnapshot(doc(db,'productos',STORE),snap=>{
     _productos=snap.exists()?(snap.data().lista||[]):[];
-    renderProdSelect();renderEditProdSelect();renderStockSel();renderPromoSel();renderSolProdSel();
+    renderProdSelect();renderEditProdSelect();renderStockSel();renderPromoSel();
     if(document.getElementById('sec-inventario')?.classList.contains('active'))renderProductos();
     setSyncDot('ok');
   }));
