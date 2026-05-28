@@ -3037,9 +3037,17 @@ window.searchProdSuggestions=function(val){
 
 window.selectProdSuggestion=function(tipo,nombre,precio){
   const hidden=document.getElementById('v-prod');
-  if(hidden)hidden.value=tipo+'||'+nombre+'||'+nombre+'|'+precio;
+  if(hidden){
+    if(tipo==='prod'){
+      const prod=_productos.find(p=>p.nombre===nombre)||{};
+      hidden.value='prod|'+(prod.id||nombre)+'|'+nombre+'|'+precio+'|'+(prod.unidad||'unidad');
+    } else {
+      const promo=_promociones.find(p=>p.nombre===nombre)||{};
+      hidden.value='promo|'+(promo.id||nombre)+'|'+nombre+'|'+precio;
+    }
+  }
   const input=document.getElementById('v-prod-search');
-  if(input)input.value=nombre;
+  if(input)input.value=nombre+' — $'+precio.toLocaleString('es-AR');
   const dd=document.getElementById('v-prod-dd');
   if(dd)dd.style.display='none';
 };
