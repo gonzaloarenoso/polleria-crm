@@ -516,7 +516,10 @@ tr:hover td{background:#fafaf8}
       <div class="g2">
         <div class="card">
           <h3>Nuevo cliente</h3>
-          <label>Nombre completo *</label><input type="text" id="c-nom" placeholder="Nombre y apellido" required/>
+          <div class="g2" style="gap:10px">
+            <div><label>Nombre *</label><input type="text" id="c-nom" placeholder="Nombre" required oninput="autoGenUsuario()"/></div>
+            <div><label>Apellido *</label><input type="text" id="c-ape" placeholder="Apellido" required oninput="autoGenUsuario()"/></div>
+          </div>
           <label>Teléfono / WhatsApp *</label><input type="text" id="c-tel" placeholder="11-5555-1234" required/>
           <label>Email *</label><input type="email" id="c-mail" placeholder="mail@ejemplo.com" required/>
           <label>Dirección *</label><input type="text" id="c-dir2" placeholder="Calle y número" required/>
@@ -524,8 +527,8 @@ tr:hover td{background:#fafaf8}
           <label>Notas</label><input type="text" id="c-not" placeholder="Preferencias, alergias..."/>
           <div class="access-box">
             <div class="access-box-title">Acceso al portal de pedidos (obligatorio)</div>
-            <label style="margin-top:0">Usuario *</label>
-            <input type="text" id="c-user" placeholder="Usuario para el portal"/>
+            <label style="margin-top:0">Usuario <span style="font-size:11px;color:#888">(se genera automáticamente)</span></label>
+            <input type="text" id="c-user" placeholder="Usuario para el portal" style="background:#f5f5f5"/>
             <label>Contraseña *</label>
             <input type="password" id="c-clave" placeholder="Mínimo 4 caracteres"/>
           </div>
@@ -1359,6 +1362,18 @@ tr:hover td{background:#fafaf8}
               <button class="btn bp bsm" style="margin-top:8px" onclick="savePortalConfig()">Guardar mensaje</button>
             </div>
           </div>
+          <!-- SOLAPAS VISIBLES EN EL PORTAL -->
+          <div class="card" style="margin-bottom:12px">
+            <h3 style="margin-bottom:8px">Solapas visibles para el cliente</h3>
+            <div style="font-size:12px;color:#888;margin-bottom:12px">Elegí qué secciones puede ver el cliente en su portal.</div>
+            <div style="display:flex;flex-direction:column;gap:8px" id="portal-tabs-config">
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="ptab-catalogo" checked onchange="savePortalTabs()"/><span style="font-size:13px">🛒 Productos (catálogo)</span></label>
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="ptab-mis-pedidos" checked onchange="savePortalTabs()"/><span style="font-size:13px">📦 Mis pedidos</span></label>
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="ptab-descuentos" checked onchange="savePortalTabs()"/><span style="font-size:13px">🎁 Descuentos y beneficios</span></label>
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="ptab-mensajes" checked onchange="savePortalTabs()"/><span style="font-size:13px">✉ Mensajes</span></label>
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="ptab-mis-datos" checked onchange="savePortalTabs()"/><span style="font-size:13px">👤 Mi cuenta</span></label>
+            </div>
+          </div>
           <!-- MENSAJES A CLIENTES -->
           <div id="msg-admin-form-wrap-cfg">
             <div class="card">
@@ -1591,6 +1606,11 @@ tr:hover td{background:#fafaf8}
               <button class="btn bd" onclick="gdConfirm('stock','Resetear TODO el stock a cero')">Resetear stock</button>
             </div>
           </div>
+          <div class="card">
+            <h3>Caja chica</h3>
+            <div style="font-size:13px;color:#888;margin-bottom:12px">Eliminar todos los movimientos de caja chica registrados.</div>
+            <button class="btn bd" style="background:#A32D2D;color:#fff;border:none" onclick="gdConfirm('caja-chica-todos','Borrar TODOS los movimientos de caja chica')">Borrar todos los movimientos</button>
+          </div>
           <div class="card" style="border:2px solid #A32D2D">
             <h3 style="color:#A32D2D">⚠ Reinicio completo</h3>
             <div style="font-size:13px;color:#888;margin-bottom:12px">Borra absolutamente todo. El sistema queda vacío.</div>
@@ -1780,9 +1800,7 @@ tr:hover td{background:#fafaf8}
         <button id="cli-tab-ped" onclick="showCliTab('mis-pedidos',this)">Mis pedidos</button>
         <button id="cli-tab-msg" onclick="showCliTab('mensajes',this)">✉ Mensajes <span id="nb-mensajes-admin" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span></button>
         <button id="cli-tab-desc" onclick="showCliTab('descuentos',this)">Descuentos</button>
-        <button id="cli-tab-datos" onclick="showCliTab('mis-datos',this)">Mis datos</button>
-        <button id="cli-tab-info" onclick="showCliTab('info-local',this)">El local</button>
-        <button id="cli-tab-cuenta" onclick="showCliTab('mi-cuenta',this)">Mi cuenta</button>
+        <button id="cli-tab-datos" onclick="showCliTab('mis-datos',this)">Mi cuenta</button>
       </div>
       <div class="user-pill" onclick="doLogout()">cerrar sesión</div>
     </div>
@@ -1926,9 +1944,10 @@ tr:hover td{background:#fafaf8}
 
     <!-- MIS DATOS -->
     <div id="cli-sec-mis-datos" style="display:none">
-      <div style="font-size:18px;font-weight:700;margin-bottom:16px">Mis datos</div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:16px">Mi cuenta</div>
+      <div id="cli-msgs-en-cuenta" style="max-width:500px;margin-bottom:12px"></div>
       <div class="card" style="max-width:500px">
-        <h3>Actualizar mis datos</h3>
+        <h3>Mis datos</h3>
         <label>Nombre completo</label><input type="text" id="misdatos-nombre" placeholder="Nombre y apellido"/>
         <label>Teléfono</label><input type="text" id="misdatos-tel" placeholder="11-5555-1234"/>
         <label>Email</label><input type="email" id="misdatos-mail" placeholder="mail@ejemplo.com"/>
@@ -1960,30 +1979,6 @@ tr:hover td{background:#fafaf8}
       <div id="cli-mensajes-lista"><div class="empty">Sin mensajes</div></div>
     </div>
 
-    <!-- MI CUENTA (IDs únicos para evitar conflicto con cli-sec-mis-datos) -->
-    <div id="cli-sec-mi-cuenta" style="display:none">
-      <div style="font-size:18px;font-weight:700;margin-bottom:16px">Mi cuenta</div>
-      <div class="card" style="max-width:500px;margin-bottom:12px;display:none" id="cli-mensajes-cuenta-wrap">
-        <h3>✉ Mensajes del local</h3>
-        <div id="cli-mensajes-cuenta"><div class="empty">Sin mensajes</div></div>
-      </div>
-      <div class="card" style="max-width:500px">
-        <h3>Mis datos</h3>
-        <label>Nombre completo</label><input type="text" id="cuenta-nombre" placeholder="Nombre y apellido"/>
-        <label>Teléfono</label><input type="text" id="cuenta-tel" placeholder="11-5555-1234"/>
-        <label>Email</label><input type="email" id="cuenta-mail" placeholder="mail@ejemplo.com"/>
-        <label>Dirección</label><input type="text" id="cuenta-dir" placeholder="Calle y número"/>
-        <label>Barrio</label><input type="text" id="cuenta-barrio" placeholder="Barrio"/>
-        <div class="row" style="margin-top:12px">
-          <button class="btn bp" id="cuenta-btn" onclick="saveMisDatosCuenta()">Guardar cambios</button>
-        </div>
-        <div id="cuenta-ok" style="display:none;color:var(--success);font-size:13px;margin-top:8px">✓ Datos actualizados</div>
-      </div>
-      <div class="card" style="max-width:500px;margin-top:12px">
-        <h3>El local</h3>
-        <div id="cli-info-local-cuenta"><div class="empty">Cargando...</div></div>
-      </div>
-    </div>
 
     <!-- MIS PEDIDOS -->
     <div id="cli-sec-mis-pedidos" style="display:none">
@@ -2528,6 +2523,24 @@ async function loginSuccess(u,userData){
     const cliLocalEl=document.getElementById('cli-local-name');if(cliLocalEl)cliLocalEl.textContent=localName;
     document.getElementById('cli-nombre').textContent=userData.nombre||u;
     startClienteListeners();
+    // Apply portal tabs config
+    setTimeout(async()=>{
+      try{
+        const cfgSnap=await getDoc(doc(db,'users',STORE,'config','portal'));
+        const tabs=cfgSnap.exists()?cfgSnap.data().tabs||{}:{};
+        const tabMap={
+          'catalogo':'cli-tab-cat',
+          'mis-pedidos':'cli-tab-ped',
+          'descuentos':'cli-tab-desc',
+          'mensajes':'cli-tab-mensajes-admin',
+          'mis-datos':'cli-tab-datos'
+        };
+        Object.entries(tabMap).forEach(([key,btnId])=>{
+          const btn=document.getElementById(btnId);
+          if(btn)btn.style.display=tabs[key]===false?'none':'';
+        });
+      }catch(e){console.log('portal tabs apply',e);}
+    },600);
     // Show catalogo tab and render products on login
     setTimeout(()=>{
       showCliTab('catalogo',document.getElementById('cli-tab-cat'));
@@ -2798,7 +2811,7 @@ function startClienteListeners(){
 // ── SELECT HELPERS ────────────────────────────────────────────────────────────
 function buildProdOptions(){
   let h='<option value="">-- Seleccioná --</option><optgroup label="— Productos —">';
-  _productos.forEach(p=>h+=`<option value="prod|${p.id}|${p.nombre}|${p.precio}|${p.unidad||'unidad'}">${p.nombre} (${p.unidad||'unidad'}) — ${fmt(p.precio)}</option>`);
+  _productos.filter(p=>p.activo!==false).forEach(p=>h+=`<option value="prod|${p.id}|${p.nombre}|${p.precio}|${p.unidad||'unidad'}">${p.nombre} (${p.unidad||'unidad'}) — ${fmt(p.precio)}</option>`);
   h+='</optgroup>';
   const ap=_promociones.filter(p=>p.activa);
   if(ap.length){
@@ -3003,7 +3016,7 @@ window.searchProdSuggestions=function(val){
   const dd=document.getElementById('v-prod-dd');if(!dd)return;
   if(!val||val.length<1){dd.style.display='none';return;}
   const q=val.toLowerCase();
-  const prods=(_productos||[]).filter(p=>p.nombre.toLowerCase().includes(q)).slice(0,8);
+  const prods=(_productos||[]).filter(p=>p.activo!==false&&p.nombre.toLowerCase().includes(q)).slice(0,8);
   const promos=(_promociones||[]).filter(p=>p.activa&&p.nombre.toLowerCase().includes(q)).slice(0,4);
   if(!prods.length&&!promos.length){dd.style.display='none';return;}
   dd.style.display='block';
@@ -3089,6 +3102,16 @@ window.selectCli=function(id){
     if(cVentas.length)partes.push(`${cVentas.length} compra${cVentas.length!==1?'s':''} totales`);
     histEl.style.display=partes.length?'block':'none';
     histEl.textContent=partes.join(' · ');
+  }
+  // Auto-apply coupon if client has one available
+  const cupDisp=_cupones.filter(cup=>cup.clienteId===c.usuario&&!cup.usado&&cup.vence&&new Date(cup.vence)>=new Date());
+  if(cupDisp.length){
+    // Apply the best coupon (highest discount)
+    const bestCup=cupDisp.sort((a,b)=>b.descPct-a.descPct)[0];
+    _cuponAplicado=bestCup;
+    const msgEl=document.getElementById('v-cupon-msg');
+    if(msgEl){msgEl.style.display='block';msgEl.style.color='var(--success)';msgEl.textContent='✓ Cupón aplicado automáticamente: GLA-'+bestCup.codigo+' ('+bestCup.descPct+'% dto)';}
+    renderTotales();
   }
   // MOD 6: auto-apply client fixed discount
   if(c.descuentoFijo&&c.descuentoFijo>0){
@@ -3482,7 +3505,9 @@ function renderClientes(){
   const f10calc=new Date();f10calc.setDate(f10calc.getDate()-10);const f10x=f10calc.toISOString().split('T')[0];
   const isInact=(cli)=>{const ult=_ventas.filter(v=>v.cliente===cli.nombre).map(v=>v.fecha).sort().reverse()[0]||null;return(!ult||ult<f10x)&&!cli.noRecordatorio&&!(_recordatoriosEnviados?.has(cli.id));};
   const lstS=[...lst].sort((a,b)=>(isInact(b)?1:0)-(isInact(a)?1:0));
-  const lstF=_cliFiltro==='recordatorio'?lstS.filter(isInact):lstS;
+  const lstF=_cliFiltro==='todos'||!_cliFiltro ? lstS :
+    _cliFiltro==='recordatorio' ? lstS.filter(isInact) :
+    lstS.filter(cli=>getClienteSegmento(cli)===_cliFiltro);
   if(!lstF.length){el.innerHTML='<div class="empty">Sin resultados</div>';return;}
   el.innerHTML=lstF.map(c=>{
     const nv=_ventas.filter(v=>v.cliente===c.nombre).length;
@@ -3522,13 +3547,25 @@ function renderClientes(){
   }).join('');
 }
 
+window.autoGenUsuario=function(){
+  const nom=(document.getElementById('c-nom')?.value||'').trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+  const ape=(document.getElementById('c-ape')?.value||'').trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+  const userEl=document.getElementById('c-user');
+  if(userEl&&!userEl.dataset.manual){
+    userEl.value=nom+(ape?'.'+ape:'');
+  }
+};
+
+
 window.addCliente=async function(){
-  const n=document.getElementById('c-nom').value.trim();
+  const nom=document.getElementById('c-nom').value.trim();
+  const ape=document.getElementById('c-ape')?.value.trim()||'';
+  const n=(nom+(ape?' '+ape:'')).trim();
   const tel=document.getElementById('c-tel').value.trim();
   const mail=document.getElementById('c-mail').value.trim();
   const dir=document.getElementById('c-dir2').value.trim();
   const bar=document.getElementById('c-bar').value.trim();
-  if(!n){alert('El nombre es obligatorio');return;}
+  if(!nom){alert('El nombre es obligatorio');return;}
   if(!tel){alert('El teléfono es obligatorio');return;}
   if(!mail){alert('El email es obligatorio');return;}
   if(!dir){alert('La dirección es obligatoria');return;}
@@ -3548,7 +3585,7 @@ window.addCliente=async function(){
       await setDoc(doc(db,'users',usuario),{username:usuario,passHash:hash(clave),role:'cliente',parentAdmin:STORE,nombre:n,tel:document.getElementById('c-tel').value,mail:document.getElementById('c-mail').value,dir:document.getElementById('c-dir2').value,barrio:document.getElementById('c-bar').value,createdAt:today()});
     }
     await addDoc(collection(db,'users',STORE,'clientes'),{nombre:n,tel:document.getElementById('c-tel').value,mail:document.getElementById('c-mail').value,dir:document.getElementById('c-dir2').value,barrio:document.getElementById('c-bar').value,notas:document.getElementById('c-not').value,usuario:usuario||null,createdAt:today()});
-    ['c-nom','c-tel','c-mail','c-dir2','c-bar','c-not','c-user','c-clave'].forEach(id=>document.getElementById(id).value='');
+    ['c-nom','c-ape','c-tel','c-mail','c-dir2','c-bar','c-not','c-user','c-clave'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     toast('Cliente guardado'+(usuario?' con acceso al portal':''));
   }catch(e){alert('Error: '+e.message);}
   setBtn('c-btn',false,'Guardar cliente');
@@ -3806,7 +3843,7 @@ function renderProductos(){
     if(!el)return;
     if(!_productos.length){el.innerHTML='<div class="empty">Sin productos</div>';return;}
     const UNITS=['unidad','kg','g','lts','ml','porcion','docena','pack'];
-    el.innerHTML=_productos.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">Stock: ${_inv[p.nombre]?.stock||0} &nbsp;·&nbsp; Unidad: <strong>${p.unidad||'unidad'}</strong></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><input type="number" value="${p.precio}" style="width:86px;font-size:12px;padding:5px 8px" onchange="updatePrecio('${p.id}',this.value)" title="Precio"/><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verHistorialPrecios('${p.id}','${p.nombre}')">📈</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button></div></div>`).join('');
+    el.innerHTML=_productos.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">Stock: ${_inv[p.nombre]?.stock||0} &nbsp;·&nbsp; Unidad: <strong>${p.unidad||'unidad'}</strong></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><input type="number" value="${p.precio}" style="width:86px;font-size:12px;padding:5px 8px" onchange="updatePrecio('${p.id}',this.value)" title="Precio"/><button class="btn ${p.activo===false?'bd':'bs'} bsm" onclick="toggleActivoProducto('${p.id}',${p.activo!==false})">${p.activo===false?'🔴':'🟢'}</button><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verHistorialPrecios('${p.id}','${p.nombre}')">📈</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button></div></div>`).join('');
   } else {
     // Vendor view: read-only
     if(adminForm)adminForm.style.display='none';
@@ -3977,6 +4014,23 @@ window.subirFotoProducto=async function(id,input){
   };
   reader.readAsDataURL(file);
 };
+
+window.togglePromoActiva=async function(id,activa){
+  try{
+    await setDoc(doc(db,'productos',STORE),{lista:_promociones.map(p=>p.id===id?{...p,activa}:p)});
+    toast(activa?'Promoción activada':'Promoción desactivada');
+  }catch(e){alert('Error: '+e.message);}
+};
+
+
+window.toggleActivoProducto=async function(id,estaActivo){
+  const newActivo=!estaActivo;
+  try{
+    await setDoc(doc(db,'productos',STORE),{lista:_productos.map(p=>p.id===id?{...p,activo:newActivo}:p)});
+    toast(newActivo?'Producto activado':'Producto desactivado');
+  }catch(e){alert('Error: '+e.message);}
+};
+
 
 window.toggleDestacado=async function(id,destacado){
   try{await setDoc(doc(db,'productos',STORE),{lista:_productos.map(p=>p.id===id?{...p,destacado}:p)});toast(destacado?'Marcado como novedad':'Quitado de novedades');}
@@ -5444,7 +5498,7 @@ window.showCliTab=function(tab,btn){
   document.querySelectorAll('.cli-nav button').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   // Hide all sections
-  ['catalogo','novedades','mis-pedidos','mensajes','descuentos','mis-datos','info-local','mi-cuenta'].forEach(t=>{
+  ['catalogo','novedades','mis-pedidos','mensajes','descuentos','mis-datos','info-local'].forEach(t=>{
     const el=document.getElementById('cli-sec-'+t);
     if(el)el.style.display=tab===t?'block':'none';
   });
@@ -5457,7 +5511,6 @@ window.showCliTab=function(tab,btn){
   if(tab==='mensajes')renderCliMensajes();
   if(tab==='info-local')renderInfoLocal();
   if(tab==='mensajes')renderCliMensajes();
-  if(tab==='mi-cuenta')renderMiCuenta();
 };
 
 function renderCliCatalog(){
@@ -5936,8 +5989,13 @@ window.submitPedidoOnline=async function(){
   };
   try{
     await addDoc(collection(db,'users',STORE,'ventas'),pedido);
+    // Mark coupon as used (single use)
+    if(cuponUsadoId){
+      try{await updateDoc(doc(db,'users',STORE,'cupones',cuponUsadoId),{usado:true,usadoEn:today(),ventaId:'online-'+Date.now()});}catch(e){console.log('cupon mark error',e);}
+    }
     cartItems=[];cartTotal=0;
     document.getElementById('cli-obs').value='';
+    if(document.getElementById('cli-cupon'))document.getElementById('cli-cupon').value='';
     renderCliCart();
     toast('¡Pedido enviado! Te avisamos cuando lo confirmemos.');
     document.getElementById('cli-tab-ped').click();
@@ -7079,6 +7137,34 @@ window.togglePortalActivo=async function(estado){
   }catch(e){toast('Error: '+e.message,'error');}
 };
 
+window.savePortalTabs=async function(){
+  const tabs={
+    catalogo:document.getElementById('ptab-catalogo')?.checked!==false,
+    'mis-pedidos':document.getElementById('ptab-mis-pedidos')?.checked!==false,
+    descuentos:document.getElementById('ptab-descuentos')?.checked!==false,
+    mensajes:document.getElementById('ptab-mensajes')?.checked!==false,
+    'mis-datos':document.getElementById('ptab-mis-datos')?.checked!==false,
+  };
+  try{
+    await setDoc(doc(db,'users',STORE,'config','portal'),{tabs},{merge:true});
+    toast('Configuración de solapas guardada');
+  }catch(e){toast('Error: '+e.message,'error');}
+};
+
+async function loadPortalTabs(){
+  try{
+    const snap=await getDoc(doc(db,'users',STORE,'config','portal'));
+    if(snap.exists()&&snap.data().tabs){
+      const tabs=snap.data().tabs;
+      Object.entries(tabs).forEach(([key,val])=>{
+        const el=document.getElementById('ptab-'+key);
+        if(el)el.checked=val!==false;
+      });
+    }
+  }catch(e){console.log('portal tabs',e);}
+}
+
+
 window.savePortalConfig=async function(){
   const msg=document.getElementById('portal-msg-cerrado')?.value.trim()||'El portal está temporalmente cerrado. Volvemos pronto.';
   try{
@@ -7089,6 +7175,7 @@ window.savePortalConfig=async function(){
 
 // Load portal config when fidelizacion/mensajes tab opens
 async function loadPortalConfig(){
+  loadPortalTabs();
   try{
     const snap=await getDocs(collection(db,'users',STORE,'config'));
     const cfg=snap.docs.find(d=>d.id==='portal')?.data()||{};
@@ -7397,8 +7484,19 @@ function renderCajaChica(){
   const saldo=_cajaChica.reduce((a,m)=>a+m.monto,0);
   document.getElementById('caja-chica-saldo').innerHTML='Saldo caja chica: <span style="color:'+(saldo>=0?'var(--success)':'var(--danger)')+'">'+fmt(Math.abs(saldo))+'</span>';
   const tipos={retiro:'Retiro',adelanto:'Adelanto empleado',proveedor:'Pago proveedor',gasto:'Gasto menor',ingreso:'Ingreso extra',fondo:'Fondo de cambio'};
-  el.innerHTML=_cajaChica.map(m=>'<div class="pr"><div><div style="font-size:13px;font-weight:600">'+(tipos[m.tipo]||m.tipo)+(m.detalle?' — '+m.detalle:'')+'</div><div style="font-size:11px;color:#888">'+m.hora+' · '+m.creadoPor+'</div></div><span style="font-weight:700;color:'+(m.esEgreso?'var(--danger)':'var(--success)')+'">'+( m.esEgreso?'-':'+')+''+fmt(m.montoAbs)+'</span></div>').join('');
+  el.innerHTML=_cajaChica.map(m=>'<div class="pr"><div><div style="font-size:13px;font-weight:600">'+(tipos[m.tipo]||m.tipo)+(m.detalle?' — '+m.detalle:'')+'</div><div style="font-size:11px;color:#888">'+m.hora+' · '+m.creadoPor+'</div></div><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:700;color:'+(m.esEgreso?'var(--danger)':'var(--success)')+'">'+( m.esEgreso?'-':'+')+''+fmt(m.montoAbs)+'</span><button class="btn bd bsm" onclick="deleteMovCC(\''+m.id+'\')" style="padding:3px 8px;font-size:11px">✕</button></div></div>').join('');
 }
+
+window.deleteMovCC=async function(id){
+  if(!confirm('¿Eliminar este movimiento de caja chica?'))return;
+  try{
+    await deleteDoc(doc(db,'users',STORE,'caja-chica',id));
+    _cajaChica=_cajaChica.filter(x=>x.id!==id);
+    renderCajaChica();
+    logAuditoria('eliminó','caja-chica','Movimiento eliminado: '+id,'','');
+    toast('Movimiento eliminado');
+  }catch(e){alert('Error: '+e.message);}
+};
 
 // ── MENSAJES ADMIN ───────────────────────────────────────────────────────────
 let _editingMsgId=null;
@@ -8273,6 +8371,14 @@ async function gdRun(action){
     });
     await batch.commit();
     _ventas=_ventas.filter(v=>!(v.tipo==='online'&&(estado==='todos'||v.estado===estado)));
+  }
+  else if(action==='caja-chica-todos'){
+    const snap=await getDocs(collection(db,'users',STORE,'caja-chica'));
+    const batch=writeBatch(db);
+    snap.docs.forEach(d=>batch.delete(d.ref));
+    await batch.commit();
+    _cajaChica=[];renderCajaChica();
+    logAuditoria('borró','datos','Eliminados todos los movimientos de caja chica','','');
   }
   else if(action==='productos'){
     await setDoc(doc(db,'productos',STORE),{lista:[]});
