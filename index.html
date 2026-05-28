@@ -539,7 +539,7 @@ tr:hover td{background:#fafaf8}
       </div>
     </div>
 
-    <!-- STOCK (updated: solicitudes for admin) -->
+    <!-- STOCK -->
     <!-- INVENTARIO UNIFICADO -->
     <div id="sec-inventario" class="sec">
       <div class="stitle">Inventario</div>
@@ -620,13 +620,7 @@ tr:hover td{background:#fafaf8}
             <tbody id="s-inv"></tbody></table>
           </div>
         </div>
-        <div class="card" style="margin-top:0">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <h3 style="margin-bottom:0">Solicitudes para ingresar stock</h3>
-            <span id="sol-count-badge" class="badge br" style="display:none">0 pendientes</span>
-          </div>
-          <div id="sol-lista"><div class="empty">Sin solicitudes pendientes</div></div>
-        </div>
+
       </div>
       <!-- SUB-TAB: PROMOCIONES -->
       <div id="inv-proveedores" style="display:none">
@@ -2023,7 +2017,7 @@ const db = getFirestore(app);
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let CU=null, STORE=null, USER_ROLE=null, CLI_DATA=null;
 let _ventas=[], _clientes=[], _empleados=[], _inv={}, _productos=[], _promociones=[];
-let _descuentos=[], _solicitudes=[], _franjas=['10-12hs','12-14hs','14-16hs','16-18hs','18-20hs'];
+let _descuentos=[], _franjas=['10-12hs','12-14hs','14-16hs','16-18hs','18-20hs'];
 let _lotes={}; // FIFO
 let _gastos=[];
 let _cfgNegocio={};
@@ -2088,7 +2082,7 @@ function statusClass(s){
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
 const ADMIN_TABS=[['dashboard','Panel'],['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['ventas-dia','Ventas'],['caja','Caja'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['configuracion','⚙ Configuración']];
-const VEND_TABS=[['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['calendario','📅 Calendario']];
+const VEND_TABS=[['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['ventas-dia','Ventas'],['caja','Caja'],['calendario','📅 Calendario']];
 
 function buildNav(role){
   const tabs=role==='admin'?ADMIN_TABS:VEND_TABS;
@@ -2110,7 +2104,7 @@ window.showSec=function(id,btn){
   secEl.classList.add('active');
   btn.classList.add('active');
   if(id==='stock'){
-    renderInv();renderStockSel();renderSolicitudes();
+    renderInv();renderStockSel();
     // Hide cost field for vendors
     const costoWrap=document.getElementById('s-costo-wrap');
     if(costoWrap)costoWrap.style.display=USER_ROLE==='admin'?'block':'none';
@@ -2130,11 +2124,9 @@ window.showSec=function(id,btn){
   if(id==='calendario')renderCalendario();
   if(id==='informes')loadCierresMensuales();
   if(id==='turnos')initTurnos();
-  if(id==='solicitar-stock'){if(typeof renderSolProdSel==='function')renderSolProdSel();if(typeof renderMisSolicitudes==='function')renderMisSolicitudes();}
 };
 
 function updateNotifBadge(){
-  const pend=_solicitudes.filter(s=>s.estado==='pendiente').length;
   const nb=document.getElementById('nb-stock');
   if(nb){nb.textContent=pend;nb.style.display=pend>0?'inline-flex':'none';}
   const sc=document.getElementById('sol-count-badge');
@@ -2560,7 +2552,7 @@ window.doLogout=function(){
   _unsubs.forEach(f=>f());_unsubs=[];
   CU=STORE=USER_ROLE=CLI_DATA=null;
   _ventas=[];_clientes=[];_empleados=[];_inv={};_productos=[];_promociones=[];
-  _descuentos=[];_solicitudes=[];_franjas=['10-12hs','12-14hs','14-16hs','16-18hs','18-20hs'];
+  _descuentos=[];_franjas=['10-12hs','12-14hs','14-16hs','16-18hs','18-20hs'];
   _misPedidos=[];cartItems=[];cartTotal=0;
   sessionStorage.removeItem('crm_cu');
   document.getElementById('main-screen').style.display='none';
@@ -2612,13 +2604,6 @@ function startListeners(){
     _descuentos=snap.exists()?(snap.data().lista||[]):[];
     renderDescuentoSelect();
     if(document.getElementById('sec-configuracion')?.classList.contains('active'))renderDescuentos();
-    setSyncDot('ok');
-  }));
-  _unsubs.push(onSnapshot(collection(db,'users',STORE,'solicitudes'),snap=>{
-    _solicitudes=snap.docs.map(d=>({id:d.id,...d.data()}));
-    updateNotifBadge();
-    if(document.getElementById('sec-inventario')?.classList.contains('active'))renderSolicitudes();
-    if(document.getElementById('sec-solicitar-stock')?.classList.contains('active'))renderMisSolicitudes();
     setSyncDot('ok');
   }));
   // FIFO lotes listener
@@ -2827,7 +2812,6 @@ function renderProdSelect(){const s=document.getElementById('v-prod');if(s)s.inn
 function renderEditProdSelect(){const s=document.getElementById('ev-prod');if(s)s.innerHTML=buildProdOptions();}
 function renderStockSel(){const s=document.getElementById('s-prod-sel');if(s)s.innerHTML=_productos.map(p=>`<option value="${p.nombre}">${p.nombre}</option>`).join('');}
 function renderPromoSel(){const s=document.getElementById('pr-prod-sel');if(s)s.innerHTML=_productos.map(p=>`<option value="${p.nombre}">${p.nombre}</option>`).join('');}
-function renderSolProdSel(){const s=document.getElementById('sol-prod-sel');if(s)s.innerHTML=_productos.map(p=>`<option value="${p.nombre}">${p.nombre}</option>`).join('');}
 function renderDescuentoSelect(){
   const s=document.getElementById('v-desc');if(!s)return;
   s.innerHTML='<option value="">Sin descuento</option>'+_descuentos.map(d=>`<option value="${d.id}">${d.motivo} (${d.porcentaje}%)</option>`).join('');
@@ -3760,110 +3744,6 @@ async function fifoConsume(itemsList){
   if(changed)await setDoc(doc(db,'lotes',STORE),newLotes);
 }
 
-// MOD 8 Solicitudes management (admin view)
-function renderSolicitudes(){
-  const el=document.getElementById('sol-lista');
-  const pend=_solicitudes.filter(s=>s.estado==='pendiente');
-  if(!pend.length){el.innerHTML='<div class="empty">Sin solicitudes pendientes</div>';return;}
-  el.innerHTML=pend.map(s=>`
-    <div class="card" style="margin-bottom:10px;padding:12px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
-        <div>
-          <div style="font-weight:600;font-size:13px">Solicitud de <span style="color:var(--primary)">${s.vendedor}</span></div>
-          <div style="font-size:11px;color:#888">${s.fecha} ${s.hora}${s.nota?' · '+s.nota:''}</div>
-          <div style="margin-top:6px">${s.items.map(it=>`<span style="background:#f0ede8;border-radius:6px;padding:2px 8px;font-size:12px;margin-right:4px">${it.cantidad}x ${it.producto}</span>`).join('')}</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-          <button class="btn bs bsm" onclick="editSolicitud('${s.id}')">Editar</button>
-          <div style="display:flex;gap:4px">
-            <button class="btn bg-btn bsm" onclick="approveSolicitud('${s.id}')">✅ Aprobar</button>
-            <button class="btn bd bsm" onclick="rejectSolicitud('${s.id}')">❌ Rechazar</button>
-          </div>
-        </div>
-      </div>
-      <div id="sol-edit-${s.id}" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
-        <div style="font-size:12px;font-weight:600;margin-bottom:6px">Editar cantidades:</div>
-        ${s.items.map((it,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="flex:1;font-size:13px">${it.producto}</span><input type="number" value="${it.cantidad}" min="0" style="width:70px;font-size:12px;padding:4px 8px" id="sol-it-${s.id}-${i}"/></div>`).join('')}
-        <button class="btn bp bsm" style="margin-top:4px" onclick="saveSolEdit('${s.id}',${s.items.length})">Guardar cambios</button>
-      </div>
-    </div>`).join('');
-}
-
-window.editSolicitud=function(id){
-  const el=document.getElementById('sol-edit-'+id);
-  if(el)el.style.display=el.style.display==='none'?'block':'none';
-};
-
-window.saveSolEdit=async function(id,len){
-  const sol=_solicitudes.find(s=>s.id===id);if(!sol)return;
-  const newItems=sol.items.map((it,i)=>({...it,cantidad:parseInt(document.getElementById(`sol-it-${id}-${i}`).value)||0})).filter(it=>it.cantidad>0);
-  try{await updateDoc(doc(db,'users',STORE,'solicitudes',id),{items:newItems});toast('Solicitud actualizada');}
-  catch(e){alert('Error: '+e.message);}
-};
-
-window.approveSolicitud=async function(id){
-  const sol=_solicitudes.find(s=>s.id===id);if(!sol)return;
-  if(!confirm('¿Aprobar esta solicitud y sumar el stock?'))return;
-  try{
-    const newInv={..._inv};
-    for(const it of sol.items){
-      if(!newInv[it.producto])newInv[it.producto]={stock:0,alerta:5};
-      newInv[it.producto]={...newInv[it.producto],stock:newInv[it.producto].stock+it.cantidad};
-    }
-    await setDoc(doc(db,'inventario',STORE),newInv);
-    await updateDoc(doc(db,'users',STORE,'solicitudes',id),{estado:'aprobada',aprobadoPor:CU,aprobadoEn:today()});
-    toast('Solicitud aprobada y stock actualizado');
-  }catch(e){alert('Error: '+e.message);}
-};
-
-window.rejectSolicitud=async function(id){
-  if(!confirm('¿Rechazar esta solicitud?'))return;
-  try{await updateDoc(doc(db,'users',STORE,'solicitudes',id),{estado:'rechazada',rechazadoPor:CU});toast('Solicitud rechazada');}
-  catch(e){alert('Error: '+e.message);}
-};
-
-// MOD 8 Solicitar stock (vendor view)
-let solItemsList=[];
-window.addSolItem=function(){
-  const prod=document.getElementById('sol-prod-sel').value;
-  const cant=parseInt(document.getElementById('sol-cant').value)||1;
-  if(!prod)return;
-  const ex=solItemsList.findIndex(s=>s.producto===prod);
-  if(ex>=0)solItemsList[ex].cantidad+=cant;
-  else solItemsList.push({producto:prod,cantidad:cant});
-  renderSolItemsForm();
-};
-function renderSolItemsForm(){
-  const el=document.getElementById('sol-items-form');
-  if(!solItemsList.length){el.innerHTML='';return;}
-  el.innerHTML=solItemsList.map((it,i)=>`<div class="pr" style="padding:5px 0"><span style="font-size:13px">${it.cantidad}x ${it.producto}</span><button class="btn bs bsm" onclick="rmSolItem(${i})">✕</button></div>`).join('');
-}
-window.rmSolItem=function(i){solItemsList.splice(i,1);renderSolItemsForm();};
-window.submitSolicitud=async function(){
-  if(!solItemsList.length){alert('Agregá al menos un producto');return;}
-  setBtn('sol-btn',true,'Enviar solicitud');setSyncDot('syncing');
-  try{
-    await addDoc(collection(db,'users',STORE,'solicitudes'),{
-      vendedor:CU,fecha:today(),hora:ftime(),
-      items:[...solItemsList],nota:document.getElementById('sol-nota').value,
-      estado:'pendiente'
-    });
-    solItemsList=[];renderSolItemsForm();
-    document.getElementById('sol-nota').value='';
-    toast('Solicitud enviada al administrador');
-  }catch(e){alert('Error: '+e.message);}
-  setBtn('sol-btn',false,'Enviar solicitud');
-};
-function renderMisSolicitudes(){
-  const el=document.getElementById('mis-sol-lista');
-  const mias=_solicitudes.filter(s=>s.vendedor===CU).slice(0,10);
-  if(!mias.length){el.innerHTML='<div class="empty">Sin solicitudes enviadas</div>';return;}
-  el.innerHTML=mias.map(s=>{
-    const cls=s.estado==='aprobada'?'bg':s.estado==='rechazada'?'br':'ba';
-    const label=s.estado==='aprobada'?'✅ Aprobada':s.estado==='rechazada'?'❌ Rechazada':'🕐 Pendiente';
-    return`<div class="pr"><div><div style="font-size:13px;font-weight:600">${s.fecha} ${s.hora}</div><div style="font-size:11px;color:#888">${s.items.map(it=>`${it.cantidad}x ${it.producto}`).join(', ')}</div></div><span class="badge ${cls}">${label}</span></div>`;
-  }).join('');
-}
 
 // ── PRODUCTOS ─────────────────────────────────────────────────────────────────
 window.switchInvTab=function(tab,btn){
@@ -3874,7 +3754,7 @@ window.switchInvTab=function(tab,btn){
   const el=document.getElementById('inv-'+tab);if(el)el.style.display='block';
   btn.className='tab-btn active';
   if(tab==='stock'){
-    renderInv();renderStockSel();renderSolicitudes();
+    renderInv();renderStockSel();
     const costoWrap=document.getElementById('s-costo-wrap');
     if(costoWrap)costoWrap.style.display=USER_ROLE==='admin'?'block':'none';
   }
@@ -4855,17 +4735,29 @@ function updateCajaEstado(){
       vBtn.disabled=false;vBtn.title='';vBtn.style.opacity='';
     }
   }
-  // Update reopen button visibility
+  // Update buttons - ALL roles can close/reopen (with password confirmation for non-admin)
   const reopenBtn=document.getElementById('caja-reopen-btn');
-  if(reopenBtn)reopenBtn.style.display=USER_ROLE==='admin'&&_cajaCerradaHoy?'inline-flex':'none';
+  if(reopenBtn)reopenBtn.style.display=_cajaCerradaHoy?'inline-flex':'none';
   const btnReabrir2=document.getElementById('btn-reabrir-caja');
-  if(btnReabrir2)btnReabrir2.style.display=USER_ROLE==='admin'&&_cajaCerradaHoy?'inline-block':'none';
+  if(btnReabrir2)btnReabrir2.style.display=_cajaCerradaHoy?'inline-block':'none';
   const closeBtn=document.getElementById('caja-close-btn');
   if(closeBtn)closeBtn.style.display=_cajaCerradaHoy?'none':'inline-flex';
+  // Hide financial totals for non-admin
+  const cajaFinancial=document.getElementById('caja-summary-row');
+  if(cajaFinancial)cajaFinancial.style.display=USER_ROLE==='admin'?'':'none';
 }
 
 window.reabrirCaja=async function(){
   if(!confirm('¿Confirmar reapertura de la caja? Esta acción quedará registrada.'))return;
+  // Non-admin: require password confirmation
+  if(USER_ROLE!=='admin'){
+    const pass=prompt('Ingresá tu contraseña para confirmar:');
+    if(!pass)return;
+    try{
+      const snap=await getDoc(doc(db,'users',CU));
+      if(!snap.exists()||snap.data().passHash!==hash(pass)){alert('Contraseña incorrecta');return;}
+    }catch(e){alert('Error al verificar: '+e.message);return;}
+  }
   try{
     const snap=await getDocs(collection(db,'users',STORE,'cierres'));
     const hoy=today();
@@ -4896,6 +4788,7 @@ function renderCaja(){
     if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;
     if(v.descuentoMonto)descTotal+=v.descuentoMonto;
   });
+  // Always render movements (all roles see them)
   if(USER_ROLE==='admin'){
     // Descontar retiros de caja chica de efectivo/transferencia
     const hoyCC=today();
@@ -4913,7 +4806,12 @@ function renderCaja(){
     const cajaSummary=document.getElementById('caja-summary-row');
     if(cajaSummary)cajaSummary.style.display='';
   } else {
-    // Vendor: hide financial totals
+    // Vendor: show neutral message instead of amounts
+    const efEl=document.getElementById('cj-ef');if(efEl)efEl.textContent='—';
+    const trEl=document.getElementById('cj-tr');if(trEl)trEl.textContent='—';
+    const taEl=document.getElementById('cj-ta');if(taEl)taEl.textContent='—';
+    const totEl=document.getElementById('cj-tot');if(totEl)totEl.textContent='—';
+    const dscEl=document.getElementById('cj-desc');if(dscEl)dscEl.textContent='—';
     const cajaSummary=document.getElementById('caja-summary-row');
     if(cajaSummary)cajaSummary.style.display='none';
   }
@@ -4937,7 +4835,17 @@ function renderCaja(){
     `</tbody></table></div>`;
 }
 
-window.showCierreCaja=function(){
+window.showCierreCaja=async function(){
+  if(_cajaCerradaHoy){alert('La caja ya fue cerrada hoy.');return;}
+  // Non-admin: require password confirmation before closing
+  if(USER_ROLE!=='admin'){
+    const pass=prompt('Ingresá tu contraseña para cerrar la caja:');
+    if(!pass)return;
+    try{
+      const snap=await getDoc(doc(db,'users',CU));
+      if(!snap.exists()||snap.data().passHash!==hash(pass)){alert('Contraseña incorrecta');return;}
+    }catch(e){alert('Error al verificar: '+e.message);return;}
+  }
   const hv=_ventas.filter(v=>v.fecha===today());
   const online=_ventas.filter(v=>v.tipo==='online'&&v.fecha===today());
   let ef=0,tr=0,ta=0,desc=0,costo=0;
