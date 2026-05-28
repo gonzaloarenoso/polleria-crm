@@ -222,6 +222,14 @@ tr:hover td{background:#fafaf8}
 
 <!-- MAIN APP (admin + vendor) -->
 <div id="main-screen" style="display:none">
+  <!-- Botón de presencia para empleados -->
+  <div id="presencia-banner" style="display:none;background:linear-gradient(135deg,#1D9E75,#3B6D11);color:#fff;padding:14px 20px;align-items:center;justify-content:space-between;gap:12px">
+    <div>
+      <div style="font-weight:700;font-size:14px">¿Estás en el local hoy?</div>
+      <div style="font-size:12px;opacity:0.85" id="presencia-status">Registrá tu presencia del día</div>
+    </div>
+    <button id="presencia-btn" onclick="registrarPresencia()" style="background:#fff;color:#1D9E75;border:none;border-radius:20px;padding:8px 20px;font-weight:700;cursor:pointer;font-size:13px">✅ Registrar presencia</button>
+  </div>
   <div class="topbar">
     <div class="logo">&#9650; <span id="top-local">Granja Los Abuelos</span><span class="sync-dot" id="sync-dot"></span></div>
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
@@ -409,7 +417,13 @@ tr:hover td{background:#fafaf8}
           <label>Teléfono del cliente</label>
           <input type="text" id="v-teli" placeholder="Se completa automáticamente" readonly style="background:#f5f4f0"/>
           <label>Producto / Promoción</label>
-          <select id="v-prod"></select>
+          <div style="position:relative">
+            <input type="text" id="v-prod-search" placeholder="Escribí el producto o promoción..." autocomplete="off"
+              oninput="searchProdSuggestions(this.value)" onfocus="searchProdSuggestions(this.value)"
+              style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px"/>
+            <div id="v-prod-dd" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:100;max-height:220px;overflow-y:auto"></div>
+            <input type="hidden" id="v-prod"/>
+          </div>
           <div class="row">
             <div><label>Cantidad</label><input type="number" id="v-cant" value="1" min="1" style="width:78px"/></div>
             <button class="btn bs bsm" onclick="addItem()">+ Agregar</button>
@@ -670,9 +684,12 @@ tr:hover td{background:#fafaf8}
 
     <!-- PEDIDOS ONLINE (MOD 9) -->
     <div id="sec-pedidos-online" class="sec">
-      <div class="stitle" style="display:flex;justify-content:space-between;align-items:center">
+      <div class="stitle" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <span>Pedidos online</span>
-        <button id="portal-toggle-btn" onclick="togglePortalActivo()" style="font-size:12px;padding:6px 14px;border-radius:20px;border:2px solid var(--success);background:transparent;color:var(--success);font-weight:600;cursor:pointer">🟢 Portal activo</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="portal-toggle-btn" onclick="togglePortalActivo()" style="font-size:12px;padding:6px 14px;border-radius:20px;border:2px solid var(--success);background:transparent;color:var(--success);font-weight:600;cursor:pointer">🟢 Portal activo</button>
+          <button id="delivery-toggle-btn" onclick="toggleDelivery()" style="font-size:12px;padding:6px 14px;border-radius:20px;border:2px solid var(--success);background:transparent;color:var(--success);font-weight:600;cursor:pointer">🏠 Envío activo</button>
+        </div>
       </div>
       <div id="po-franjas-admin" style="display:none;margin-bottom:16px">
         <div class="card">
@@ -714,7 +731,7 @@ tr:hover td{background:#fafaf8}
           <span style="font-size:18px">🔒</span>
           <div><div style="font-weight:700;color:#A32D2D">Caja cerrada</div><div style="font-size:12px;color:#A32D2D">El resumen del día ya fue generado.</div></div>
         </div>
-        ${USER_ROLE==='admin'?'<button class="btn bs bsm" onclick="reabrirCaja()" style="color:var(--danger)">Reabrir caja</button>':''}
+        <button id="btn-reabrir-caja" class="btn bs bsm" style="color:var(--danger);display:none" onclick="reabrirCaja()">Reabrir caja</button>
       </div>
       <div id="caja-summary-row">
         <div class="g4">
@@ -1827,7 +1844,7 @@ tr:hover td{background:#fafaf8}
           <div id="cli-cart-totales" style="font-weight:700;font-size:15px;margin-bottom:12px"></div>
           <label>Tipo de entrega</label>
           <select id="cli-tipo-entrega" onchange="updateEntregaLabel()" style="margin-bottom:8px">
-            <option value="envio">Envío a domicilio</option>
+            <option value="envio" id="opt-envio">Envío a domicilio</option>
             <option value="retiro">Retiro en local</option>
           </select>
           <div id="cli-dir-entrega-wrap" style="margin-bottom:6px">
@@ -1879,6 +1896,7 @@ tr:hover td{background:#fafaf8}
 
     <!-- DESCUENTOS -->
     <div id="cli-sec-descuentos" style="display:none">
+      <div id="cli-ahorro-total" style="margin-bottom:8px"></div>
       <div style="font-size:18px;font-weight:700;margin-bottom:16px">Mis descuentos y beneficios</div>
       <!-- Ahorro último mes -->
       <div id="cli-ahorro-banner" style="background:linear-gradient(135deg,#1a1a1a,#333);border-radius:12px;padding:16px;margin-bottom:16px;color:#fff">
@@ -2045,7 +2063,7 @@ let poFilter='todos';
 let chartInst=[];
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
-const today=()=>new Date().toISOString().split('T')[0];
+const today=()=>{const d=new Date(new Date().getTime()-3*3600000);return d.toISOString().split('T')[0];};
 const fmt=n=>'$'+Math.round(n).toLocaleString('es-AR');
 const fdate=d=>new Date(d+'T12:00:00').toLocaleDateString('es-AR');
 const ftime=()=>new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
@@ -2105,7 +2123,7 @@ window.showSec=function(id,btn){
   if(id==='inventario')renderInventarioTab();
   if(id==='productos'){renderProductos();renderPromoListReadOnly();}
   if(id==='promociones')renderPromociones();
-  if(id==='pedidos-online')renderPedidosOnline();
+  if(id==='pedidos-online'){renderPedidosOnline();loadDeliveryConfig();loadPortalConfig();}
   if(id==='descuentos')renderDescuentos();
   if(id==='configuracion')renderConfiguracion();
   if(id==='mensajes-admin')renderMensajesAdmin();
@@ -2525,6 +2543,7 @@ async function loginSuccess(u,userData){
   } else {
     document.getElementById('main-screen').style.display='block';
     document.getElementById('top-local').textContent=localName;
+    if(USER_ROLE!=='admin')setTimeout(()=>checkPresenciaHoy(u),1000);
     document.getElementById('user-pill').textContent=u+' · cerrar sesión';
     const rb=document.getElementById('rbadge');
     rb.textContent=USER_ROLE==='admin'?'Admin':'Vendedor';
@@ -2533,6 +2552,7 @@ async function loginSuccess(u,userData){
       document.getElementById('po-franjas-admin').style.display='block';
     }
     buildNav(USER_ROLE);setSyncDot('syncing');startListeners();setTimeout(checkAutoArchive,8000);
+    logAuditoria('inició sesión','sistema','Login: '+u,'','');
   }
 }
 
@@ -2772,6 +2792,7 @@ function startClienteListeners(){
       .filter(m=>m.activo&&(!m.vence||new Date(m.vence)>=now))
       .sort((a,b)=>b.ts-a.ts);
     window._mensajesActivos=activos;
+    const nbCliMsg=document.getElementById('nb-mensajes-admin');if(nbCliMsg){nbCliMsg.textContent=activos.length;nbCliMsg.style.display=activos.length>0?'inline':'none';}
     // Show banner
     // Push notification only - no black banner
     if(activos.length&&'Notification' in window&&Notification.permission==='granted'){
@@ -2866,18 +2887,25 @@ function renderDash(){
   const al1=_cfgAvanzado?.vencAlerta1||{dias:10,color:'#FAC775'};
   const al2=_cfgAvanzado?.vencAlerta2||{dias:3,color:'#E24B4A'};
   const st=document.getElementById('d-stocktbl');
-  if(st)st.innerHTML=nombresValidos.slice(0,8).map(nom=>{
-    const prod=_productos.find(p=>p.nombre===nom)||{};
-    const p=_inv[nom]||{stock:0,alerta:5};const al=p.alerta||5,ok=p.stock>al*1.5,med=p.stock>al;
-    let vencStr='';
-    if(prod.vencimiento){
-      const diasVenc=Math.round((new Date(prod.vencimiento+'T12:00:00')-new Date())/(86400000));
-      if(diasVenc<0)vencStr=`<span style="font-size:10px;background:#A32D2D;color:#fff;padding:1px 5px;border-radius:4px;margin-left:4px">VENCIDO</span>`;
-      else if(diasVenc<=al2.dias)vencStr=`<span style="font-size:10px;background:${al2.color};color:#fff;padding:1px 5px;border-radius:4px;margin-left:4px">Vence en ${diasVenc}d</span>`;
-      else if(diasVenc<=al1.dias)vencStr=`<span style="font-size:10px;background:${al1.color};color:#1a1a1a;padding:1px 5px;border-radius:4px;margin-left:4px">Vence en ${diasVenc}d</span>`;
-    }
-    return`<tr><td>${nom}${vencStr}</td><td>${p.stock}</td><td><span class="badge ${ok?'bg':med?'ba':'br'}">${ok?'OK':med?'Medio':'Bajo'}</span></td></tr>`;
-  }).join('');
+  // Stock crítico: solo productos con stock <= alerta
+  const productosConAlerta=nombresValidos.filter(nom=>{
+    const p=_inv[nom]||{stock:0,alerta:5};return p.stock<=(p.alerta||5);
+  });
+  if(st){
+    if(!productosConAlerta.length){st.innerHTML='<tr><td colspan="3" style="text-align:center;color:#888;padding:12px">✅ Sin stock crítico</td></tr>';}
+    else st.innerHTML=productosConAlerta.map(nom=>{
+      const prod=_productos.find(p=>p.nombre===nom)||{};
+      const p=_inv[nom]||{stock:0,alerta:5};const al=p.alerta||5,med=p.stock>0;
+      let vencStr='';
+      if(prod.vencimiento){
+        const diasVenc=Math.round((new Date(prod.vencimiento+'T12:00:00')-new Date())/(86400000));
+        if(diasVenc<0)vencStr=`<span style="font-size:10px;background:#A32D2D;color:#fff;padding:1px 5px;border-radius:4px;margin-left:4px">VENCIDO</span>`;
+        else if(diasVenc<=al2.dias)vencStr=`<span style="font-size:10px;background:${al2.color};color:#fff;padding:1px 5px;border-radius:4px;margin-left:4px">Vence en ${diasVenc}d</span>`;
+        else if(diasVenc<=al1.dias)vencStr=`<span style="font-size:10px;background:${al1.color};color:#1a1a1a;padding:1px 5px;border-radius:4px;margin-left:4px">Vence en ${diasVenc}d</span>`;
+      }
+      return`<tr><td>${nom}${vencStr}</td><td>${p.stock}</td><td><span class="badge ${med?'ba':'br'}">${med?'Crítico':'Sin stock'}</span></td></tr>`;
+    }).join('');
+  }
   // Vencimiento alerts in updateNotifBadge
   const vencidos=_productos.filter(p=>{if(!p.vencimiento)return false;const d=Math.round((new Date(p.vencimiento+'T12:00:00')-new Date())/86400000);return d<=(al1.dias);}).length;
   const nbVenc=document.getElementById('nb-inventario');
@@ -2888,9 +2916,9 @@ function renderDash(){
 
 function renderDashCharts(){
   if(typeof Chart==='undefined')return;
-  // Ventas por día de la semana (últimos 30 días)
-  const hace30=new Date();hace30.setDate(hace30.getDate()-29);const f30=hace30.toISOString().split('T')[0];
-  const recientes=_ventas.filter(v=>v.fecha>=f30);
+  // Ventas por día de la semana — mes actual
+  const mesActualDash=today().substring(0,7);
+  const recientes=_ventas.filter(v=>v.fecha&&v.fecha.startsWith(mesActualDash));
   const dias=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
   const porDia=[0,0,0,0,0,0,0];
   recientes.forEach(v=>{const d=new Date(v.fecha+'T12:00:00').getDay();porDia[d]+=v.total;});
@@ -2912,7 +2940,7 @@ function renderDashCharts(){
   }
 }
 
-function renderVentasDia(){
+window.renderVentasDia=function(){
   const desde=document.getElementById('vd-desde')?.value||'';
   const hasta=document.getElementById('vd-hasta')?.value||'';
   const canal=document.getElementById('vd-canal-fil')?.value||'';
@@ -2937,7 +2965,7 @@ function renderVentasDia(){
     <thead><tr><th>Fecha</th><th>Hora</th><th>Cliente</th><th>Canal</th><th>Productos</th><th>Pago</th>${isAdmin?'<th>Total</th>':''}<th>Estado</th><th></th></tr></thead>
     <tbody>`+
     vf.map(v=>`<tr>
-      <td>${v.fecha}</td><td>${v.hora}</td><td>${v.cliente}</td>
+      <td>${fdate(v.fecha)}</td><td>${v.hora}</td><td>${v.cliente}</td>
       <td>${v.tipo==='online'?'Online':v.canal}</td>
       <td style="max-width:160px">${v.items.map(i=>i.cant+' '+(i.unidad||'unid.')+' '+i.nom).join(', ')}</td>
       <td>${v.pago}</td>
@@ -2985,6 +3013,43 @@ window.toggleVentaSinCliente=function(checked){
     const ind=document.getElementById('v-sin-cli-ind');if(ind)ind.remove();
   }
 };
+
+// ── BUSCADOR DE PRODUCTO EN NUEVA VENTA ──────────────────────────────────────
+window.searchProdSuggestions=function(val){
+  const dd=document.getElementById('v-prod-dd');if(!dd)return;
+  if(!val||val.length<1){dd.style.display='none';return;}
+  const q=val.toLowerCase();
+  const prods=(_productos||[]).filter(p=>p.nombre.toLowerCase().includes(q)).slice(0,8);
+  const promos=(_promociones||[]).filter(p=>p.activa&&p.nombre.toLowerCase().includes(q)).slice(0,4);
+  if(!prods.length&&!promos.length){dd.style.display='none';return;}
+  dd.style.display='block';
+  dd.innerHTML=
+    prods.map(p=>{
+      const stock=_inv[p.nombre]?.stock||0;
+      const sinStock=stock===0;
+      return'<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;'+(sinStock?'opacity:0.5':'')+'" onmousedown="selectProdSuggestion(\'prod\',\''+p.nombre+'\','+p.precio+')">'+'<div><div style="font-weight:600;font-size:13px">'+p.nombre+(p.categoria?' <span style="font-size:10px;color:#aaa">'+p.categoria+'</span>':'')+'</div><div style="font-size:11px;color:#888">'+p.unidad+' · Stock: '+stock+(sinStock?' · Sin stock':'')+'</div></div><div style="font-weight:700;color:var(--primary)">'+fmt(p.precio)+'</div></div>';
+    }).join('')+
+    promos.map(p=>{
+      const s=promoStock(p);
+      return'<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center" onmousedown="selectProdSuggestion(\'promo\',\''+p.nombre+'\','+p.precio+')">'+'<div><div style="font-weight:600;font-size:13px">🎁 '+p.nombre+'</div><div style="font-size:11px;color:#888">Promoción · Stock: '+s+'</div></div><div style="font-weight:700;color:var(--primary)">'+fmt(p.precio)+'</div></div>';
+    }).join('');
+};
+
+window.selectProdSuggestion=function(tipo,nombre,precio){
+  const hidden=document.getElementById('v-prod');
+  if(hidden)hidden.value=tipo+'||'+nombre+'||'+nombre+'|'+precio;
+  const input=document.getElementById('v-prod-search');
+  if(input)input.value=nombre;
+  const dd=document.getElementById('v-prod-dd');
+  if(dd)dd.style.display='none';
+};
+
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#v-prod-search')&&!e.target.closest('#v-prod-dd')){
+    const dd=document.getElementById('v-prod-dd');if(dd)dd.style.display='none';
+  }
+});
+
 
 window.searchCli=function(val){
   const dd=document.getElementById('cli-dd');
@@ -3054,6 +3119,9 @@ document.addEventListener('click',e=>{if(!e.target.closest('#v-cli')&&!e.target.
 
 window.addItem=function(){
   const val=document.getElementById('v-prod').value;if(!val||val==='')return;
+  // Clear search input after adding
+  const si=document.getElementById('v-prod-search');if(si)si.value='';
+  document.getElementById('v-prod').value='';
   const parts=val.split('|');const[type,refId,nom,pr]=parts;const unidad=parts[4]||'unidad';
   const cant=parseInt(document.getElementById('v-cant').value)||1;
   const precio=parseInt(pr);
@@ -3252,6 +3320,7 @@ window.doQuickReg=async function(){
     selectCli(docRef.id);
     hideQuickReg();
     toast('Cliente registrado y seleccionado: '+nombre+' '+apellido);
+      logAuditoria('creó','cliente','Nuevo cliente: '+nombre+' '+apellido+' ('+usuario+')','','');
   }catch(e){alert('Error al registrar: '+e.message);}
   setBtn('qr-btn',false,'Registrar y seleccionar');
 };
@@ -3276,12 +3345,18 @@ window.confirmar=async function(){
     const validoHasta=document.getElementById('presup-fecha')?.value||'';
     const cliNom=document.getElementById('v-cli-ok-nom')?.textContent||'';
     try{
-      await addDoc(collection(db,'users',STORE,'presupuestos'),{
+      const presupData={
         cliente:cliNom,clienteId:selectedClienteId,
         items:[...items],total:itemTotal-(ventaDescuento?Math.round(itemTotal*ventaDescuento.porcentaje/100):0),
-        fecha:today(),hora:ftime(),validoHasta,estado:'pendiente',ts:Date.now(),creadoPor:CU
-      });
+        fecha:today(),hora:ftime(),validoHasta,estado:'pendiente',ts:Date.now(),creadoPor:CU,
+        descuentoMotivo:ventaDescuento?ventaDescuento.motivo:null,
+        descuentoPct:ventaDescuento?ventaDescuento.porcentaje:0,
+        descuentoMonto:ventaDescuento?Math.round(itemTotal*ventaDescuento.porcentaje/100):0
+      };
+      const presupRef=await addDoc(collection(db,'users',STORE,'presupuestos'),presupData);
       limpiar();toast('Presupuesto guardado');renderPresupuestos();
+      // Generar comprobante automáticamente
+      imprimirComprobante({...presupData,id:presupRef.id});
     }catch(e){alert('Error: '+e.message);}
     return;
   }
@@ -3352,6 +3427,7 @@ window.confirmar=async function(){
     const cliSel=_clientes.find(x=>x.id===selectedClienteId);
     if(cliSel)await checkFidelizacion(cliSel.usuario||selectedClienteId,cliSel.nombre,finalTotal);
     limpiar();toast('Venta registrada');
+    logAuditoria('confirmó','venta','Venta presencial · $'+finalTotal,'','$'+finalTotal);
   }catch(e){alert('Error: '+e.message);}
   setBtn('v-btn',false,'Confirmar venta');
 };
@@ -3383,7 +3459,7 @@ function printTicket(v){
 
 function generateTicketContent(v){
   let html=`<div class="t-center t-bold">GRANJA LOS ABUELOS</div>
-<div class="t-center" style="font-size:10px">Caseros, Buenos Aires</div>
+<div class="t-center" style="font-size:10px">Morón, Buenos Aires</div>
 <div class="t-line"></div>
 <div>Fecha: ${v.fecha} ${v.hora}</div>
 <div>Pago: ${v.pago}</div>
@@ -3625,6 +3701,7 @@ window.updStock=async function(){
     if(document.getElementById('s-precio-venta'))document.getElementById('s-precio-venta').value='';
     document.getElementById('s-sug').style.display='none';
     toast(prod+': stock actualizado'+(costo>0?' con costo FIFO':'')+(nuevoPrecio>0?' y precio actualizado':''));
+    logAuditoria('registró','stock','Stock '+prod+': +'+cantidad,'','');
   }catch(e){alert('Error: '+e.message);}
   setBtn('s-btn',false,'Actualizar stock');
 };
@@ -3880,6 +3957,7 @@ window.addProducto=async function(){
     await setDoc(doc(db,'inventario',STORE),newInv);
     document.getElementById('p-nom').value='';document.getElementById('p-alerta').value='5';document.getElementById('p-unidad').value='unidad';const ps=document.getElementById('p-proveedor');if(ps)ps.value='';
     toast('Producto agregado');
+    logAuditoria('agregó','producto','Producto: '+nom,'','');
   }catch(e){alert('Error: '+e.message);}
   setBtn('p-btn',false,'Agregar producto');
 };
@@ -3940,7 +4018,7 @@ tr:hover td{background:#fafaf8}
 <div class="header">
   <div class="logo">▲</div>
   <h1>GRANJA LOS ABUELOS</h1>
-  <div style="font-size:14px;color:#555;margin-bottom:4px">${_cfgNegocio.dir||'Caseros, Buenos Aires'} ${_cfgNegocio.tel?'· Tel: '+_cfgNegocio.tel:''}</div>
+  <div style="font-size:14px;color:#555;margin-bottom:4px">${_cfgNegocio.dir||'Morón, Buenos Aires'} ${_cfgNegocio.tel?'· Tel: '+_cfgNegocio.tel:''}</div>
   <div class="fecha">Lista de precios actualizada: ${new Date().toLocaleDateString('es-AR')}</div>
 </div>
 <table>
@@ -4351,7 +4429,7 @@ function printFichaCliente(v,cli){
 <div class="ticket">
 <div class="tt">FICHA DEL PEDIDO</div>
 <div class="tc tb">GRANJA LOS ABUELOS</div>
-<div class="tc" style="font-size:10px">Caseros, Buenos Aires</div>
+<div class="tc" style="font-size:10px">Morón, Buenos Aires</div>
 <div class="tl"></div>
 <div class="tb">DATOS DEL CLIENTE</div>
 <div>Nombre: <strong>${c2.nombre}</strong></div>
@@ -4772,6 +4850,8 @@ function updateCajaEstado(){
   // Update reopen button visibility
   const reopenBtn=document.getElementById('caja-reopen-btn');
   if(reopenBtn)reopenBtn.style.display=USER_ROLE==='admin'&&_cajaCerradaHoy?'inline-flex':'none';
+  const btnReabrir2=document.getElementById('btn-reabrir-caja');
+  if(btnReabrir2)btnReabrir2.style.display=USER_ROLE==='admin'&&_cajaCerradaHoy?'inline-block':'none';
   const closeBtn=document.getElementById('caja-close-btn');
   if(closeBtn)closeBtn.style.display=_cajaCerradaHoy?'none':'inline-flex';
 }
@@ -4809,10 +4889,17 @@ function renderCaja(){
     if(v.descuentoMonto)descTotal+=v.descuentoMonto;
   });
   if(USER_ROLE==='admin'){
-    document.getElementById('cj-ef').textContent=fmt(ef);
-    document.getElementById('cj-tr').textContent=fmt(tr);
+    // Descontar retiros de caja chica de efectivo/transferencia
+    const hoyCC=today();
+    const ccHoyRC=(_cajaChica||[]).filter(x=>x.fecha===hoyCC&&x.esEgreso);
+    const retEf=ccHoyRC.filter(x=>x.tipo==='retiro'||(!x.tipo?.includes('cuenta')&&!x.descripcion?.toLowerCase().includes('transferencia'))).reduce((a,x)=>a+Math.abs(x.montoAbs||0),0);
+    const retTr=ccHoyRC.filter(x=>x.tipo==='retiro_cuenta'||x.descripcion?.toLowerCase().includes('transferencia')||x.descripcion?.toLowerCase().includes('cuenta')).reduce((a,x)=>a+Math.abs(x.montoAbs||0),0);
+    const efReal=Math.max(0,ef-retEf);
+    const trReal=Math.max(0,tr-retTr);
+    document.getElementById('cj-ef').textContent=fmt(efReal);
+    document.getElementById('cj-tr').textContent=fmt(trReal);
     document.getElementById('cj-ta').textContent=fmt(ta);
-    document.getElementById('cj-tot').textContent=fmt(ef+tr+ta);
+    document.getElementById('cj-tot').textContent=fmt(efReal+trReal+ta);
     document.getElementById('cj-desc').textContent=fmt(descTotal);
     document.getElementById('cj-online').textContent=onlineAll.length;
     const cajaSummary=document.getElementById('caja-summary-row');
@@ -4910,6 +4997,7 @@ window.confirmarCierreCaja=async function(){
     }
     document.getElementById('cierre-caja-wrap').style.display='none';
     toast('Caja cerrada y guardada correctamente');
+    logAuditoria('cerró','caja','Cierre de caja · $'+(cierre.total||0),'','');
     // MOD 3: Generate WhatsApp stock report link
     const tel=_cfgNegocio?.tel||'';
     if(tel){
@@ -4972,12 +5060,12 @@ window.showCajaDetalle=function(id){
 window.startEdit=function(id){
   const v=_ventas.find(x=>x.id===id);if(!v)return;
   editVentaId=id;editItems=[...v.items];editTotal=v.total;
-  document.getElementById('ev-cli').value=v.cliente;
-  document.getElementById('ev-canal').value=v.canal;
-  document.getElementById('ev-pago').value=v.pago;
-  document.getElementById('ev-obs').value=v.obs||'';
+  const evCli=document.getElementById('ev-cli');if(evCli)evCli.value=v.cliente;
+  const evCanal=document.getElementById('ev-canal');if(evCanal)evCanal.value=v.canal;
+  const evPago=document.getElementById('ev-pago');if(evPago)evPago.value=v.pago;
+  const evObs=document.getElementById('ev-obs');if(evObs)evObs.value=v.obs||'';
   renderEditItems();
-  document.getElementById('edit-wrap').style.display='block';
+  const ew=document.getElementById('edit-wrap');if(ew)ew.style.display='block';
   document.getElementById('edit-wrap').scrollIntoView({behavior:'smooth'});
 };
 function renderEditItems(){
@@ -5000,7 +5088,7 @@ window.saveEditVenta=async function(){
 window.cancelEdit=function(){editVentaId=null;editItems=[];editTotal=0;document.getElementById('edit-wrap').style.display='none';};
 window.deleteVenta=async function(id){
   if(!confirm('¿Eliminar esta venta?'))return;setSyncDot('syncing');
-  try{await deleteDoc(doc(db,'users',STORE,'ventas',id));toast('Venta eliminada');}
+  try{await deleteDoc(doc(db,'users',STORE,'ventas',id));toast('Venta eliminada');logAuditoria('eliminó','venta','Venta eliminada: '+id,'','');}
   catch(e){alert('Error: '+e.message);}
 };
 
@@ -5102,6 +5190,13 @@ window.verFichaEmp=async function(id){
     const snap=await getDocs(collection(db,'users',STORE,'turnos'));
     turnos=snap.docs.map(d=>({id:d.id,...d.data()})).filter(t=>t.empleado===(emp.usuario||emp.nombre));
   }catch(e){console.log('turnos error',e);}
+  // Load presencia
+  let presenciaMes=[];
+  try{
+    const mesActual2=today().substring(0,7);
+    const snapP=await getDocs(collection(db,'users',STORE,'presencia'));
+    presenciaMes=snapP.docs.map(d=>d.data()).filter(p=>p.usuario===emp.usuario&&p.fecha&&p.fecha.startsWith(mesActual2));
+  }catch(e){console.log('presencia error',e);}
 
   const mesActual=today().substring(0,7);
   const turnosMes=turnos.filter(t=>t.fecha&&t.fecha.startsWith(mesActual));
@@ -5129,6 +5224,13 @@ window.verFichaEmp=async function(id){
   const sueldo=emp.sueldoMensual||0;
   const valorHora=emp.valorHora||(sueldo>0&&jornada>0?Math.round(sueldo/(22*jornada)):0);
   const totalEst=valorHora>0?'$'+Math.round(totalHoras*valorHora).toLocaleString('es-AR'):'—';
+  // Cálculo por presencia
+  const diasEsperados=emp.diasEsperados||22;
+  const diasAsistidos=presenciaMes.length;
+  const diasAusentes=Math.max(0,diasEsperados-diasAsistidos);
+  const valorDia=sueldo>0?Math.round(sueldo/diasEsperados):0;
+  const descuentoAusencias=valorDia*diasAusentes;
+  const sueldoAPagar=Math.max(0,sueldo-descuentoAusencias);
   const mesNombreDisplay=new Date().toLocaleDateString('es-AR',{month:'long',year:'numeric'});
   const diasSemanaActuales=emp.diasSemana||['Lun','Mar','Mié','Jue','Vie'];
   const todosLosDias=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
@@ -5187,6 +5289,7 @@ telRow+userRow+altaRow+
 '</div>'+
 '<div class="form-row">'+
 '<div><label>Horas por jornada</label><input type="number" id="fe-horas-jornada" value="'+(emp.jornadaHoras||8)+'" min="1" max="24"/></div>'+
+'<div><label>Dias esperados por mes</label><input type="number" id="fe-dias-esperados" value="'+(emp.diasEsperados||22)+'" min="1" max="31"/></div>'+
 '<div><label>Horario entrada</label><input type="time" id="fe-hora-entrada" value="'+(emp.horarioEntrada||'09:00')+'"/></div>'+
 '<div><label>Horario salida</label><input type="time" id="fe-hora-salida" value="'+(emp.horarioSalida||'17:00')+'"/></div>'+
 '</div>'+
@@ -5194,11 +5297,18 @@ telRow+userRow+altaRow+
 '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">'+checkboxes+'</div></div>'+
 '</div>'+
 '<div class="card">'+
-'<h2>Asistencia - '+mesNombreDisplay+'</h2>'+
+'<h2>Presencia y sueldo - '+mesNombreDisplay+'</h2>'+
+(sueldo>0?'<div style="background:#f0fdf4;border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px">'+
+'<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Sueldo base mensual:</span><span style="font-weight:700">$'+sueldo.toLocaleString("es-AR")+'</span></div>'+
+'<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Dias esperados:</span><span>'+diasEsperados+'</span></div>'+
+'<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Dias con presencia registrada:</span><span style="color:green;font-weight:600">'+diasAsistidos+'</span></div>'+
+'<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Dias ausentes:</span><span style="color:red">'+diasAusentes+(diasAusentes>0?(' (−$'+descuentoAusencias.toLocaleString('es-AR')+')'):'')+'</span></div>'+
+'<div style="display:flex;justify-content:space-between;border-top:1px solid #c8e6c9;padding-top:6px;margin-top:4px"><span style="font-weight:700">Sueldo a pagar:</span><span style="font-weight:700;color:green;font-size:16px">$'+sueldoAPagar.toLocaleString("es-AR")+'</span></div>'+
+'</div>':'')+
 '<div class="grid">'+
-'<div class="stat"><div class="stat-n">'+Object.keys(diasMap).length+'</div><div class="stat-l">Dias registrados</div></div>'+
-'<div class="stat"><div class="stat-n">'+totalHoras.toFixed(1)+' hs</div><div class="stat-l">Horas trabajadas</div></div>'+
-'<div class="stat"><div class="stat-n">'+totalEst+'</div><div class="stat-l">Total estimado</div></div>'+
+'<div class="stat"><div class="stat-n">'+diasAsistidos+'</div><div class="stat-l">Dias con presencia</div></div>'+
+'<div class="stat"><div class="stat-n">'+diasAusentes+'</div><div class="stat-l">Dias ausentes</div></div>'+
+'<div class="stat"><div class="stat-n">'+(sueldo>0?'$'+sueldoAPagar.toLocaleString("es-AR"):totalEst)+'</div><div class="stat-l">'+(sueldo>0?'A pagar':'Total estimado')+'</div></div>'+
 '</div>'+asistenciaTable+
 '</div>'+
 '<script>'+
@@ -5213,11 +5323,12 @@ telRow+userRow+altaRow+
 'var valorHora=parseInt(document.getElementById("fe-valor-hora")?document.getElementById("fe-valor-hora").value:0)||0;'+
 'var sueldoMensual=modalidad==="mensual"?parseInt(document.getElementById("fe-sueldo-mensual").value)||0:0;'+
 'var jornadaHoras=parseInt(document.getElementById("fe-horas-jornada").value)||8;'+
+'var diasEsperados=parseInt(document.getElementById("fe-dias-esperados")?document.getElementById("fe-dias-esperados").value:22)||22;'+
 'var horarioEntrada=document.getElementById("fe-hora-entrada").value||"09:00";'+
 'var horarioSalida=document.getElementById("fe-hora-salida").value||"17:00";'+
 'var checked=document.querySelectorAll("input[type=checkbox]:checked");'+
 'var diasSemana=Array.from(checked).map(function(i){return i.value;});'+
-'var fields={valorHora:{integerValue:valorHora},sueldoMensual:{integerValue:sueldoMensual},jornadaHoras:{integerValue:jornadaHoras},horarioEntrada:{stringValue:horarioEntrada},horarioSalida:{stringValue:horarioSalida},diasSemana:{arrayValue:{values:diasSemana.map(function(d){return{stringValue:d};})}}};'+
+'var fields={valorHora:{integerValue:valorHora},sueldoMensual:{integerValue:sueldoMensual},jornadaHoras:{integerValue:jornadaHoras},diasEsperados:{integerValue:diasEsperados},horarioEntrada:{stringValue:horarioEntrada},horarioSalida:{stringValue:horarioSalida},diasSemana:{arrayValue:{values:diasSemana.map(function(d){return{stringValue:d};})}}};'+
 'fetch("https://firestore.googleapis.com/v1/projects/granja-los-abuelos-55288/databases/(default)/documents/users/admin/empleados/"+EMP_ID+"?updateMask.fieldPaths=valorHora&updateMask.fieldPaths=sueldoMensual&updateMask.fieldPaths=jornadaHoras&updateMask.fieldPaths=horarioEntrada&updateMask.fieldPaths=horarioSalida&updateMask.fieldPaths=diasSemana",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({fields:fields})})'+
 '.then(function(r){if(r.ok){alert("Configuracion guardada!");}else{alert("Error al guardar.");}})'+
 '.catch(function(e){alert("Error: "+e.message);});'+
@@ -5425,7 +5536,7 @@ window.showCliTab=function(tab,btn){
   if(tab==='mis-pedidos')renderMisPedidos();
 
   if(tab==='novedades')renderCliNovedades();
-  if(tab==='descuentos')renderDescuentosPortal();
+  if(tab==='descuentos'){renderDescuentosPortal();if(window.renderResumenAhorro)window.renderResumenAhorro();}
   if(tab==='mis-datos')renderMisDatos();
   if(tab==='mensajes')renderCliMensajes();
   if(tab==='info-local')renderInfoLocal();
@@ -5674,6 +5785,8 @@ window.saveMisDatos=async function(){
 };
 
 function renderCliMensajes(){
+  // Clear badge when messages viewed
+  const nb=document.getElementById('nb-cli-msg');if(nb)nb.style.display='none';
   const el=document.getElementById('cli-mensajes-lista');if(!el)return;
   const now=new Date();
   const activos=_mensajesAdmin.filter(m=>m.activo&&(!m.vence||new Date(m.vence)>=now));
@@ -5963,7 +6076,7 @@ function renderMisPedidos(){
       '<button class="btn bs bsm" style="margin-top:8px;font-size:12px" onclick="repetirPedido(\''+v.id+'\')">🔄 Volver a pedir</button>':'';
     return'<div class="card" style="margin-bottom:12px;padding:14px">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
-      '<div style="font-weight:700;font-size:13px">'+v.fecha+' '+v.hora+'</div>'+
+      '<div style="font-weight:700;font-size:13px">'+fdate(v.fecha)+' '+v.hora+'</div>'+
       '<span style="font-size:12px;color:#888">'+(v.tipoEntrega==='retiro'?'Retiro en local':'Envío a domicilio')+'</span>'+
       '</div>'+
       progressBar+
@@ -6196,6 +6309,44 @@ window.saveMisDatosCuenta=async function(){
   setBtn('cuenta-btn',false,'Guardar cambios');
 };
 
+// ── COMPROBANTE DE PRESUPUESTO ────────────────────────────────────────────────
+function imprimirComprobante(p){
+  const neg=_cfgNegocio||{};
+  const w=window.open('','_comprobante','width=500,height=700');
+  const itemsHtml=p.items.map(it=>'<tr><td>'+it.cant+'x '+it.nom+'</td><td style="text-align:right">$'+it.precio.toLocaleString("es-AR")+'</td><td style="text-align:right">$'+(it.cant*it.precio).toLocaleString("es-AR")+'</td></tr>').join('');
+  const subtotal=p.items.reduce((a,it)=>a+it.cant*it.precio,0);
+  w.document.write('<!DOCTYPE html><html><head><title>Presupuesto</title>'+
+    '<style>body{font-family:monospace;margin:20px;font-size:13px}'+
+    '.center{text-align:center}.bold{font-weight:bold}'+
+    '.line{border-top:1px dashed #999;margin:8px 0}'+
+    'table{width:100%;border-collapse:collapse}'+
+    'th,td{padding:4px 0;font-size:12px}'+
+    'th{border-bottom:1px solid #ccc;font-weight:600}'+
+    '@media print{button{display:none!important}}</style></head><body>'+
+    '<button onclick="window.print()" style="margin-bottom:16px;padding:8px 20px;font-size:13px;border:1px solid #ccc;border-radius:8px;cursor:pointer;display:block">🖨 Imprimir</button>'+
+    '<div class="center bold" style="font-size:16px">'+(neg.nombre||'Granja Los Abuelos')+'</div>'+
+    '<div class="center" style="font-size:12px;color:#666">'+(neg.dir||'Morón, Buenos Aires')+'</div>'+
+    (neg.tel?'<div class="center" style="font-size:12px;color:#666">Tel: '+neg.tel+'</div>':'')+
+    '<div class="line"></div>'+
+    '<div class="center bold" style="font-size:15px;margin:8px 0">PRESUPUESTO</div>'+
+    '<div class="center" style="font-size:12px">Fecha: '+fdate(p.fecha)+' '+p.hora+'</div>'+
+    (p.cliente?'<div class="center" style="font-size:12px">Cliente: '+p.cliente+'</div>':'')+
+    (p.validoHasta?'<div class="center" style="font-size:12px;color:#888">Válido hasta: '+fdate(p.validoHasta)+'</div>':'')+
+    '<div class="line"></div>'+
+    '<table><thead><tr><th>Producto</th><th style="text-align:right">P.Unit</th><th style="text-align:right">Subtotal</th></tr></thead><tbody>'+
+    itemsHtml+'</tbody></table>'+
+    '<div class="line"></div>'+
+    (p.descuentoMonto?'<div style="display:flex;justify-content:space-between"><span>Subtotal</span><span>$'+subtotal.toLocaleString("es-AR")+'</span></div>'+
+    '<div style="display:flex;justify-content:space-between;color:#c00"><span>Descuento '+p.descuentoPct+'%</span><span>-$'+p.descuentoMonto.toLocaleString("es-AR")+'</span></div>':'')+
+    '<div style="display:flex;justify-content:space-between;font-weight:bold;font-size:15px;margin-top:4px"><span>TOTAL</span><span>$'+p.total.toLocaleString("es-AR")+'</span></div>'+
+    '<div class="line"></div>'+
+    '<div class="center" style="font-size:11px;color:#888;margin-top:8px">Este presupuesto no es una factura oficial.</div>'+
+    '</body></html>');
+  w.document.close();
+  setTimeout(()=>w.print(),500);
+}
+
+
 async function loadCierresMensuales(){
   try{
     const snap=await getDocs(collection(db,'users',STORE,'cierres'));
@@ -6275,10 +6426,26 @@ window.generarInforme=function(){
   const total=vf.reduce((a,v)=>a+v.total,0);const nped=vf.length;
   const descuentosTotal=vf.reduce((a,v)=>a+(v.descuentoMonto||0),0);
   const costoTotal=vf.reduce((a,v)=>a+(v.costoFIFO||0),0);
+  // Gastos del período
+  const gastosPeriodo=_gastos.filter(g=>g.fecha>=desde&&g.fecha<=hasta);
+  const totalGastos=gastosPeriodo.reduce((a,g)=>a+Math.abs(g.monto||0),0);
+  // Retiros de caja chica del período
+  const retirosPeriodo=(_cajaChica||[]).filter(x=>x.fecha>=desde&&x.fecha<=hasta&&x.esEgreso&&(x.tipo==='retiro'||x.tipo==='retiro_cuenta'));
+  const totalRetiros=retirosPeriodo.reduce((a,x)=>a+Math.abs(x.montoAbs||0),0);
+  // Ganancia neta real = Facturación - Costo FIFO - Gastos
   const gananciaNeta=total-costoTotal;
+  const gananciaNtaReal=total-costoTotal-totalGastos;
   const hayFIFO=true; // Always show cost/profit metrics
   let ef=0,tr=0,ta=0;
   vf.forEach(v=>{if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;else ta+=v.total;});
+  // Descontar retiros de caja chica del medio correspondiente
+  const hoy2=today();
+  const ccHoy=_cajaChica.filter(x=>x.fecha===hoy2);
+  const retirosEfectivo=ccHoy.filter(x=>x.esEgreso&&(x.tipo==='retiro'||x.tipo==='retiro_caja'||x.descripcion?.toLowerCase().includes('efectivo')||x.categoria?.toLowerCase().includes('efectivo'))).reduce((a,x)=>a+Math.abs(x.monto||x.montoAbs||0),0);
+  const retirosTransferencia=ccHoy.filter(x=>x.esEgreso&&(x.tipo==='retiro_cuenta'||x.tipo==='retiro_transferencia'||x.descripcion?.toLowerCase().includes('transferencia')||x.categoria?.toLowerCase().includes('transferencia'))).reduce((a,x)=>a+Math.abs(x.monto||x.montoAbs||0),0);
+  const retirosGeneral=ccHoy.filter(x=>x.esEgreso&&x.tipo==='retiro'&&!x.descripcion?.toLowerCase().includes('transferencia')).reduce((a,x)=>a+Math.abs(x.monto||x.montoAbs||0),0);
+  const efReal=Math.max(0,ef-retirosGeneral-retirosEfectivo);
+  const trReal=Math.max(0,tr-retirosTransferencia);
   const canales={};vf.forEach(v=>{const c=v.tipo==='online'?'Online':v.canal;canales[c]=(canales[c]||0)+v.total;});
   const prods={};vf.forEach(v=>v.items.forEach(it=>{prods[it.nom]=(prods[it.nom]||0)+it.cant;}));
   const topProd=Object.entries(prods).sort((a,b)=>b[1]-a[1]).slice(0,6);
@@ -6324,16 +6491,31 @@ window.generarInforme=function(){
       <div class="card"><h3>Productos más vendidos</h3><div style="margin-top:10px">${topProd.map(([n,cnt])=>{const promo=_promociones.find(p=>p.nombre===n);const det=promo&&promo.componentes?` <span style="font-size:11px;color:#888">(${promo.componentes.map(comp=>comp.cantidad+' '+comp.producto).join(' + ')})</span>`:'';return`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>${n}${det}</span><span style="font-weight:600">${cnt} unid.</span></div><div style="display:flex;align-items:center"><div class="infbar-bg"><div class="infbar-fill" style="width:${Math.round(cnt/maxProd*100)}%"></div></div></div></div>`}).join('')}</div></div>
       <div class="card"><h3>Desglose por pago</h3>
         <table style="margin-top:8px"><thead><tr><th>Medio</th><th style="text-align:right">Monto</th><th style="text-align:right">%</th></tr></thead><tbody>
-          <tr><td>Efectivo</td><td style="text-align:right;font-weight:600">${fmt(ef)}</td><td style="text-align:right;color:#888">${total?Math.round(ef/total*100):0}%</td></tr>
-          <tr><td>Transferencia</td><td style="text-align:right;font-weight:600">${fmt(tr)}</td><td style="text-align:right;color:#888">${total?Math.round(tr/total*100):0}%</td></tr>
+          <tr><td>Efectivo</td><td style="text-align:right;font-weight:600">${fmt(efReal)}${retirosGeneral+retirosEfectivo>0?'<span style="font-size:10px;color:var(--danger)"> (−'+fmt(retirosGeneral+retirosEfectivo)+' retiros)</span>':''}</td><td style="text-align:right;color:#888">${total?Math.round(efReal/total*100):0}%</td></tr>
+          <tr><td>Transferencia</td><td style="text-align:right;font-weight:600">${fmt(trReal)}${retirosTransferencia>0?'<span style="font-size:10px;color:var(--danger)"> (−'+fmt(retirosTransferencia)+' retiros)</span>':''}</td><td style="text-align:right;color:#888">${total?Math.round(trReal/total*100):0}%</td></tr>
           <tr><td>Tarjeta</td><td style="text-align:right;font-weight:600">${fmt(ta)}</td><td style="text-align:right;color:#888">${total?Math.round(ta/total*100):0}%</td></tr>
           <tr style="border-top:2px solid var(--border)"><td style="font-weight:700">Total facturado</td><td style="text-align:right;font-weight:700;color:var(--success)">${fmt(total)}</td><td></td></tr>
           <tr><td style="color:var(--danger)">Descuentos</td><td style="text-align:right;color:var(--danger)">-${fmt(descuentosTotal)}</td><td></td></tr>
           ${hayFIFO?`<tr><td style="color:var(--warn)">Costo (FIFO)</td><td style="text-align:right;color:var(--warn)">-${fmt(costoTotal)}</td><td></td></tr>
-          <tr style="border-top:2px solid var(--border)"><td style="font-weight:700;color:var(--success)">Ganancia neta</td><td style="text-align:right;font-weight:700;color:var(--success)">${fmt(gananciaNeta)}</td><td style="text-align:right;color:var(--success)">${total>0?Math.round(gananciaNeta/total*100):0}%</td></tr>`:''}
+          <tr style="border-top:2px solid var(--border)"><td style="font-weight:700;color:var(--success)">Ganancia bruta</td><td style="text-align:right;font-weight:700;color:var(--success)">${fmt(gananciaNeta)}</td><td style="text-align:right;color:var(--success)">${total>0?Math.round(gananciaNeta/total*100):0}%</td></tr>
+          ${totalGastos>0?'<tr><td style="color:var(--danger)">Gastos del período</td><td style="text-align:right;color:var(--danger)">-'+fmt(totalGastos)+'</td><td></td></tr>':''}
+          ${totalGastos>0?'<tr style="border-top:2px solid var(--border)"><td style="font-weight:700;color:var(--success)">Ganancia neta real</td><td style="text-align:right;font-weight:700;color:var(--success)">'+fmt(gananciaNtaReal)+'</td><td style="text-align:right;color:var(--success)">'+(total>0?Math.round(gananciaNtaReal/total*100):0)+'%</td></tr>':''}`:''}
         </tbody></table>
       </div>
     </div>`;
+  // Append gastos y retiros section
+  if(gastosPeriodo.length||retirosPeriodo.length){
+    const extraDiv=document.createElement('div');
+    extraDiv.style.marginTop='16px';
+    extraDiv.innerHTML=
+      (gastosPeriodo.length?`<div class="card" style="margin-bottom:12px">
+        <h3>Gastos del período (${fdate(desde)} al ${fdate(hasta)})</h3>
+        <div style="overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th style="text-align:right">Monto</th></tr></thead><tbody>`+
+        gastosPeriodo.map(g=>`<tr><td>${fdate(g.fecha)}</td><td>${g.categoria||'—'}</td><td>${g.descripcion||'—'}</td><td style="text-align:right;color:var(--danger)">-${fmt(g.monto)}</td></tr>`).join('')+
+        `<tr style="border-top:2px solid var(--border)"><td colspan="3" style="font-weight:700">Total gastos</td><td style="text-align:right;font-weight:700;color:var(--danger)">-${fmt(totalGastos)}</td></tr>`+
+        `</tbody></table></div></div>`:'');
+    document.getElementById('inf-resultado').appendChild(extraDiv);
+  }
   setTimeout(()=>{
     chartInst.forEach(c=>{try{c.destroy();}catch{}});chartInst=[];
     const cl=Object.keys(canales),cv=cl.map(k=>canales[k]);
@@ -6610,6 +6792,7 @@ function renderProveedores(){
     (p.notas?'<div style="font-size:11px;color:#aaa;margin-top:4px;font-style:italic">'+p.notas+'</div>':'')+
     '</div>'+
     '<div style="display:flex;flex-direction:column;gap:4px;min-width:70px">'+
+    '<button class="btn bp bsm" onclick="verFichaProveedor(\''+p.id+'\')">' + '📋 Ficha</button>'+
     '<button class="btn bs bsm" onclick="editProveedor(\''+p.id+'\')">' + 'Editar</button>'+
     '<button class="btn bd bsm" onclick="delProveedor(\''+p.id+'\')">' + 'Eliminar</button>'+
     '</div></div></div>').join('');
@@ -6671,6 +6854,57 @@ window.verFichaProducto=async function(id){
     ventasProd.slice(0,10).map(v=>{const item=v.items.find(i=>i.nom===nom);return'<tr><td>'+v.fecha+'</td><td>'+(v.cliente||'Mostrador')+'</td><td>'+(item?.cant||0)+'</td><td>$'+(item?.precio||0).toLocaleString('es-AR')+'</td></tr>';}).join('')+
     '</tbody></table></div>':'<div class="empty">Sin ventas registradas</div>')+
     '</div>';
+};
+
+window.verFichaProveedor=async function(id){
+  const p=_proveedores.find(x=>x.id===id);if(!p)return;
+  const modal=document.getElementById('modal-overlay');if(!modal)return;
+  modal.style.display='flex';
+  modal.innerHTML='<div style="background:var(--card);border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;position:relative">'+
+    '<button onclick="document.getElementById(\'modal-overlay\').style.display=\'none\'" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:20px;cursor:pointer">✕</button>'+
+    '<div style="font-size:20px;font-weight:700;margin-bottom:4px">🏭 '+p.nombre+'</div>'+
+    (p.rubro?'<div style="font-size:12px;color:var(--primary);font-weight:600;margin-bottom:12px">'+p.rubro+'</div>':'')+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;font-size:13px">'+
+    (p.contacto?'<div><span style="color:#888">Contacto:</span> '+p.contacto+'</div>':'')+
+    (p.tel?'<div><span style="color:#888">Tel:</span> <a href="tel:'+p.tel+'" style="color:var(--primary)">'+p.tel+'</a></div>':'')+
+    (p.mail?'<div><span style="color:#888">Email:</span> '+p.mail+'</div>':'')+
+    (p.cuit?'<div><span style="color:#888">CUIT:</span> '+p.cuit+'</div>':'')+
+    (p.dir?'<div><span style="color:#888">Dirección:</span> '+p.dir+'</div>':'')+
+    (p.notas?'<div style="grid-column:1/-1"><span style="color:#888">Notas:</span> '+p.notas+'</div>':'')+
+    '</div>'+
+    '<div id="ficha-prov-compras"><div style="text-align:center;padding:20px;color:#888">⏳ Cargando historial...</div></div>'+
+    '</div>';
+  // Load stock history for this provider
+  try{
+    const snap=await getDocs(collection(db,'users',STORE,'stock-historial'));
+    const compras=snap.docs.map(d=>({id:d.id,...d.data()}))
+      .filter(s=>s.proveedor===p.nombre||s.proveedorId===id)
+      .sort((a,b)=>b.fecha?.localeCompare(a.fecha)||0);
+    const el=document.getElementById('ficha-prov-compras');if(!el)return;
+    const totalCompras=compras.reduce((a,s)=>a+(s.totalCosto||0),0);
+    const totalUnidades=compras.reduce((a,s)=>a+(s.cantidad||0),0);
+    const ultimaCompra=compras.length?compras[0].fecha:'—';
+    el.innerHTML=
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">'+
+      '<div style="background:var(--bg);border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:700">'+compras.length+'</div><div style="font-size:11px;color:#888">Compras totales</div></div>'+
+      '<div style="background:var(--bg);border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:700">$'+Math.round(totalCompras/1000)+'k</div><div style="font-size:11px;color:#888">Total gastado</div></div>'+
+      '<div style="background:var(--bg);border-radius:10px;padding:12px;text-align:center"><div style="font-size:14px;font-weight:700">'+(ultimaCompra!=='—'?fdate(ultimaCompra):'—')+'</div><div style="font-size:11px;color:#888">Última compra</div></div>'+
+      '</div>'+
+      '<div style="font-weight:700;margin-bottom:8px">Historial de compras</div>'+
+      (compras.length?'<div style="overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Costo unit.</th><th>Total</th><th>Nota</th></tr></thead><tbody>'+
+      compras.map(s=>'<tr>'+
+        '<td>'+fdate(s.fecha||'')+'</td>'+
+        '<td>'+( s.producto||'—')+'</td>'+
+        '<td>'+(s.cantidad||0)+' '+(s.unidad||'')+'</td>'+
+        '<td>'+(s.costoUnitario?'$'+s.costoUnitario.toLocaleString("es-AR"):'—')+'</td>'+
+        '<td>'+(s.totalCosto?'$'+s.totalCosto.toLocaleString("es-AR"):'—')+'</td>'+
+        '<td style="font-size:11px;color:#888">'+(s.nota||'')+'</td>'+
+        '</tr>').join('')+
+      '</tbody></table></div>':'<div class="empty">Sin historial de compras registrado</div>');
+  }catch(e){
+    const el=document.getElementById('ficha-prov-compras');
+    if(el)el.innerHTML='<div class="empty">Error al cargar historial</div>';
+  }
 };
 
 window.saveProveedor=async function(){
@@ -6805,6 +7039,99 @@ window.delArchivoEmp=async function(empId, archivoId){
     loadArchivosEmp(empId);
   }catch(e){alert('Error: '+e.message);}
 };
+
+// ── REGISTRO DE PRESENCIA ────────────────────────────────────────────────────
+window.repetirPedido=function(id){
+  const p=_misPedidos.find(x=>x.id===id);if(!p||!p.items)return;
+  // Switch to catalogo tab and pre-fill cart
+  showCliTab('catalogo',document.getElementById('cli-tab-cat'));
+  setTimeout(()=>{
+    p.items.forEach(item=>{
+      addToCart('prod',item.nom,item.precio,item.cant||1);
+    });
+    toast('Productos del pedido anterior agregados al carrito');
+  },300);
+};
+
+
+async function checkPresenciaHoy(usuario){
+  if(USER_ROLE==='admin')return;
+  const banner=document.getElementById('presencia-banner');
+  if(!banner)return;
+  banner.style.display='flex';
+  try{
+    const hoy=today();
+    const snap=await getDocs(collection(db,'users',STORE,'presencia'));
+    const yaRegistro=snap.docs.some(d=>d.data().usuario===usuario&&d.data().fecha===hoy);
+    const btn=document.getElementById('presencia-btn');
+    const status=document.getElementById('presencia-status');
+    if(yaRegistro){
+      if(btn){btn.textContent='✓ Presente hoy';btn.disabled=true;btn.style.background='#e8f5e9';btn.style.color='#2e7d32';}
+      if(status)status.textContent='Ya registraste tu presencia hoy';
+      setTimeout(()=>{if(banner)banner.style.display='none';},3000);
+    }
+  }catch(e){console.log('presencia check',e);}
+}
+
+window.registrarPresencia=async function(){
+  if(!CU)return;
+  const hoy=today();
+  const btn=document.getElementById('presencia-btn');
+  const status=document.getElementById('presencia-status');
+  if(btn){btn.disabled=true;btn.textContent='Registrando...';}
+  try{
+    const snap=await getDocs(collection(db,'users',STORE,'presencia'));
+    const yaRegistro=snap.docs.some(d=>d.data().usuario===CU&&d.data().fecha===hoy);
+    if(yaRegistro){
+      toast('Ya registraste tu presencia hoy');
+      if(btn){btn.textContent='✓ Presente hoy';btn.style.background='#e8f5e9';btn.style.color='#2e7d32';}
+      return;
+    }
+    await addDoc(collection(db,'users',STORE,'presencia'),{
+      usuario:CU,fecha:hoy,ts:Date.now(),presente:true
+    });
+    toast('✅ Presencia registrada');
+    if(btn){btn.textContent='✓ Presente hoy';btn.style.background='#e8f5e9';btn.style.color='#2e7d32';}
+    if(status)status.textContent='Presencia registrada para hoy — '+fdate(hoy);
+    setTimeout(()=>{const b=document.getElementById('presencia-banner');if(b)b.style.display='none';},3000);
+    logAuditoria('registró presencia','sistema','Presencia: '+CU+' · '+hoy,'','');
+  }catch(e){
+    toast('Error: '+e.message,'error');
+    if(btn){btn.disabled=false;btn.textContent='✅ Registrar presencia';}
+  }
+};
+
+// ── TOGGLE ENTREGA A DOMICILIO ────────────────────────────────────────────────
+let _deliveryActivo=true;
+
+window.toggleDelivery=async function(){
+  _deliveryActivo=!_deliveryActivo;
+  try{
+    await setDoc(doc(db,'users',STORE,'config','pedidos'),{deliveryActivo:_deliveryActivo},{merge:true});
+    const btn=document.getElementById('delivery-toggle-btn');
+    if(btn){
+      btn.textContent=_deliveryActivo?'🏠 Envío activo':'🏠 Envío desactivado';
+      btn.style.borderColor=_deliveryActivo?'var(--success)':'var(--danger)';
+      btn.style.color=_deliveryActivo?'var(--success)':'var(--danger)';
+    }
+    toast(_deliveryActivo?'Envío a domicilio activado':'Envío a domicilio desactivado');
+  }catch(e){toast('Error: '+e.message,'error');}
+};
+
+async function loadDeliveryConfig(){
+  try{
+    const snap=await getDoc(doc(db,'users',STORE,'config','pedidos'));
+    if(snap.exists()){
+      _deliveryActivo=snap.data().deliveryActivo!==false;
+      const btn=document.getElementById('delivery-toggle-btn');
+      if(btn){
+        btn.textContent=_deliveryActivo?'🏠 Envío activo':'🏠 Envío desactivado';
+        btn.style.borderColor=_deliveryActivo?'var(--success)':'var(--danger)';
+        btn.style.color=_deliveryActivo?'var(--success)':'var(--danger)';
+      }
+    }
+  }catch(e){console.log('delivery config',e);}
+}
 
 // ── PORTAL ACTIVO/INACTIVO ────────────────────────────────────────────────────
 let _portalActivo=true;
@@ -7494,27 +7821,34 @@ window.deleteNivel=async function(nombre){
 // ── QR CODE ───────────────────────────────────────────────────────────────────
 function renderQR(){
   const url=window.location.href.split('?')[0];
-  const canvas=document.getElementById('qr-canvas');
   const urlEl=document.getElementById('qr-url');
   if(urlEl)urlEl.textContent=url;
-  if(!canvas)return;
-  // Simple QR using Google Charts API
-  const img=new Image();
-  img.onload=function(){const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,200,200);};
-  img.src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(url);
-  img.onerror=function(){
-    const ctx=canvas.getContext('2d');
-    ctx.fillStyle='#f5f4f0';ctx.fillRect(0,0,200,200);
-    ctx.fillStyle='#888';ctx.font='12px Arial';ctx.textAlign='center';
-    ctx.fillText('QR: '+url,100,100);
-  };
+  // Show URL as text in canvas (no external image = no CORS)
+  const canvas=document.getElementById('qr-canvas');if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,200,200);
+  ctx.fillStyle='#1a1a1a';ctx.font='bold 13px Arial';ctx.textAlign='center';
+  ctx.fillText('Granja Los Abuelos',100,40);
+  ctx.font='11px Arial';ctx.fillStyle='#555';
+  // Draw URL wrapped
+  const words=url.replace('https://','').split('/');
+  let y=70;
+  words.forEach(w=>{if(w){ctx.fillText(w,100,y);y+=18;}});
+  // QR placeholder frame
+  ctx.strokeStyle='#D85A30';ctx.lineWidth=3;ctx.strokeRect(30,100,140,80);
+  ctx.font='10px Arial';ctx.fillStyle='#888';ctx.fillText('Escanear para acceder',100,150);
+  ctx.fillText('al portal de pedidos',100,165);
+  // Also show as img from external but in an <img> tag (not canvas) to allow download
+  const imgEl=document.getElementById('qr-img-preview');
+  if(imgEl){imgEl.crossOrigin='anonymous';imgEl.src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(url);}
 }
 
 window.downloadQR=function(){
-  const canvas=document.getElementById('qr-canvas');if(!canvas)return;
+  const url=window.location.href.split('?')[0];
   const a=document.createElement('a');
   a.download='QR-GranjaLosAbuelos.png';
-  a.href=canvas.toDataURL();a.click();
+  a.href='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(url);
+  a.target='_blank';a.click();
 };
 
 window.shareQR=function(){
@@ -7676,6 +8010,13 @@ window.loadAuditoria=async function(){
     let registros=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.ts-a.ts).slice(0,200);
     const filUser=document.getElementById('audit-fil-usuario')?.value||'';
     const filTipo=document.getElementById('audit-fil-tipo')?.value||'';
+    // Populate user filter
+    const selU=document.getElementById('audit-fil-usuario');
+    if(selU){
+      const allUsers=[...new Set(registros.map(r=>r.usuario).filter(Boolean))];
+      const curVal=selU.value;
+      selU.innerHTML='<option value="">Todos los usuarios</option>'+allUsers.map(u=>'<option value="'+u+'"'+(curVal===u?' selected':'')+'>'+u+'</option>').join('');
+    }
     if(filUser)registros=registros.filter(r=>r.usuario===filUser);
     if(filTipo)registros=registros.filter(r=>r.tipo===filTipo);
     // Populate user filter
@@ -7781,8 +8122,17 @@ function updateCCSelect(){
 
 // ── BOTÓN "VER PRODUCTOS" en login ────────────────────────────────────────────
 window.verProductosPublico=function(){
-  const url=window.location.href.split('?')[0]+'?catalogo=publico';
-  window.open(url,'_blank');
+  // Show public catalog directly without opening new tab
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('cliente-screen').style.display='block';
+  STORE='admin';USER_ROLE='publico';CU=null;
+  startClienteListeners();
+  const nav=document.querySelector('.cli-nav');
+  if(nav)nav.innerHTML='<button class="active" onclick="showCliTab(\'catalogo\',this)">🛒 Ver productos</button>';
+  const nom=document.getElementById('cli-nombre');if(nom)nom.textContent='Catálogo';
+  const banner=document.getElementById('cli-puntos-banner');if(banner)banner.style.display='none';
+  setTimeout(()=>{showCliTab('catalogo',document.querySelector('.cli-nav button'));},500);
 };
 
 window.saveCfgMensajesFid=async function(){
