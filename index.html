@@ -6610,8 +6610,8 @@ function renderProveedores(){
     (p.notas?'<div style="font-size:11px;color:#aaa;margin-top:4px;font-style:italic">'+p.notas+'</div>':'')+
     '</div>'+
     '<div style="display:flex;flex-direction:column;gap:4px;min-width:70px">'+
-    '<button class="btn bs bsm" onclick="editProveedor(''+p.id+'')">Editar</button>'+
-    '<button class="btn bd bsm" onclick="delProveedor(''+p.id+'')">Eliminar</button>'+
+    '<button class="btn bs bsm" onclick="editProveedor(\''+p.id+'\')">' + 'Editar</button>'+
+    '<button class="btn bd bsm" onclick="delProveedor(\''+p.id+'\')">' + 'Eliminar</button>'+
     '</div></div></div>').join('');
   // Update proveedor select in product form
   const sel=document.getElementById('p-proveedor');
