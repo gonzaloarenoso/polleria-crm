@@ -6746,7 +6746,7 @@ window.verArchivosEmp=async function(empId, empNombre){
     '<div style="font-size:28px;margin-bottom:6px">📁</div>'+
     '<div style="font-size:13px;font-weight:600">Subir archivo</div>'+
     '<div style="font-size:11px;color:#888;margin-top:4px">PDF, imágenes, documentos (máx. 800kb)</div>'+
-    '<input type="file" id="emp-file-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt" style="display:none" onchange="subirArchivoEmp(''+empId+'',this)"/>'+
+    '<input type="file" id="emp-file-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt" style="display:none" onchange="subirArchivoEmp(\''+empId+'\',this)"/>'+
     '</div>'+
     '<div id="emp-archivos-lista"><div class="empty">Cargando...</div></div>'+
     '</div>';
@@ -6766,7 +6766,7 @@ async function loadArchivosEmp(empId){
       '</div>'+
       '<div style="display:flex;gap:6px">'+
       (a.url?'<a href="'+a.url+'" target="_blank" download="'+a.nombre+'" class="btn bs bsm" style="text-decoration:none">Descargar</a>':'')+
-      '<button class="btn bd bsm" onclick="delArchivoEmp(''+empId+'',''+a.id+'')">Eliminar</button>'+
+      '<button class="btn bd bsm" onclick="delArchivoEmp(\''+empId+'\',\''+a.id+'\'">Eliminar</button>'+
       '</div>'+
       '</div>').join('');
   }catch(e){
