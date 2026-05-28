@@ -533,6 +533,7 @@ tr:hover td{background:#fafaf8}
         <button class="tab-btn active" id="inv-tab-prods" onclick="switchInvTab('prods',this)">Productos</button>
         <button class="tab-btn" id="inv-tab-stock" onclick="switchInvTab('stock',this)">Stock</button>
         <button class="tab-btn" id="inv-tab-promos" onclick="switchInvTab('promos',this)">Promociones</button>
+        <button class="tab-btn" id="inv-tab-proveedores" onclick="switchInvTab('proveedores',this)">Proveedores</button>
       </div>
       <!-- SUB-TAB: PRODUCTOS -->
       <div id="inv-prods">
@@ -540,6 +541,8 @@ tr:hover td{background:#fafaf8}
           <div class="card">
             <h3>Agregar producto</h3>
             <label>Nombre del producto</label><input type="text" id="p-nom" placeholder="Ej: Pollo entero"/>
+            <label>Proveedor</label>
+            <select id="p-proveedor"><option value="">Sin proveedor</option></select>
             <label>Categoría</label>
             <select id="p-categoria"><option value="">Sin categoría</option></select>
             <label>Unidad de medida</label>
@@ -612,6 +615,33 @@ tr:hover td{background:#fafaf8}
         </div>
       </div>
       <!-- SUB-TAB: PROMOCIONES -->
+      <div id="inv-proveedores" style="display:none">
+        <div class="g2">
+          <div class="card">
+            <h3 id="prov-form-title">Agregar proveedor</h3>
+            <label>Nombre / Razón social *</label><input type="text" id="prov-nombre" placeholder="Ej: Distribuidora del Sur"/>
+            <label>Contacto (persona)</label><input type="text" id="prov-contacto" placeholder="Nombre del vendedor"/>
+            <label>Teléfono</label><input type="text" id="prov-tel" placeholder="11-5555-1234"/>
+            <label>Email</label><input type="email" id="prov-mail" placeholder="ventas@proveedor.com"/>
+            <label>Dirección</label><input type="text" id="prov-dir" placeholder="Calle y número"/>
+            <label>CUIT</label><input type="text" id="prov-cuit" placeholder="20-12345678-9"/>
+            <label>Categoría / Rubro</label><input type="text" id="prov-rubro" placeholder="Ej: Aves, Lácteos, Embutidos..."/>
+            <label>Notas</label><textarea id="prov-notas" rows="2" placeholder="Condiciones de pago, días de entrega, etc."></textarea>
+            <input type="hidden" id="prov-edit-id"/>
+            <div class="row" style="margin-top:12px">
+              <button class="btn bp" id="prov-btn" onclick="saveProveedor()">Guardar proveedor</button>
+              <button class="btn bs" onclick="cancelEditProv()">Cancelar</button>
+            </div>
+          </div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <h3 style="margin-bottom:0">Proveedores</h3>
+              <span id="prov-count" class="badge bb">0</span>
+            </div>
+            <div id="prov-lista"><div class="empty">Sin proveedores registrados</div></div>
+          </div>
+        </div>
+      </div>
       <div id="inv-promos" style="display:none">
         <div class="g2" id="pr-admin-form">
           <div class="card">
@@ -2040,7 +2070,7 @@ function statusClass(s){
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
 const ADMIN_TABS=[['dashboard','Panel'],['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['ventas-dia','Ventas'],['caja','Caja'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['configuracion','⚙ Configuración']];
-const VEND_TABS=[['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['calendario','📅 Calendario'],['turnos','Mis turnos']];
+const VEND_TABS=[['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['calendario','📅 Calendario']];
 
 function buildNav(role){
   const tabs=role==='admin'?ADMIN_TABS:VEND_TABS;
@@ -2644,6 +2674,18 @@ function startListeners(){
     _gastos=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.fecha.localeCompare(a.fecha));
     if(document.getElementById('cfg-gastos')?.style.display!=='none')renderGastos();
     setSyncDot('ok');
+  }));
+  // Proveedores listener
+  _unsubs.push(onSnapshot(collection(db,'users',STORE,'proveedores'),snap=>{
+    _proveedores=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+    if(document.getElementById('inv-proveedores')?.style.display!=='none')renderProveedores();
+    // Update proveedor select in product form
+    const sel=document.getElementById('p-proveedor');
+    if(sel){
+      const cur=sel.value;
+      sel.innerHTML='<option value="">Sin proveedor</option>'+_proveedores.map(p=>'<option value="'+p.nombre+'">'+p.nombre+'</option>').join('');
+      sel.value=cur;
+    }
   }));
   // Caja chica listener
   _unsubs.push(onSnapshot(collection(db,'users',STORE,'caja-chica'),snap=>{
@@ -3740,7 +3782,7 @@ function renderMisSolicitudes(){
 
 // ── PRODUCTOS ─────────────────────────────────────────────────────────────────
 window.switchInvTab=function(tab,btn){
-  ['prods','stock','promos'].forEach(t=>{
+  ['prods','stock','promos','proveedores'].forEach(t=>{
     const el=document.getElementById('inv-'+t);if(el)el.style.display='none';
     const b=document.getElementById('inv-tab-'+t);if(b)b.className='tab-btn';
   });
@@ -3752,6 +3794,7 @@ window.switchInvTab=function(tab,btn){
     if(costoWrap)costoWrap.style.display=USER_ROLE==='admin'?'block':'none';
   }
   if(tab==='prods'){renderProductos();renderPromoListReadOnly();}
+  if(tab==='proveedores'){renderProveedores();}
   if(tab==='promos'){
     if(USER_ROLE==='admin'){
       const af=document.getElementById('pr-admin-form');if(af)af.style.display='';
@@ -3798,7 +3841,7 @@ function renderProductos(){
     if(!el)return;
     if(!_productos.length){el.innerHTML='<div class="empty">Sin productos</div>';return;}
     const UNITS=['unidad','kg','g','lts','ml','porcion','docena','pack'];
-    el.innerHTML=_productos.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">Stock: ${_inv[p.nombre]?.stock||0} &nbsp;·&nbsp; Unidad: <strong>${p.unidad||'unidad'}</strong></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><input type="number" value="${p.precio}" style="width:86px;font-size:12px;padding:5px 8px" onchange="updatePrecio('${p.id}',this.value)" title="Precio"/><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verHistorialPrecios('${p.id}','${p.nombre}')">📈</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button></div></div>`).join('');
+    el.innerHTML=_productos.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">Stock: ${_inv[p.nombre]?.stock||0} &nbsp;·&nbsp; Unidad: <strong>${p.unidad||'unidad'}</strong></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><input type="number" value="${p.precio}" style="width:86px;font-size:12px;padding:5px 8px" onchange="updatePrecio('${p.id}',this.value)" title="Precio"/><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verHistorialPrecios('${p.id}','${p.nombre}')">📈</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button></div></div>`).join('');
   } else {
     // Vendor view: read-only
     if(adminForm)adminForm.style.display='none';
@@ -3826,17 +3869,16 @@ window.addProducto=async function(){
     catSel.innerHTML='<option value="">Sin categoría</option>'+
       _categorias.map(cat=>'<option value="'+cat.nombre+'">'+cat.emoji+' '+cat.nombre+'</option>').join('');
   }
-  const nom=document.getElementById('p-nom').value.trim();const precio=parseInt(document.getElementById('p-precio').value)||0;const alerta=parseInt(document.getElementById('p-alerta').value)||5;const unidad=document.getElementById('p-unidad').value||'unidad';const categoria=document.getElementById('p-categoria')?.value||'';
-  if(!nom||!precio){alert('Ingresá nombre y precio');return;}
+  const nom=document.getElementById('p-nom').value.trim();const alerta=parseInt(document.getElementById('p-alerta').value)||5;const unidad=document.getElementById('p-unidad').value||'unidad';const categoria=document.getElementById('p-categoria')?.value||'';const proveedor=document.getElementById('p-proveedor')?.value||'';
+  if(!nom){alert('Ingresá el nombre del producto');return;}
   setBtn('p-btn',true,'Agregar producto');setSyncDot('syncing');
   try{
-    const categoria=document.getElementById('p-categoria')?.value||'';
     const vencimiento=document.getElementById('p-vencimiento')?.value||'';
-    const newList=[..._productos,{id:'p'+Date.now(),nombre:nom,precio,unidad,categoria,vencimiento}];
+    const newList=[..._productos,{id:'p'+Date.now(),nombre:nom,precio:0,unidad,categoria,proveedor,vencimiento}];
     await setDoc(doc(db,'productos',STORE),{lista:newList});
     const newInv={..._inv,[nom]:{stock:0,alerta}};
     await setDoc(doc(db,'inventario',STORE),newInv);
-    document.getElementById('p-nom').value='';document.getElementById('p-precio').value='';document.getElementById('p-alerta').value='5';document.getElementById('p-unidad').value='unidad';
+    document.getElementById('p-nom').value='';document.getElementById('p-alerta').value='5';document.getElementById('p-unidad').value='unidad';const ps=document.getElementById('p-proveedor');if(ps)ps.value='';
     toast('Producto agregado');
   }catch(e){alert('Error: '+e.message);}
   setBtn('p-btn',false,'Agregar producto');
@@ -5000,6 +5042,7 @@ function renderEmp(){
         </div>
         <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
           <button class="btn bs bsm" onclick="verFichaEmp('${e.id}')">📋 Ver ficha</button>
+          <button class="btn bs bsm" onclick="verArchivosEmp('${e.id}','${e.nombre}')">📎 Archivos</button>
           <button class="btn bs bsm" onclick="generarReciboEmp('${e.id}')">💰 Recibo</button>
           <button class="btn bs bsm" onclick="toggleActivoEmp('${e.id}',${e.activo!==false})">${e.activo===false?'Activar':'Desactivar'}</button>
           ${e.usuario?`<button class="btn bs bsm" onclick="openResetPass('${e.usuario}','${e.nombre}')">🔑 Clave</button>`:''}
@@ -6544,6 +6587,222 @@ window.anularCupon=async function(id){
     await deleteDoc(doc(db,'users',STORE,'cupones',id));
     toast('Cupón anulado');
     renderCupones();
+  }catch(e){alert('Error: '+e.message);}
+};
+
+// ── PROVEEDORES ───────────────────────────────────────────────────────────────
+let _proveedores=[];
+
+function renderProveedores(){
+  const el=document.getElementById('prov-lista');if(!el)return;
+  const cnt=document.getElementById('prov-count');
+  if(cnt)cnt.textContent=_proveedores.length;
+  if(!_proveedores.length){el.innerHTML='<div class="empty">Sin proveedores registrados</div>';return;}
+  el.innerHTML=_proveedores.map(p=>'<div class="card" style="margin-bottom:8px;padding:12px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'+
+    '<div style="flex:1">'+
+    '<div style="font-weight:700;font-size:14px">'+p.nombre+'</div>'+
+    (p.rubro?'<div style="font-size:11px;color:var(--primary);font-weight:600;margin-top:2px">'+p.rubro+'</div>':'')+
+    (p.contacto?'<div style="font-size:12px;color:#555;margin-top:4px">👤 '+p.contacto+'</div>':'')+
+    (p.tel?'<div style="font-size:12px;color:#555">📱 <a href="tel:'+p.tel+'" style="color:inherit">'+p.tel+'</a></div>':'')+
+    (p.mail?'<div style="font-size:12px;color:#555">✉ '+p.mail+'</div>':'')+
+    (p.cuit?'<div style="font-size:12px;color:#888">CUIT: '+p.cuit+'</div>':'')+
+    (p.notas?'<div style="font-size:11px;color:#aaa;margin-top:4px;font-style:italic">'+p.notas+'</div>':'')+
+    '</div>'+
+    '<div style="display:flex;flex-direction:column;gap:4px;min-width:70px">'+
+    '<button class="btn bs bsm" onclick="editProveedor(''+p.id+'')">Editar</button>'+
+    '<button class="btn bd bsm" onclick="delProveedor(''+p.id+'')">Eliminar</button>'+
+    '</div></div></div>').join('');
+  // Update proveedor select in product form
+  const sel=document.getElementById('p-proveedor');
+  if(sel){
+    const cur=sel.value;
+    sel.innerHTML='<option value="">Sin proveedor</option>'+_proveedores.map(p=>'<option value="'+p.nombre+'">'+p.nombre+'</option>').join('');
+    sel.value=cur;
+  }
+}
+
+window.verFichaProducto=async function(id){
+  const prod=_productos.find(p=>p.id===id);if(!prod)return;
+  const nom=prod.nombre;
+  // Get stock history from stock movements
+  const ventasProd=_ventas.filter(v=>v.items&&v.items.some(i=>i.nom===nom));
+  const totalVendido=ventasProd.reduce((a,v)=>{
+    const item=v.items.find(i=>i.nom===nom);return a+(item?item.cant:0);
+  },0);
+  const totalFacturado=ventasProd.reduce((a,v)=>{
+    const item=v.items.find(i=>i.nom===nom);return a+(item?item.cant*item.precio:0);
+  },0);
+  const stockActual=_inv[nom]?.stock||0;
+  const prov=_proveedores.find(p=>p.nombre===prod.proveedor);
+  
+  // Get stock entries (compras)
+  let compras=[];
+  try{
+    const snap=await getDocs(collection(db,'users',STORE,'stock-historial'));
+    compras=snap.docs.map(d=>({id:d.id,...d.data()})).filter(s=>s.producto===nom).sort((a,b)=>b.fecha?.localeCompare(a.fecha));
+  }catch(e){console.log('stock historial',e);}
+
+  // Price history from stock entries
+  const preciosHist=[...new Set(compras.filter(s=>s.costoUnitario).map(s=>({fecha:s.fecha,costo:s.costoUnitario,precioVenta:s.precioVenta||prod.precio})))];
+
+  const modal=document.getElementById('modal-overlay');
+  if(!modal)return;
+  modal.style.display='flex';
+  modal.innerHTML='<div style="background:var(--card);border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;position:relative">'+
+    '<button onclick="document.getElementById('modal-overlay').style.display='none'" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:20px;cursor:pointer">✕</button>'+
+    '<div style="font-size:20px;font-weight:700;margin-bottom:4px">📦 '+nom+'</div>'+
+    '<div style="font-size:12px;color:var(--primary);font-weight:600;margin-bottom:16px">'+prod.unidad+(prod.categoria?' · '+prod.categoria:'')+( prod.proveedor?' · '+prod.proveedor:'')+'</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">'+
+    '<div style="background:var(--bg);border-radius:10px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:700">'+stockActual+'</div><div style="font-size:11px;color:#888">Stock actual</div></div>'+
+    '<div style="background:var(--bg);border-radius:10px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:700">'+totalVendido+'</div><div style="font-size:11px;color:#888">Total vendido</div></div>'+
+    '<div style="background:var(--bg);border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:700">$'+Math.round(totalFacturado/1000)+'k</div><div style="font-size:11px;color:#888">Facturado total</div></div>'+
+    '</div>'+
+    '<div style="font-weight:700;margin-bottom:8px">Precio de venta actual</div>'+
+    '<div style="font-size:18px;color:var(--primary);font-weight:700;margin-bottom:16px">$'+( prod.precio||0).toLocaleString('es-AR')+'</div>'+
+    (prov?'<div class="card" style="margin-bottom:16px;padding:12px"><div style="font-weight:600;margin-bottom:6px">Proveedor</div>'+
+    '<div style="font-size:13px"><strong>'+prov.nombre+'</strong>'+(prov.contacto?' · '+prov.contacto:'')+( prov.tel?'<br>📱 '+prov.tel:'')+'</div></div>':'')+
+    '<div style="font-weight:700;margin-bottom:8px">Historial de compras de stock</div>'+
+    (compras.length?'<div style="overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Cantidad</th><th>Costo unit.</th><th>Total</th><th>Proveedor</th></tr></thead><tbody>'+
+    compras.map(s=>'<tr><td>'+( s.fecha||'—')+'</td><td>'+s.cantidad+' '+prod.unidad+'</td><td>'+(s.costoUnitario?'$'+s.costoUnitario.toLocaleString('es-AR'):'—')+'</td><td>'+(s.totalCosto?'$'+s.totalCosto.toLocaleString('es-AR'):'—')+'</td><td>'+(s.proveedor||prod.proveedor||'—')+'</td></tr>').join('')+
+    '</tbody></table></div>':'<div class="empty">Sin historial de compras registrado</div>')+
+    '<div style="font-weight:700;margin:16px 0 8px">Últimas 10 ventas</div>'+
+    (ventasProd.length?'<div style="overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Cant.</th><th>Precio</th></tr></thead><tbody>'+
+    ventasProd.slice(0,10).map(v=>{const item=v.items.find(i=>i.nom===nom);return'<tr><td>'+v.fecha+'</td><td>'+(v.cliente||'Mostrador')+'</td><td>'+(item?.cant||0)+'</td><td>$'+(item?.precio||0).toLocaleString('es-AR')+'</td></tr>';}).join('')+
+    '</tbody></table></div>':'<div class="empty">Sin ventas registradas</div>')+
+    '</div>';
+};
+
+window.saveProveedor=async function(){
+  const nombre=document.getElementById('prov-nombre').value.trim();
+  if(!nombre){alert('El nombre es obligatorio');return;}
+  const id=document.getElementById('prov-edit-id').value;
+  const data={
+    nombre,
+    contacto:document.getElementById('prov-contacto').value.trim(),
+    tel:document.getElementById('prov-tel').value.trim(),
+    mail:document.getElementById('prov-mail').value.trim(),
+    dir:document.getElementById('prov-dir').value.trim(),
+    cuit:document.getElementById('prov-cuit').value.trim(),
+    rubro:document.getElementById('prov-rubro').value.trim(),
+    notas:document.getElementById('prov-notas').value.trim(),
+    ts:Date.now()
+  };
+  setBtn('prov-btn',true,'Guardando...');
+  try{
+    if(id){
+      await updateDoc(doc(db,'users',STORE,'proveedores',id),data);
+      toast('Proveedor actualizado');
+    } else {
+      await addDoc(collection(db,'users',STORE,'proveedores'),data);
+      toast('Proveedor guardado');
+    }
+    cancelEditProv();
+  }catch(e){alert('Error: '+e.message);}
+  setBtn('prov-btn',false,'Guardar proveedor');
+};
+
+window.editProveedor=function(id){
+  const p=_proveedores.find(x=>x.id===id);if(!p)return;
+  document.getElementById('prov-edit-id').value=id;
+  document.getElementById('prov-nombre').value=p.nombre||'';
+  document.getElementById('prov-contacto').value=p.contacto||'';
+  document.getElementById('prov-tel').value=p.tel||'';
+  document.getElementById('prov-mail').value=p.mail||'';
+  document.getElementById('prov-dir').value=p.dir||'';
+  document.getElementById('prov-cuit').value=p.cuit||'';
+  document.getElementById('prov-rubro').value=p.rubro||'';
+  document.getElementById('prov-notas').value=p.notas||'';
+  document.getElementById('prov-form-title').textContent='Editar proveedor';
+  document.getElementById('prov-btn').textContent='Guardar cambios';
+  document.getElementById('inv-proveedores').scrollIntoView({behavior:'smooth'});
+};
+
+window.cancelEditProv=function(){
+  document.getElementById('prov-edit-id').value='';
+  ['prov-nombre','prov-contacto','prov-tel','prov-mail','prov-dir','prov-cuit','prov-rubro','prov-notas'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  document.getElementById('prov-form-title').textContent='Agregar proveedor';
+  document.getElementById('prov-btn').textContent='Guardar proveedor';
+};
+
+window.delProveedor=async function(id){
+  if(!confirm('¿Eliminar este proveedor?'))return;
+  try{await deleteDoc(doc(db,'users',STORE,'proveedores',id));toast('Proveedor eliminado');}
+  catch(e){alert('Error: '+e.message);}
+};
+
+// ── ARCHIVOS DE EMPLEADOS ────────────────────────────────────────────────────
+window.verArchivosEmp=async function(empId, empNombre){
+  const modal=document.getElementById('modal-overlay');
+  if(!modal)return;
+  modal.style.display='flex';
+  modal.innerHTML='<div style="background:var(--card);border-radius:16px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;position:relative">'+
+    '<button onclick="document.getElementById('modal-overlay').style.display='none'" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:20px;cursor:pointer">✕</button>'+
+    '<div style="font-size:18px;font-weight:700;margin-bottom:4px">📎 Archivos — '+empNombre+'</div>'+
+    '<div style="font-size:12px;color:#888;margin-bottom:16px">PDF, fotos, notas y documentos del empleado</div>'+
+    '<div style="border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;margin-bottom:16px;cursor:pointer" onclick="document.getElementById('emp-file-input').click()">'+
+    '<div style="font-size:28px;margin-bottom:6px">📁</div>'+
+    '<div style="font-size:13px;font-weight:600">Subir archivo</div>'+
+    '<div style="font-size:11px;color:#888;margin-top:4px">PDF, imágenes, documentos (máx. 800kb)</div>'+
+    '<input type="file" id="emp-file-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt" style="display:none" onchange="subirArchivoEmp(''+empId+'',this)"/>'+
+    '</div>'+
+    '<div id="emp-archivos-lista"><div class="empty">Cargando...</div></div>'+
+    '</div>';
+  loadArchivosEmp(empId);
+};
+
+async function loadArchivosEmp(empId){
+  const el=document.getElementById('emp-archivos-lista');if(!el)return;
+  try{
+    const snap=await getDocs(collection(db,'users',STORE,'empleados',empId,'archivos'));
+    const archivos=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.ts-a.ts);
+    if(!archivos.length){el.innerHTML='<div class="empty">Sin archivos cargados</div>';return;}
+    el.innerHTML=archivos.map(a=>'<div class="pr" style="flex-wrap:wrap;gap:8px">'+
+      '<div style="flex:1">'+
+      '<div style="font-weight:600;font-size:13px">'+a.nombre+'</div>'+
+      '<div style="font-size:11px;color:#888">'+a.tipo+' · '+new Date(a.ts).toLocaleDateString('es-AR')+(a.notas?' · '+a.notas:'')+'</div>'+
+      '</div>'+
+      '<div style="display:flex;gap:6px">'+
+      (a.url?'<a href="'+a.url+'" target="_blank" download="'+a.nombre+'" class="btn bs bsm" style="text-decoration:none">Descargar</a>':'')+
+      '<button class="btn bd bsm" onclick="delArchivoEmp(''+empId+'',''+a.id+'')">Eliminar</button>'+
+      '</div>'+
+      '</div>').join('');
+  }catch(e){
+    if(el)el.innerHTML='<div class="empty">Error al cargar archivos</div>';
+  }
+}
+
+window.subirArchivoEmp=async function(empId, input){
+  const file=input.files[0];if(!file)return;
+  if(file.size>819200){alert('El archivo supera el tamaño máximo de 800kb');input.value='';return;}
+  const el=document.getElementById('emp-archivos-lista');
+  if(el)el.innerHTML='<div style="text-align:center;padding:20px;color:#888">⏳ Subiendo archivo...</div>';
+  const reader=new FileReader();
+  reader.onload=async function(e){
+    try{
+      await addDoc(collection(db,'users',STORE,'empleados',empId,'archivos'),{
+        nombre:file.name,
+        tipo:file.type||'archivo',
+        url:e.target.result,
+        ts:Date.now(),
+        creadoPor:CU
+      });
+      toast('✅ Archivo subido');
+      loadArchivosEmp(empId);
+    }catch(err){alert('Error al guardar: '+err.message);}
+    input.value='';
+  };
+  reader.readAsDataURL(file);
+};
+
+window.delArchivoEmp=async function(empId, archivoId){
+  if(!confirm('¿Eliminar este archivo?'))return;
+  try{
+    await deleteDoc(doc(db,'users',STORE,'empleados',empId,'archivos',archivoId));
+    toast('Archivo eliminado');
+    loadArchivosEmp(empId);
   }catch(e){alert('Error: '+e.message);}
 };
 
