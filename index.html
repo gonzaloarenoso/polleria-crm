@@ -5799,46 +5799,52 @@ telRow+userRow+altaRow+
 
 window.generarReciboEmp=async function(id){
   const emp=_empleados.find(x=>x.id===id);if(!emp)return;
-  // Load turnos for this month
-  let turnos=[];
-  try{
-    const snap=await getDocs(collection(db,'users',STORE,'turnos'));
-    turnos=snap.docs.map(d=>({id:d.id,...d.data()})).filter(t=>t.empleado===(emp.usuario||emp.nombre));
-  }catch(e){}
 
   const mesActual=today().substring(0,7);
-  const turnosMes=turnos.filter(t=>t.fecha&&t.fecha.startsWith(mesActual));
-  const diasMap={};
-  turnosMes.forEach(t=>{
-    if(!diasMap[t.fecha])diasMap[t.fecha]={entrada:null,salida:null};
-    if(t.tipo==='entrada')diasMap[t.fecha].entrada=t.hora;
-    if(t.tipo==='salida')diasMap[t.fecha].salida=t.hora;
-  });
+  const diasEsperados=emp.diasEsperados||22;
+  const sueldo=emp.sueldoMensual||0;
 
-  let totalHoras=0;let diasTrabajados=0;
-  Object.values(diasMap).forEach(d=>{
-    if(d.entrada&&d.salida){
-      const h=Math.max(0,(new Date('2000-01-01T'+d.salida)-new Date('2000-01-01T'+d.entrada))/3600000);
-      totalHoras+=h;diasTrabajados++;
+  // Cargar presencia (mismo cálculo que la ficha)
+  let presenciaMes=[];
+  try{
+    const snapP=await getDocs(collection(db,'users',STORE,'presencia'));
+    presenciaMes=snapP.docs.map(d=>d.data()).filter(p=>p.usuario===emp.usuario&&p.fecha&&p.fecha.startsWith(mesActual));
+  }catch(e){console.log('presencia error',e);}
+
+  const diasAsistidos=presenciaMes.filter(p=>!p.ausente).length;
+  const diasAusentes=Math.max(0,diasEsperados-diasAsistidos);
+  const valorDia=sueldo>0?Math.round(sueldo/diasEsperados):0;
+  const descAusencias=valorDia*diasAusentes;
+  const totalNeto=sueldo-descAusencias;
+
+  // Calcular qué días específicos son ausentes (días laborales sin presencia registrada como presente)
+  // Generar todos los días laborales del mes
+  const [anioM,mesM]=mesActual.split('-').map(Number);
+  const diasEnMes=new Date(anioM,mesM,0).getDate();
+  const diasSemana=emp.diasSemana||['Lun','Mar','Mie','Jue','Vie'];
+  const mapDow={'Dom':0,'Lun':1,'Mar':2,'Mie':3,'Jue':4,'Vie':5,'Sab':6};
+  const dowActivos=new Set(diasSemana.map(d=>mapDow[d]??mapDow[d.substring(0,3)]));
+  const diasPresentesSet=new Set(presenciaMes.filter(p=>!p.ausente).map(p=>p.fecha));
+  const listaDiasAusentes=[];
+  for(let d=1;d<=diasEnMes;d++){
+    const fecha=mesActual+'-'+String(d).padStart(2,'0');
+    const dow=new Date(fecha+'T12:00:00').getDay();
+    if(dowActivos.has(dow)&&!diasPresentesSet.has(fecha)){
+      // formato corto dd/mm
+      listaDiasAusentes.push(String(d).padStart(2,'0')+'/'+String(mesM).padStart(2,'0'));
     }
-  });
+  }
 
-  const jornada=emp.jornadaHoras||8;
-  const diasEsperados=(emp.diasSemana?.length||5)*4; // approx 4 weeks
-  const valorHora=emp.valorHora||(emp.sueldoMensual?Math.round(emp.sueldoMensual/(diasEsperados*jornada)):0);
-  const sueldoBase=emp.sueldoMensual||Math.round(totalHoras*valorHora);
-  const descAusencias=emp.sueldoMensual&&diasEsperados>0&&diasTrabajados<diasEsperados?
-    Math.round(emp.sueldoMensual/diasEsperados*(diasEsperados-diasTrabajados)):0;
-  const totalNeto=sueldoBase-descAusencias;
   const mesNombre=new Date().toLocaleDateString('es-AR',{month:'long',year:'numeric'});
   const local=_cfgNegocio?.nombre||'Granja Los Abuelos';
 
   const w=window.open('','_recibo','width=500,height=700');
   const usuarioRow=emp.usuario?'<div class="row"><span>Usuario:</span><span>'+emp.usuario+'</span></div>':'';
-  const liquidRow=emp.sueldoMensual?
-    '<div class="row"><span>Sueldo mensual:</span><span>$'+Math.round(emp.sueldoMensual).toLocaleString('es-AR')+'</span></div>':
-    '<div class="row"><span>Valor hora:</span><span>$'+valorHora.toLocaleString('es-AR')+'</span></div><div class="row"><span>Horas trabajadas:</span><span>'+totalHoras.toFixed(1)+' hs</span></div>';
-  const descRow=descAusencias>0?'<div class="row"><span>Desc. ausencias ('+( diasEsperados-diasTrabajados)+'d):</span><span>-$'+Math.round(descAusencias).toLocaleString('es-AR')+'</span></div>':'';
+  // Listar fechas ausentes en grupos de 5 por renglón
+  const ausentesChunks=[];
+  for(let i=0;i<listaDiasAusentes.length;i+=5)ausentesChunks.push(listaDiasAusentes.slice(i,i+5).join('  '));
+  const ausentesDetalle=ausentesChunks.length?ausentesChunks.map(r=>'<div style="font-size:10px;color:#555;margin-left:8px">'+r+'</div>').join(''):'';
+  const descRow=descAusencias>0?'<div class="row"><span>Desc. ausencias ('+diasAusentes+'d):</span><span>-$'+Math.round(descAusencias).toLocaleString('es-AR')+'</span></div>':'';
   const html='<!DOCTYPE html><html><head><title>Recibo: '+emp.nombre+'</title>'+
 '<style>body{font-family:monospace;margin:20px;font-size:12px;color:#1a1a1a}'+
 '.ticket{width:90mm;margin:0 auto;max-width:340px}'+
@@ -5862,11 +5868,13 @@ usuarioRow+
 '<div class="line"></div>'+
 '<div class="bold">ASISTENCIA</div>'+
 '<div class="row"><span>Dias esperados:</span><span>'+diasEsperados+'</span></div>'+
-'<div class="row"><span>Dias trabajados:</span><span>'+diasTrabajados+'</span></div>'+
-'<div class="row"><span>Horas totales:</span><span>'+totalHoras.toFixed(1)+' hs</span></div>'+
+'<div class="row"><span>Dias trabajados:</span><span>'+diasAsistidos+'</span></div>'+
+'<div class="row"><span>Dias ausentes:</span><span>'+diasAusentes+'</span></div>'+
+ausentesDetalle+
 '<div class="line"></div>'+
 '<div class="bold">LIQUIDACION</div>'+
-liquidRow+descRow+
+'<div class="row"><span>Sueldo mensual:</span><span>$'+Math.round(sueldo).toLocaleString('es-AR')+'</span></div>'+
+descRow+
 '<div class="dline"></div>'+
 '<div class="row big"><span>TOTAL NETO:</span><span>$'+Math.round(totalNeto).toLocaleString('es-AR')+'</span></div>'+
 '<div class="line"></div>'+
