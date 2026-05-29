@@ -5843,7 +5843,7 @@ window.generarReciboEmp=async function(id){
   // Listar fechas ausentes en grupos de 5 por renglón
   const ausentesChunks=[];
   for(let i=0;i<listaDiasAusentes.length;i+=5)ausentesChunks.push(listaDiasAusentes.slice(i,i+5).join('  '));
-  const ausentesDetalle=ausentesChunks.length?ausentesChunks.map(r=>'<div style="font-size:10px;color:#555;margin-left:8px">'+r+'</div>').join(''):'';
+  const ausentesDetalle=ausentesChunks.length?ausentesChunks.map(r=>'<div class="row" style="margin-left:4px">'+r+'</div>').join(''):'';
   const descRow=descAusencias>0?'<div class="row"><span>Desc. ausencias ('+diasAusentes+'d):</span><span>-$'+Math.round(descAusencias).toLocaleString('es-AR')+'</span></div>':'';
   const html='<!DOCTYPE html><html><head><title>Recibo: '+emp.nombre+'</title>'+
 '<style>@page{size:50mm auto;margin:0}body{margin:0;padding:2mm 3mm;font-family:\'Courier New\',Courier,monospace;font-size:15px;line-height:1.4;font-weight:bold;color:#1a1a1a}.ticket{width:100%}.center{text-align:center}.bold{font-weight:bold}.line{border-top:1px solid #000;margin:4px 0}.dline{border-top:2px solid #000;margin:4px 0}.row{display:flex;justify-content:space-between;margin:2px 0;font-size:13px}.big{font-size:14px;font-weight:bold}@media print{button{display:none!important}body{padding:1mm 2mm}}</style></head><body>'+
