@@ -3751,7 +3751,7 @@ window.printTicket=function(v,tipo){
   if(!tipo)tipo='cliente';
   const esDup=tipo==='local';
   const neg=_cfgNegocio||{};
-  const W=32; // characters per line for 58mm paper
+  const W=28; // characters per line for 50mm paper
   function pad(left,right,total){
     if(total===undefined)total=W;
     if(!right){return left.substring(0,total);}
@@ -3810,8 +3810,8 @@ window.printTicket=function(v,tipo){
   const w=window.open('','_ticket'+(esDup?'_dup':''),'width=400,height=600');
   w.document.write(`<!DOCTYPE html><html><head><title>Ticket${esDup?' - DUPLICADO':''}</title>
 <style>
-@page{size:58mm auto;margin:0}
-body{margin:0;padding:2mm 3mm;font-family:'Courier New',Courier,monospace;font-size:15px;line-height:1.4}
+@page{size:50mm auto;margin:0}
+body{margin:0;padding:2mm 3mm;font-family:'Courier New',Courier,monospace;font-size:15px;line-height:1.4;font-weight:bold}
 pre{margin:0;padding:0;white-space:pre;font-family:inherit;font-size:inherit}
 img.logo{width:80%;max-width:46mm;display:block;margin:0 auto 4px auto}
 @media print{button{display:none!important}.no-print{display:none!important}body{padding:1mm 2mm}}
@@ -5272,33 +5272,32 @@ window.showCierreCaja=async function(){
 
   const wrap=document.getElementById('cierre-caja-wrap');
   const content=document.getElementById('cierre-caja-content');
+  const isAdminCierre=(USER_ROLE==='admin');
   content.innerHTML=`
-    <div class="g4" style="margin-bottom:16px">
+    ${isAdminCierre?`<div class="g4" style="margin-bottom:16px">
       <div class="mc"><div class="mc-l">Operaciones</div><div class="mc-v">${hv.length}</div></div>
       <div class="mc"><div class="mc-l">Total vendido</div><div class="mc-v" style="color:var(--success)">${fmt(totalEsperado)}</div></div>
       <div class="mc"><div class="mc-l">A acreditar neto</div><div class="mc-v" style="color:var(--success)">${fmt(totalAcreditado)}</div></div>
       ${costo>0?`<div class="mc"><div class="mc-l">Ganancia bruta</div><div class="mc-v" style="color:var(--success)">${fmt(ganancia)}</div></div>`:''}
-    </div>
+    </div>`:''}
     <div style="margin-bottom:16px">
       <h3 style="margin-bottom:10px">Verificación de cobros</h3>
       <table style="width:100%">
-        <thead><tr><th>Medio</th><th style="text-align:right">Vendido</th><th style="text-align:right">Comisión</th><th style="text-align:right">Acreditado</th><th style="text-align:right">Real contado</th></tr></thead>
+        <thead><tr><th>Medio</th><th style="text-align:right">${isAdminCierre?'Vendido':''}</th>${isAdminCierre?'<th style="text-align:right">Comisión</th><th style="text-align:right">Acreditado</th>':''}<th style="text-align:right">Real contado</th></tr></thead>
         <tbody>
           <tr>
             <td><strong>Efectivo</strong></td>
-            <td style="text-align:right">${fmt(ef)}</td>
-            <td style="text-align:right">—</td>
-            <td style="text-align:right">${fmt(ef)}</td>
+            ${isAdminCierre?`<td style="text-align:right">${fmt(ef)}</td><td style="text-align:right">—</td><td style="text-align:right">${fmt(ef)}</td>`:''}
             <td style="text-align:right"><input type="number" id="cc-ef-real" value="${ef}" style="width:110px;text-align:right;font-weight:700;border:2px solid var(--primary);border-radius:6px;padding:4px 6px" onchange="calcDiferencias()"/></td>
           </tr>
-          ${tr>0?`<tr>
+          ${isAdminCierre&&tr>0?`<tr>
             <td><strong>Transferencia</strong></td>
             <td style="text-align:right">${fmt(tr)}</td>
             <td style="text-align:right;color:var(--danger)">${comTr>0?'-'+fmt(tr-trAcred)+' ('+(_cfgNegocio?.comisionTransferencia||0)+'%)'  :'—'}</td>
             <td style="text-align:right">${fmt(trAcred)}</td>
             <td style="text-align:right"><input type="number" id="cc-tr-real" value="${trAcred}" style="width:110px;text-align:right;border:2px solid var(--primary);border-radius:6px;padding:4px 6px" onchange="calcDiferencias()"/></td>
           </tr>`:''}
-          ${ta>0?`<tr>
+          ${isAdminCierre&&ta>0?`<tr>
             <td><strong>Tarjeta</strong></td>
             <td style="text-align:right">${fmt(ta)}</td>
             <td style="text-align:right;color:var(--danger)">${comDeb>0?'-'+fmt(ta-taAcred)+' ('+(_cfgNegocio?.comisionDebito||0)+'%)'  :'—'}</td>
