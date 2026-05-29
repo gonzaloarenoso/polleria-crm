@@ -5842,7 +5842,7 @@ window.generarReciboEmp=async function(id){
   const usuarioRow=emp.usuario?'<div class="row"><span>Usuario:</span><span>'+emp.usuario+'</span></div>':'';
   // Listar fechas ausentes en grupos de 5 por renglón
   const ausentesChunks=[];
-  for(let i=0;i<listaDiasAusentes.length;i+=5)ausentesChunks.push(listaDiasAusentes.slice(i,i+5).join('  '));
+  for(let i=0;i<listaDiasAusentes.length;i+=4)ausentesChunks.push(listaDiasAusentes.slice(i,i+4).join(' '));
   const ausentesDetalle=ausentesChunks.length?ausentesChunks.map(r=>'<div class="row" style="margin-left:4px">'+r+'</div>').join(''):'';
   const descRow=descAusencias>0?'<div class="row"><span>Desc. ausencias ('+diasAusentes+'d):</span><span>-$'+Math.round(descAusencias).toLocaleString('es-AR')+'</span></div>':'';
   const html='<!DOCTYPE html><html><head><title>Recibo: '+emp.nombre+'</title>'+
