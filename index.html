@@ -3461,6 +3461,12 @@ window.confirmar=async function(){
       if(it.esPromo){
         const promo=_promociones.find(p=>p.id===it.refId);
         if(promo){for(const comp of promo.componentes){if(newInv[comp.producto]){newInv[comp.producto]={...newInv[comp.producto],stock:Math.max(0,newInv[comp.producto].stock-comp.cantidad*it.cant)};changed=true;}}}
+      } else {
+        // Descuento stock para productos normales
+        if(newInv[it.nom]){
+          newInv[it.nom]={...newInv[it.nom],stock:Math.max(0,(newInv[it.nom].stock||0)-it.cant)};
+          changed=true;
+        }
       }
     }
     if(changed)await setDoc(doc(db,'inventario',STORE),newInv);
