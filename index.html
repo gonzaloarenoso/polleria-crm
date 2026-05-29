@@ -5838,7 +5838,7 @@ window.generarReciboEmp=async function(id){
   const mesNombre=new Date().toLocaleDateString('es-AR',{month:'long',year:'numeric'});
   const local=_cfgNegocio?.nombre||'Granja Los Abuelos';
 
-  const w=window.open('','_recibo','width=500,height=700');
+  const w=window.open('','_recibo','width=240,height=800');
   const usuarioRow=emp.usuario?'<div class="row"><span>Usuario:</span><span>'+emp.usuario+'</span></div>':'';
   // Listar fechas ausentes en grupos de 5 por renglón
   const ausentesChunks=[];
@@ -5846,16 +5846,8 @@ window.generarReciboEmp=async function(id){
   const ausentesDetalle=ausentesChunks.length?ausentesChunks.map(r=>'<div style="font-size:10px;color:#555;margin-left:8px">'+r+'</div>').join(''):'';
   const descRow=descAusencias>0?'<div class="row"><span>Desc. ausencias ('+diasAusentes+'d):</span><span>-$'+Math.round(descAusencias).toLocaleString('es-AR')+'</span></div>':'';
   const html='<!DOCTYPE html><html><head><title>Recibo: '+emp.nombre+'</title>'+
-'<style>body{font-family:monospace;margin:20px;font-size:12px;color:#1a1a1a}'+
-'.ticket{width:90mm;margin:0 auto;max-width:340px}'+
-'.center{text-align:center}.bold{font-weight:bold}'+
-'.line{border-top:1px solid #000;margin:6px 0}'+
-'.dline{border-top:2px solid #000;margin:6px 0}'+
-'.row{display:flex;justify-content:space-between;margin:3px 0}'+
-'.big{font-size:15px;font-weight:bold}'+
-'@media print{button{display:none!important}}'+
-'</style></head><body>'+
-'<button onclick="window.print()" style="margin-bottom:16px;padding:8px 20px;font-size:13px;cursor:pointer;border:1px solid #ccc;border-radius:8px;display:block">Imprimir recibo</button>'+
+'<style>@page{size:50mm auto;margin:0}body{margin:0;padding:2mm 3mm;font-family:\'Courier New\',Courier,monospace;font-size:15px;line-height:1.4;font-weight:bold;color:#1a1a1a}.ticket{width:100%}.center{text-align:center}.bold{font-weight:bold}.line{border-top:1px solid #000;margin:4px 0}.dline{border-top:2px solid #000;margin:4px 0}.row{display:flex;justify-content:space-between;margin:2px 0;font-size:13px}.big{font-size:14px;font-weight:bold}@media print{button{display:none!important}body{padding:1mm 2mm}}</style></head><body>'+
+'<div class="no-print" style="padding:8px"><button onclick="window.print()" style="padding:6px 16px;font-size:12px;cursor:pointer;border:1px solid #ccc;border-radius:6px">Imprimir recibo</button></div>'+
 '<div class="ticket">'+
 '<div class="center bold" style="font-size:15px">'+local.toUpperCase()+'</div>'+
 '<div class="center" style="margin-bottom:4px">RECIBO DE HABERES</div>'+
