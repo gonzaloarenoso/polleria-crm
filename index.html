@@ -730,6 +730,27 @@ tr:hover td{background:#fafaf8}
         </div>
         <button id="btn-reabrir-caja" class="btn bs bsm" style="color:var(--danger);display:none" onclick="reabrirCaja()">Reabrir caja</button>
       </div>
+      <!-- RECEPCIÓN DE TURNO -->
+      <div id="recepcion-turno-wrap" style="display:none;background:linear-gradient(135deg,#1D9E75,#3B6D11);border-radius:12px;padding:18px;margin-bottom:16px;color:#fff">
+        <div style="font-size:16px;font-weight:700;margin-bottom:4px">📋 Recepción de turno</div>
+        <div style="font-size:13px;opacity:0.9;margin-bottom:14px">El turno anterior dejó efectivo en caja. Contá el dinero y confirmá.</div>
+        <div style="background:rgba(255,255,255,0.15);border-radius:8px;padding:12px;margin-bottom:12px">
+          <div style="font-size:13px;opacity:0.8">Efectivo declarado por turno anterior:</div>
+          <div style="font-size:28px;font-weight:700" id="recep-monto-esperado">—</div>
+          <div style="font-size:12px;opacity:0.7" id="recep-quien-dejo">—</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label style="font-size:12px;opacity:0.9;display:block;margin-bottom:4px">Monto real contado ($)</label>
+            <input type="number" id="recep-monto-real" placeholder="Ingresá el monto contado" style="width:100%;padding:8px;border-radius:6px;border:none;font-size:14px;font-weight:700"/>
+          </div>
+          <div>
+            <label style="font-size:12px;opacity:0.9;display:block;margin-bottom:4px">Observación (opcional)</label>
+            <input type="text" id="recep-obs" placeholder="Ej: faltaban $500..." style="width:100%;padding:8px;border-radius:6px;border:none;font-size:13px"/>
+          </div>
+        </div>
+        <button onclick="confirmarRecepcionTurno()" style="background:#fff;color:#1D9E75;border:none;border-radius:20px;padding:10px 28px;font-weight:700;cursor:pointer;font-size:14px">✅ Confirmar recepción de turno</button>
+      </div>
       <div id="caja-summary-row">
         <div class="g4">
           <div class="mc"><div class="mc-l">Efectivo</div><div class="mc-v" id="cj-ef">$0</div></div>
@@ -1016,6 +1037,15 @@ tr:hover td{background:#fafaf8}
             <label>Dirección</label><input type="text" id="cfg-dir-local" placeholder="Calle y número, Caseros"/>
             <label>Teléfono</label><input type="text" id="cfg-tel-local" placeholder="11-5555-1234"/>
             <label>Horario de atención</label><input type="text" id="cfg-horario" placeholder="Lun-Sab 9-20hs"/>
+            <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">
+              <h3 style="margin-bottom:8px">Comisiones por medio de pago</h3>
+              <div style="font-size:12px;color:#888;margin-bottom:10px">Se descuentan del total acreditado en el cierre de caja.</div>
+              <div class="g2" style="gap:8px">
+                <div><label>Transferencia (%)</label><input type="number" id="cfg-com-transferencia" placeholder="0.6" step="0.1" min="0" max="100"/></div>
+                <div><label>Tarjeta débito (%)</label><input type="number" id="cfg-com-debito" placeholder="0.8" step="0.1" min="0" max="100"/></div>
+                <div><label>Tarjeta crédito (%)</label><input type="number" id="cfg-com-credito" placeholder="3.5" step="0.1" min="0" max="100"/></div>
+              </div>
+            </div>
             <div class="row" style="margin-top:12px"><button class="btn bp" id="cfg-neg-btn" onclick="saveCfgNegocio()">Guardar datos</button></div>
           </div>
           <div class="card">
@@ -2104,7 +2134,7 @@ window.showSec=function(id,btn){
     const costoWrap=document.getElementById('s-costo-wrap');
     if(costoWrap)costoWrap.style.display=USER_ROLE==='admin'?'block':'none';
   }
-  if(id==='caja'){renderCaja();}
+  if(id==='caja'){renderCaja();setTimeout(checkRecepcionTurno,500);}
   if(id==='clientes')renderClientes();
   if(id==='empleados'){renderEmp();}
   if(id==='dashboard')renderDash();
@@ -2979,7 +3009,20 @@ window.clearVentasFilter=function(){
 };
 window.reprintTicket=function(id){
   const v=_ventas.find(x=>x.id===id);if(!v)return;
-  printTicket(v);
+  const modal=document.getElementById('modal-overlay');
+  if(modal){
+    modal.style.display='flex';
+    modal.innerHTML='<div style="background:var(--card);border-radius:16px;padding:24px;max-width:340px;width:100%;text-align:center">'+
+      '<div style="font-size:16px;font-weight:700;margin-bottom:16px">🖨 ¿Qué querés imprimir?</div>'+
+      '<div style="display:flex;flex-direction:column;gap:10px">'+
+      '<button class="btn bp" onclick="printTicket(window._lastVenta,\'cliente\');document.getElementById(\'modal-overlay\').style.display=\'none\'">🖨 Ticket original (cliente)</button>'+
+      '<button class="btn bs" onclick="printTicket(window._lastVenta,\'local\');document.getElementById(\'modal-overlay\').style.display=\'none\'">🖨 Duplicado — copia local</button>'+
+      '<button class="btn bs" onclick="document.getElementById(\'modal-overlay\').style.display=\'none\'">Cancelar</button>'+
+      '</div></div>';
+    window._lastVenta=v;
+  } else {
+    printTicketAmbos(v);
+  }
 };
 
 // ── NUEVA VENTA (updated with discount MOD 6) ──────────────────────────────────
@@ -3408,7 +3451,7 @@ window.confirmar=async function(){
       // Offline: save to IndexedDB
       const saved=await saveOfflineSale(venta);
       if(saved){
-        printTicket(venta); // Always print ticket on confirm
+        printTicketAmbos(venta);
         limpiar();toast('Sin conexión — venta guardada localmente. Se sincronizará al reconectarse.');
         setBtn('v-btn',false,'Confirmar venta');return;
       }
@@ -3434,7 +3477,7 @@ window.confirmar=async function(){
     }
     await fifoConsume(items);
     await updateDoc(doc(db,'users',STORE,'ventas',docRef.id),{costoFIFO:costoTotal,gananciaNeta:finalTotal-costoTotal});
-    printTicket(venta);
+    printTicketAmbos(venta);
     // Mark coupon as used
     if(cuponId)await updateDoc(doc(db,'users',STORE,'cupones',cuponId),{usado:true,usadoEn:today(),ventaId:docRef.id});
     _cuponAplicado=null;
@@ -3448,49 +3491,73 @@ window.confirmar=async function(){
 };
 
 // ── MOD 7: PRINT TICKET ───────────────────────────────────────────────────────
-function printTicket(v){
-  const tc=generateTicketContent(v);
-  const w=window.open('','_ticket','width=420,height=700');
-  w.document.write(`<!DOCTYPE html><html><head><title>Ticket</title>
-<style>body{margin:10px;font-family:monospace;font-size:11px}
-.ticket{width:72mm;margin:0 auto}
+function printTicket(v,tipo='cliente'){
+  const tc=generateTicketContent(v,tipo);
+  const esDup=tipo==='local';
+  const w=window.open('','_ticket'+(esDup?'_dup':''),'width=380,height=600');
+  w.document.write(`<!DOCTYPE html><html><head><title>Ticket${esDup?' - DUPLICADO':''}</title>
+<style>
+@page{size:58mm auto;margin:2mm}
+body{margin:0;padding:4px;font-family:'Courier New',monospace;font-size:13px;width:54mm}
+.ticket{width:54mm}
 .t-center{text-align:center}
-.t-bold{font-weight:bold;font-size:13px}
-.t-line{border-top:1px solid #000;margin:4px 0}
-.t-row{display:flex;justify-content:space-between}
-.t-sep{border-top:2px dashed #000;margin:8px 0;text-align:center;font-size:9px;letter-spacing:3px}
-.t-type{font-size:14px;font-weight:bold;text-align:center;background:#000;color:#fff;padding:3px;margin-bottom:6px}
-@media print{body{margin:0}button{display:none!important}}
+.t-bold{font-weight:bold;font-size:15px}
+.t-line{border-top:1px dashed #000;margin:5px 0}
+.t-row{display:flex;justify-content:space-between;font-size:13px}
+.t-type{font-size:16px;font-weight:bold;text-align:center;background:#000;color:#fff;padding:4px;margin-bottom:8px;letter-spacing:2px}
+.t-dup{font-size:14px;font-weight:bold;text-align:center;background:#555;color:#fff;padding:3px;margin-bottom:8px;letter-spacing:1px}
+.t-nome{font-size:16px;font-weight:bold;text-align:center}
+.t-sub{font-size:11px;text-align:center;color:#555}
+.t-item{font-size:13px}
+.t-total{font-size:17px;font-weight:bold}
+@media print{body{margin:0;padding:2px}button{display:none!important}.no-print{display:none!important}}
 </style></head><body>
-<button onclick="window.print()" style="margin-bottom:12px;padding:8px 20px;font-size:14px;cursor:pointer">Imprimir</button>
+<div class="no-print" style="margin-bottom:10px"><button onclick="window.print()" style="padding:8px 20px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #ccc">🖨 Imprimir</button></div>
 <div class="ticket">
-<div class="t-type">ORIGINAL</div>${tc}
-<div class="t-sep">✂ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ✂</div>
-<div class="t-type">COPIA</div>${tc}
+${esDup?'<div class="t-dup">★ DUPLICADO — COPIA LOCAL ★</div>':'<div class="t-type">TICKET ORIGINAL</div>'}
+${tc}
 </div>
 </body></html>`);
   w.document.close();
 }
 
-function generateTicketContent(v){
-  let html=`<div class="t-center t-bold">GRANJA LOS ABUELOS</div>
-<div class="t-center" style="font-size:10px">Morón, Buenos Aires</div>
-<div class="t-line"></div>
-<div>Fecha: ${v.fecha} ${v.hora}</div>
-<div>Pago: ${v.pago}</div>
-<div class="t-line"></div>`;
+function printTicketAmbos(v){
+  // Print original first, then after user action, print duplicate
+  printTicket(v,'cliente');
+  // Show option to print duplicate
+  setTimeout(()=>{
+    const div=document.createElement('div');
+    div.id='dup-prompt';
+    div.style.cssText='position:fixed;bottom:20px;right:20px;background:#1a1a1a;color:#fff;border-radius:12px;padding:16px 20px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.3);display:flex;align-items:center;gap:12px;font-size:14px';
+    div.innerHTML='<span>✅ Ticket impreso</span><button onclick="printTicket(window._lastVenta,\'local\');document.getElementById(\'dup-prompt\').remove()" style="background:#D85A30;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:700;font-size:13px">🖨 Imprimir duplicado</button><button onclick="document.getElementById(\'dup-prompt\').remove()" style="background:rgba(255,255,255,0.2);color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:12px">Omitir</button>';
+    document.body.appendChild(div);
+    window._lastVenta=v;
+    setTimeout(()=>{const d=document.getElementById('dup-prompt');if(d)d.remove();},15000);
+  },800);
+}
+
+function generateTicketContent(v,tipo='cliente'){
+  const neg=_cfgNegocio||{};
+  let html=`<div class="t-nome">${neg.nombre||'GRANJA LOS ABUELOS'}</div>`;
+  html+=`<div class="t-sub">${neg.dir||'Morón, Buenos Aires'}</div>`;
+  if(neg.tel)html+=`<div class="t-sub">Tel: ${neg.tel}</div>`;
+  html+=`<div class="t-line"></div>`;
+  html+=`<div style="font-size:12px">Fecha: ${fdate(v.fecha)} ${v.hora}</div>`;
+  if(v.cliente&&v.cliente!=='Mostrador')html+=`<div style="font-size:12px">Cliente: ${v.cliente}</div>`;
+  html+=`<div class="t-line"></div>`;
   v.items.forEach(it=>{
-    html+=`<div class="t-row"><span>${it.cant}x ${it.nom}</span><span>${fmt(it.precio*it.cant)}</span></div>`;
+    html+=`<div class="t-row t-item"><span>${it.cant}x ${it.nom}</span><span>${fmt(it.precio*it.cant)}</span></div>`;
   });
   html+=`<div class="t-line"></div>`;
-  if(v.descuentoMonto){
-    html+=`<div class="t-row"><span>Subtotal</span><span>${fmt(v.subtotal)}</span></div>`;
-    html+=`<div class="t-row"><span>Dto. ${v.descuentoPct}% (${v.descuentoMotivo})</span><span>-${fmt(v.descuentoMonto)}</span></div>`;
+  if(v.descuentoMonto&&v.descuentoMonto>0){
+    html+=`<div class="t-row" style="font-size:12px"><span>Subtotal</span><span>${fmt(v.subtotal||v.total+v.descuentoMonto)}</span></div>`;
+    html+=`<div class="t-row" style="font-size:12px;color:#555"><span>Dto. ${v.descuentoPct||''}% ${v.descuentoMotivo?'('+v.descuentoMotivo+')':''}</span><span>-${fmt(v.descuentoMonto)}</span></div>`;
   }
-  html+=`<div class="t-row t-bold"><span>TOTAL</span><span>${fmt(v.total)}</span></div>`;
-  html+=`<div>Pago: ${v.pago}</div>`;
-  if(v.obs)html+=`<div>Obs: ${v.obs}</div>`;
-  html+=`<div class="t-line"></div><div class="t-center">¡Gracias por su compra!</div><div class="t-center">Granja Los Abuelos</div><br/>`;
+  html+=`<div class="t-row t-total"><span>TOTAL</span><span>${fmt(v.total)}</span></div>`;
+  html+=`<div style="font-size:13px">Pago: <strong>${v.pago}</strong></div>`;
+  if(v.obs)html+=`<div style="font-size:12px">Obs: ${v.obs}</div>`;
+  if(tipo==='local')html+=`<div class="t-line"></div><div style="font-size:12px;text-align:center">Vendedor: ${v.vendedor||CU}</div>`;
+  html+=`<div class="t-line"></div><div class="t-center" style="font-size:14px;font-weight:bold">¡Gracias!</div><div class="t-center" style="font-size:12px">${neg.nombre||'Granja Los Abuelos'}</div><br/>`;
   return html;
 }
 
@@ -4204,7 +4271,7 @@ window.confirmPedidoOnline=async function(id){
     await updateDoc(doc(db,'users',STORE,'ventas',id),{estado:'confirmado',confirmedBy:CU,confirmedAt:today(),descuentoMotivo:d?d.motivo:null,descuentoPct:d?d.porcentaje:0,descuentoMonto:descMonto,total:finalTotal});
     const cli=_clientes.find(c=>c.usuario===v.clienteId||c.nombre===v.cliente);
     // MOD 5: Print ticket (ORIGINAL + COPIA)
-    printTicket(ventaConf);
+    printTicketAmbos(ventaConf);
     // MOD 4: Print client ficha (single, no duplicate)
     printFichaCliente(ventaConf,cli);
     sendWhatsApp(v.telCli,`Buenas noticias ${v.cliente}! Tu pedido fue confirmado y ya está siendo preparado con todo el cariño de Granja Los Abuelos.`);
@@ -4492,6 +4559,9 @@ window.saveCfgNegocio=async function(){
     nombre:document.getElementById('cfg-nombre-local').value.trim(),
     dir:document.getElementById('cfg-dir-local').value.trim(),
     tel:document.getElementById('cfg-tel-local').value.trim(),
+    comisionTransferencia:parseFloat(document.getElementById('cfg-com-transferencia')?.value)||0,
+    comisionDebito:parseFloat(document.getElementById('cfg-com-debito')?.value)||0,
+    comisionCredito:parseFloat(document.getElementById('cfg-com-credito')?.value)||0,
     horario:document.getElementById('cfg-horario').value.trim(),
     msgRecordatorio:document.getElementById('cfg-msg-recordatorio')?.value.trim()||''
   };
@@ -4515,6 +4585,9 @@ function renderCfgNegocioActual(){
   // Populate fields
   if(_cfgNegocio.nombre)document.getElementById('cfg-nombre-local').value=_cfgNegocio.nombre;
   if(_cfgNegocio.dir)document.getElementById('cfg-dir-local').value=_cfgNegocio.dir;
+  if(_cfgNegocio.comisionTransferencia!=null){const el=document.getElementById('cfg-com-transferencia');if(el)el.value=_cfgNegocio.comisionTransferencia;}
+  if(_cfgNegocio.comisionDebito!=null){const el=document.getElementById('cfg-com-debito');if(el)el.value=_cfgNegocio.comisionDebito;}
+  if(_cfgNegocio.comisionCredito!=null){const el=document.getElementById('cfg-com-credito');if(el)el.value=_cfgNegocio.comisionCredito;}
   if(_cfgNegocio.tel)document.getElementById('cfg-tel-local').value=_cfgNegocio.tel;
   if(_cfgNegocio.horario)document.getElementById('cfg-horario').value=_cfgNegocio.horario;
 }
@@ -4782,12 +4855,7 @@ function updateCajaEstado(){
   // Disable confirm button in Nueva Venta if caja is closed
   const vBtn=document.getElementById('v-btn');
   if(vBtn){
-    if(_cajaCerradaHoy){
-      vBtn.disabled=true;vBtn.title='La caja está cerrada. Reabrila desde Caja.';
-      vBtn.style.opacity='0.5';
-    } else {
-      vBtn.disabled=false;vBtn.title='';vBtn.style.opacity='';
-    }
+    vBtn.disabled=false;vBtn.title='';vBtn.style.opacity='';
   }
   // Update buttons - ALL roles can close/reopen (with password confirmation for non-admin)
   const reopenBtn=document.getElementById('caja-reopen-btn');
@@ -4890,7 +4958,6 @@ function renderCaja(){
 }
 
 window.showCierreCaja=async function(){
-  if(_cajaCerradaHoy){alert('La caja ya fue cerrada hoy.');return;}
   // Non-admin: require password confirmation before closing
   if(USER_ROLE!=='admin'){
     const pass=prompt('Ingresá tu contraseña para cerrar la caja:');
@@ -4916,36 +4983,99 @@ window.showCierreCaja=async function(){
   const top5=Object.entries(topProds).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const ccEgresos=_cajaChica.filter(m=>m.esEgreso).reduce((a,m)=>a+m.montoAbs,0);
   const ccIngresos=_cajaChica.filter(m=>!m.esEgreso).reduce((a,m)=>a+m.montoAbs,0);
+  const comTr=(_cfgNegocio?.comisionTransferencia||0)/100;
+  const comDeb=(_cfgNegocio?.comisionDebito||0)/100;
+  const comCred=(_cfgNegocio?.comisionCredito||0)/100;
+  const trAcred=Math.round(tr*(1-comTr));
+  const taAcred=Math.round(ta*(1-comDeb)); // simplified: tarjeta uses debito rate
+  const totalEsperado=ef+tr+ta;
+  const totalAcreditado=ef+trAcred+taAcred;
+  const costosFinancieros=(tr-trAcred)+(ta-taAcred);
+
   const wrap=document.getElementById('cierre-caja-wrap');
   const content=document.getElementById('cierre-caja-content');
   content.innerHTML=`
     <div class="g4" style="margin-bottom:16px">
-      <div class="mc"><div class="mc-l">Total operaciones</div><div class="mc-v">${hv.length}</div></div>
-      <div class="mc"><div class="mc-l">Total facturado</div><div class="mc-v" style="color:var(--success)">${fmt(total)}</div></div>
-      <div class="mc"><div class="mc-l">Descuentos</div><div class="mc-v" style="color:var(--danger)">-${fmt(desc)}</div></div>
-      ${costo>0?`<div class="mc"><div class="mc-l">Ganancia neta</div><div class="mc-v" style="color:var(--success)">${fmt(ganancia)}</div></div>`:''}
+      <div class="mc"><div class="mc-l">Operaciones</div><div class="mc-v">${hv.length}</div></div>
+      <div class="mc"><div class="mc-l">Total vendido</div><div class="mc-v" style="color:var(--success)">${fmt(totalEsperado)}</div></div>
+      <div class="mc"><div class="mc-l">A acreditar neto</div><div class="mc-v" style="color:var(--success)">${fmt(totalAcreditado)}</div></div>
+      ${costo>0?`<div class="mc"><div class="mc-l">Ganancia bruta</div><div class="mc-v" style="color:var(--success)">${fmt(ganancia)}</div></div>`:''}
     </div>
-    <div class="g2" style="margin-bottom:16px">
-      <div><h3 style="margin-bottom:8px">Desglose por pago</h3>
-        <table><tbody>
-          <tr><td>Efectivo</td><td style="text-align:right;font-weight:600">${fmt(ef)}</td></tr>
-          <tr><td>Transferencia</td><td style="text-align:right;font-weight:600">${fmt(tr)}</td></tr>
-          <tr><td>Tarjeta</td><td style="text-align:right;font-weight:600">${fmt(ta)}</td></tr>
-        </tbody></table>
+    <div style="margin-bottom:16px">
+      <h3 style="margin-bottom:10px">Verificación de cobros</h3>
+      <table style="width:100%">
+        <thead><tr><th>Medio</th><th style="text-align:right">Vendido</th><th style="text-align:right">Comisión</th><th style="text-align:right">Acreditado</th><th style="text-align:right">Real contado</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Efectivo</strong></td>
+            <td style="text-align:right">${fmt(ef)}</td>
+            <td style="text-align:right">—</td>
+            <td style="text-align:right">${fmt(ef)}</td>
+            <td style="text-align:right"><input type="number" id="cc-ef-real" value="${ef}" style="width:110px;text-align:right;font-weight:700;border:2px solid var(--primary);border-radius:6px;padding:4px 6px" onchange="calcDiferencias()"/></td>
+          </tr>
+          ${tr>0?`<tr>
+            <td><strong>Transferencia</strong></td>
+            <td style="text-align:right">${fmt(tr)}</td>
+            <td style="text-align:right;color:var(--danger)">${comTr>0?'-'+fmt(tr-trAcred)+' ('+(_cfgNegocio?.comisionTransferencia||0)+'%)'  :'—'}</td>
+            <td style="text-align:right">${fmt(trAcred)}</td>
+            <td style="text-align:right"><input type="number" id="cc-tr-real" value="${trAcred}" style="width:110px;text-align:right;border:2px solid var(--primary);border-radius:6px;padding:4px 6px" onchange="calcDiferencias()"/></td>
+          </tr>`:''}
+          ${ta>0?`<tr>
+            <td><strong>Tarjeta</strong></td>
+            <td style="text-align:right">${fmt(ta)}</td>
+            <td style="text-align:right;color:var(--danger)">${comDeb>0?'-'+fmt(ta-taAcred)+' ('+(_cfgNegocio?.comisionDebito||0)+'%)'  :'—'}</td>
+            <td style="text-align:right">${fmt(taAcred)}</td>
+            <td style="text-align:right"><input type="number" id="cc-ta-real" value="${taAcred}" style="width:110px;text-align:right;border:2px solid var(--primary);border-radius:6px;padding:4px 6px" onchange="calcDiferencias()"/></td>
+          </tr>`:''}
+        </tbody>
+      </table>
+      <div id="cc-diferencias" style="margin-top:10px;padding:10px;border-radius:8px;background:var(--bg);font-size:13px"></div>
+    </div>
+    <div class="g2" style="margin-bottom:14px">
+      <div>
+        <label style="font-weight:600">Fondo de cambio para el turno siguiente</label>
+        <div style="font-size:12px;color:#888;margin-bottom:6px">Monto en efectivo que dejás en caja para mañana</div>
+        <input type="number" id="cc-fondo" placeholder="Ej: 5000" style="font-size:14px"/>
       </div>
-      <div><h3 style="margin-bottom:8px">Pedidos online del día</h3>
-        <table><tbody>
-          <tr><td>Entregados</td><td style="text-align:right">${online.filter(v=>v.estado==='entregado').length}</td></tr>
-          <tr><td>Cancelados</td><td style="text-align:right">${online.filter(v=>v.estado==='cancelado').length}</td></tr>
-          <tr><td>Pendientes</td><td style="text-align:right;color:var(--warn)">${online.filter(v=>v.estado==='pendiente_confirmacion').length}</td></tr>
-        </tbody></table>
+      <div>
+        <label style="font-weight:600">Observaciones del cierre</label>
+        <textarea id="cc-obs-cierre" rows="3" placeholder="Notas, diferencias, incidentes..."></textarea>
       </div>
     </div>
-    ${top5.length?`<h3 style="margin-bottom:8px">Top 5 productos del día</h3>
-    <div>${top5.map(([n,cnt])=>`<div class="pr"><span>${n}</span><span style="font-weight:600">${cnt} unid.</span></div>`).join('')}</div>`:''}
-    <div style="font-size:12px;color:#888;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">Fecha: ${today()} · Cerrado por: ${CU}</div>`;
+    ${top5.length?`<h3 style="margin-bottom:8px">Top 5 productos del turno</h3>
+    <div>${top5.map(([n,cnt])=>`<div class="pr"><span>${n}</span><span style="font-weight:600">${cnt} unid.</span></div>`).join('')}</div>`:''  }
+    <div style="font-size:12px;color:#888;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">Fecha: ${today()} ${ftime()} · Turno cerrado por: <strong>${CU}</strong></div>`;
   wrap.style.display='block';
   wrap.scrollIntoView({behavior:'smooth'});
+  calcDiferencias();
+};
+
+window.calcDiferencias=function(){
+  const el=document.getElementById('cc-diferencias');if(!el)return;
+  const efReal=parseFloat(document.getElementById('cc-ef-real')?.value)||0;
+  const efEsp=parseFloat(document.getElementById('cc-ef-real')?.dataset.esperado||document.getElementById('cc-ef-real')?.value)||efReal;
+  // Calculate based on current values
+  let html='';
+  const efInput=document.getElementById('cc-ef-real');
+  const trInput=document.getElementById('cc-tr-real');
+  const taInput=document.getElementById('cc-ta-real');
+  if(efInput){
+    const real=parseFloat(efInput.value)||0;
+    const esp=parseFloat(efInput.defaultValue)||0;
+    const diff=real-esp;
+    if(diff!==0){
+      html+=`<div style="color:${diff>0?'var(--success)':'var(--danger)'}">💰 Efectivo: ${diff>0?'Sobrante':'Faltante'} de <strong>${fmt(Math.abs(diff))}</strong></div>`;
+    } else {
+      html+='<div style="color:var(--success)">✅ Efectivo: cuadra exacto</div>';
+    }
+  }
+  if(trInput){
+    const real=parseFloat(trInput.value)||0;
+    const esp=parseFloat(trInput.defaultValue)||0;
+    const diff=real-esp;
+    if(diff!==0)html+=`<div style="color:${diff>0?'var(--success)':'var(--warn)'}">🏦 Transferencia: diferencia de ${fmt(Math.abs(diff))} (puede ser comisión)</div>`;
+  }
+  el.innerHTML=html||'<div style="color:var(--success)">✅ Sin diferencias detectadas</div>';
 };
 
 window.confirmarCierreCaja=async function(){
@@ -4955,7 +5085,26 @@ window.confirmarCierreCaja=async function(){
   let ef=0,tr=0,ta=0,desc=0,costo=0;
   hv.forEach(v=>{if(v.tipo!=='online'||['confirmado','en_preparacion','en_camino','entregado'].includes(v.estado)){if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;else ta+=v.total;if(v.descuentoMonto)desc+=v.descuentoMonto;if(v.costoFIFO)costo+=v.costoFIFO;}});
   const total=ef+tr+ta;
-  const cierre={fecha:today(),hora:ftime(),cerradoPor:CU,total,efectivo:ef,transferencia:tr,tarjeta:ta,descuentos:desc,costoFIFO:costo,gananciaNeta:total-costo,nOperaciones:hv.length,ts:Date.now()};
+  // Get real counted amounts
+  const efReal=parseFloat(document.getElementById('cc-ef-real')?.value)||ef;
+  const trReal=parseFloat(document.getElementById('cc-tr-real')?.value)||tr;
+  const taReal=parseFloat(document.getElementById('cc-ta-real')?.value)||ta;
+  const fondo=parseFloat(document.getElementById('cc-fondo')?.value)||0;
+  const obs=document.getElementById('cc-obs-cierre')?.value.trim()||'';
+  const efDisponible=Math.max(0,efReal-fondo);
+  const comTr=(_cfgNegocio?.comisionTransferencia||0)/100;
+  const comDeb=(_cfgNegocio?.comisionDebito||0)/100;
+  const costosFinancieros=Math.round(tr*comTr)+Math.round(ta*comDeb);
+  const cierre={
+    fecha:today(),hora:ftime(),cerradoPor:CU,
+    total,efectivo:ef,transferencia:tr,tarjeta:ta,
+    efectivoReal:efReal,transferenciaReal:trReal,tarjetaReal:taReal,
+    diferenciaEfectivo:efReal-ef,diferenciaTransferencia:trReal-tr,diferenciaTarjeta:taReal-ta,
+    fondoCambio:fondo,efectivoDisponible:efDisponible,
+    costosFinancieros,
+    descuentos:desc,costoFIFO:costo,gananciaNeta:total-costo,
+    nOperaciones:hv.length,obs,ts:Date.now(),turno:ftime()
+  };
   try{
     // Save to cierres collection, keep last 6 months
     await addDoc(collection(db,'users',STORE,'cierres'),cierre);
@@ -7011,6 +7160,53 @@ window.delArchivoEmp=async function(empId, archivoId){
     await deleteDoc(doc(db,'users',STORE,'empleados',empId,'archivos',archivoId));
     toast('Archivo eliminado');
     loadArchivosEmp(empId);
+  }catch(e){alert('Error: '+e.message);}
+};
+
+// ── RECEPCIÓN DE TURNO ───────────────────────────────────────────────────────
+async function checkRecepcionTurno(){
+  const wrap=document.getElementById('recepcion-turno-wrap');if(!wrap)return;
+  try{
+    // Get last cierre that has fondoCambio not yet confirmed by current session
+    const snap=await getDocs(collection(db,'users',STORE,'cierres'));
+    const cierres=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.ts-a.ts);
+    const ultimo=cierres[0];
+    if(!ultimo||!ultimo.fondoCambio||ultimo.fondoCambio<=0){wrap.style.display='none';return;}
+    // Check if already confirmed this session
+    const confirmKey='recep_confirmada_'+ultimo.id;
+    if(sessionStorage.getItem(confirmKey)){wrap.style.display='none';return;}
+    // Show banner
+    const montoEl=document.getElementById('recep-monto-esperado');
+    const quienEl=document.getElementById('recep-quien-dejo');
+    if(montoEl)montoEl.textContent=fmt(ultimo.fondoCambio);
+    if(quienEl)quienEl.textContent='Dejado por '+ultimo.cerradoPor+' el '+fdate(ultimo.fecha)+' a las '+ultimo.hora;
+    const realEl=document.getElementById('recep-monto-real');
+    if(realEl)realEl.value=ultimo.fondoCambio;
+    wrap.style.display='block';
+    wrap.dataset.cierreId=ultimo.id;
+    wrap.dataset.fondoEsperado=ultimo.fondoCambio;
+  }catch(e){console.log('checkRecepcionTurno error',e);}
+}
+
+window.confirmarRecepcionTurno=async function(){
+  const wrap=document.getElementById('recepcion-turno-wrap');if(!wrap)return;
+  const cierreId=wrap.dataset.cierreId;
+  const fondoEsperado=parseFloat(wrap.dataset.fondoEsperado)||0;
+  const montoReal=parseFloat(document.getElementById('recep-monto-real')?.value)||fondoEsperado;
+  const obs=document.getElementById('recep-obs')?.value.trim()||'';
+  const diferencia=montoReal-fondoEsperado;
+  try{
+    await addDoc(collection(db,'users',STORE,'recepciones'),{
+      cierreId,fondoEsperado,montoReal,diferencia,obs,
+      confirmadoPor:CU,fecha:today(),hora:ftime(),ts:Date.now()
+    });
+    if(diferencia!==0){
+      const msg=diferencia>0?`Sobrante de ${fmt(diferencia)}`:`Faltante de ${fmt(Math.abs(diferencia))}`;
+      logAuditoria('confirmó recepción','caja','Recepción turno: '+msg+(obs?' — '+obs:''),'','');
+    }
+    sessionStorage.setItem('recep_confirmada_'+cierreId,'1');
+    wrap.style.display='none';
+    toast(diferencia===0?'✅ Recepción confirmada — cuadra exacto':(diferencia>0?'✅ Confirmado — sobrante de '+fmt(diferencia):'⚠ Confirmado — faltante de '+fmt(Math.abs(diferencia))));
   }catch(e){alert('Error: '+e.message);}
 };
 
