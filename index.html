@@ -3496,23 +3496,29 @@ window.printTicket=function(v,tipo='cliente'){
   const w=window.open('','_ticket'+(esDup?'_dup':''),'width=380,height=600');
   w.document.write(`<!DOCTYPE html><html><head><title>Ticket${esDup?' - DUPLICADO':''}</title>
 <style>
-@page{size:58mm auto;margin:0mm}
-body{margin:0;padding:3mm 2mm;font-family:'Courier New',monospace;font-size:12px;width:54mm;box-sizing:border-box}
-.ticket{width:100%}
-.t-center{text-align:center}
-.t-bold{font-weight:bold}
-.t-line{border-top:1px dashed #000;margin:4px 0}
-.t-type{font-size:13px;font-weight:bold;text-align:center;background:#000;color:#fff;padding:3px;margin-bottom:6px;letter-spacing:2px}
-.t-dup{font-size:13px;font-weight:bold;text-align:center;background:#555;color:#fff;padding:3px;margin-bottom:6px}
-.t-nome{font-size:13px;font-weight:bold;text-align:center}
-.t-sub{font-size:10px;text-align:center}
-.t-row{display:table;width:100%;font-size:12px}
-.t-row .t-left{display:table-cell;text-align:left;word-break:break-word;width:65%}
-.t-row .t-right{display:table-cell;text-align:right;white-space:nowrap;width:35%;font-weight:600}
-.t-total-row{display:table;width:100%;font-size:15px;font-weight:bold;margin-top:3px}
-.t-total-row .t-left{display:table-cell;text-align:left;width:50%}
-.t-total-row .t-right{display:table-cell;text-align:right;white-space:nowrap;width:50%}
-@media print{body{margin:0;padding:1mm 2mm}button{display:none!important}.no-print{display:none!important}}
+@page{size:58mm auto;margin:0}
+*{box-sizing:border-box}
+body{margin:0;padding:2mm;font-family:'Courier New',monospace;font-size:11px;width:58mm;max-width:58mm;overflow:hidden}
+.ticket{width:100%;max-width:100%;overflow:hidden}
+.t-center{text-align:center;width:100%}
+.t-line{border-top:1px dashed #000;margin:3px 0;width:100%}
+.t-type{font-size:12px;font-weight:bold;text-align:center;background:#000;color:#fff;padding:2px;margin-bottom:5px;letter-spacing:1px;width:100%}
+.t-dup{font-size:12px;font-weight:bold;text-align:center;background:#555;color:#fff;padding:2px;margin-bottom:5px;width:100%}
+.t-nome{font-size:12px;font-weight:bold;text-align:center}
+.t-sub{font-size:9px;text-align:center}
+.t-row{width:100%;overflow:hidden;margin:1px 0}
+.t-row table{width:100%;border-collapse:collapse;table-layout:fixed}
+.t-row table td.izq{text-align:left;word-wrap:break-word;overflow-wrap:break-word;width:62%;font-size:11px;vertical-align:top}
+.t-row table td.der{text-align:right;white-space:nowrap;width:38%;font-size:11px;font-weight:bold;vertical-align:top;padding-left:2px}
+.t-total{width:100%;overflow:hidden;margin:3px 0}
+.t-total table{width:100%;border-collapse:collapse;table-layout:fixed}
+.t-total table td.izq{text-align:left;font-size:14px;font-weight:bold;width:50%}
+.t-total table td.der{text-align:right;font-size:14px;font-weight:bold;white-space:nowrap;width:50%;padding-left:2px}
+@media print{
+  body{margin:0;padding:1mm;width:100%;max-width:100%}
+  button{display:none!important}
+  .no-print{display:none!important}
+}
 </style></head><body>
 <div class="no-print" style="margin-bottom:10px"><button onclick="window.print()" style="padding:8px 20px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #ccc">🖨 Imprimir</button></div>
 <div class="ticket">
@@ -3549,15 +3555,15 @@ function generateTicketContent(v,tipo='cliente'){
   if(v.cliente&&v.cliente!=='Mostrador')html+=`<div style="font-size:12px">Cliente: ${v.cliente}</div>`;
   html+=`<div class="t-line"></div>`;
   v.items.forEach(it=>{
-    html+=`<div class="t-row"><span class="t-left">${it.cant}x ${it.nom}</span><span class="t-right">${fmt(it.precio*it.cant)}</span></div>`;
+    html+=`<div class="t-row"><table><tr><td class="izq">${it.cant}x ${it.nom}</td><td class="der">${fmt(it.precio*it.cant)}</td></tr></table></div>`;
   });
   html+=`<div class="t-line"></div>`;
   if(v.descuentoMonto&&v.descuentoMonto>0){
-    html+=`<div class="t-row"><span class="t-left">Subtotal</span><span class="t-right">${fmt(v.subtotal||v.total+v.descuentoMonto)}</span></div>`;
-    html+=`<div class="t-row"><span class="t-left">Dto ${v.descuentoPct||''}%</span><span class="t-right">-${fmt(v.descuentoMonto)}</span></div>`;
+    html+=`<div class="t-row"><table><tr><td class="izq">Subtotal</td><td class="der">${fmt(v.subtotal||v.total+v.descuentoMonto)}</td></tr></table></div>`;
+    html+=`<div class="t-row"><table><tr><td class="izq">Dto ${v.descuentoPct||''}%</td><td class="der">-${fmt(v.descuentoMonto)}</td></tr></table></div>`;
   }
-  html+=`<div class="t-total-row"><span class="t-left">TOTAL</span><span class="t-right">${fmt(v.total)}</span></div>`;
-  html+=`<div class="t-row"><span class="t-left">Pago:</span><span class="t-right">${v.pago}</span></div>`;
+  html+=`<div class="t-total"><table><tr><td class="izq">TOTAL</td><td class="der">${fmt(v.total)}</td></tr></table></div>`;
+  html+=`<div class="t-row"><table><tr><td class="izq">Pago:</td><td class="der">${v.pago}</td></tr></table></div>`;
   if(v.obs)html+=`<div style="font-size:12px">Obs: ${v.obs}</div>`;
   if(tipo==='local')html+=`<div class="t-line"></div><div style="font-size:12px;text-align:center">Vendedor: ${v.vendedor||CU}</div>`;
   html+=`<div class="t-line"></div><div class="t-center" style="font-size:14px;font-weight:bold">¡Gracias!</div><div class="t-center" style="font-size:12px">${neg.nombre||'Granja Los Abuelos'}</div><br/>`;
