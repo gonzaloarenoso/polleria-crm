@@ -294,6 +294,42 @@ tr:hover td{background:#fafaf8}
           <canvas id="chart-canales" height="180"></canvas>
         </div>
       </div>
+
+      <!-- TREND CHART -->
+      <div class="card" style="margin-top:0" id="trend-chart-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+          <div>
+            <h3 style="margin-bottom:4px">Facturado · Costo · Ganancia</h3>
+            <div style="font-size:12px;color:#888">Evolución de la operación</div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+            <!-- Granularity -->
+            <div style="display:flex;gap:4px">
+              <button class="btn bsm" id="tg-dia"  onclick="setTrendGran('dia')"  style="font-size:11px">Día</button>
+              <button class="btn bsm" id="tg-sem"  onclick="setTrendGran('sem')"  style="font-size:11px">Semana</button>
+              <button class="btn bp bsm" id="tg-mes"  onclick="setTrendGran('mes')"  style="font-size:11px">Mes</button>
+              <button class="btn bsm" id="tg-anio" onclick="setTrendGran('anio')" style="font-size:11px">Año</button>
+            </div>
+            <!-- Range -->
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px">
+              <input type="date" id="trend-desde" style="font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)"/>
+              <span style="color:#888">→</span>
+              <input type="date" id="trend-hasta" style="font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)"/>
+              <button class="btn bp bsm" onclick="renderTrendChart()" style="font-size:11px">Ver</button>
+            </div>
+          </div>
+        </div>
+        <!-- Summary KPIs -->
+        <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px" id="trend-kpis">
+          <div><div style="font-size:11px;color:#888">Facturado</div><div style="font-size:18px;font-weight:700;color:#378ADD" id="tk-fac">—</div></div>
+          <div><div style="font-size:11px;color:#888">Costo estimado</div><div style="font-size:18px;font-weight:700;color:#EF9F27" id="tk-cos">—</div></div>
+          <div><div style="font-size:11px;color:#888">Ganancia bruta</div><div style="font-size:18px;font-weight:700;color:#1D9E75" id="tk-gan">—</div></div>
+          <div><div style="font-size:11px;color:#888">Margen promedio</div><div style="font-size:18px;font-weight:700" id="tk-mar">—</div></div>
+        </div>
+        <div style="position:relative;height:260px">
+          <canvas id="chart-trend"></canvas>
+        </div>
+      </div>
     </div>
 
     <!-- VENTAS - Historial completo -->
@@ -2940,6 +2976,8 @@ function renderDash(){
   if(nbVenc){nbVenc.textContent=vencidos;nbVenc.style.display=vencidos>0?'inline-flex':'none';nbVenc.style.background=al2.color;}
   // Charts
   renderDashCharts();
+  initTrendDates();
+  renderTrendChart();
 }
 
 function renderDashCharts(){
@@ -3191,6 +3229,217 @@ window.addItem=function(){
   itemTotal+=precio*parseFloat(cant);
   renderItems();applyDiscount();
 };
+
+// ── TREND CHART ──────────────────────────────────────────────
+let _trendGran='mes'; // dia | sem | mes | anio
+let _trendChart=null;
+
+window.setTrendGran=function(g){
+  _trendGran=g;
+  ['dia','sem','mes','anio'].forEach(x=>{
+    const b=document.getElementById('tg-'+x);
+    if(b)b.className=b.className.replace(' bp','').replace('bp ','');
+    if(x===g&&b){b.className=b.className.includes('bp')?b.className:b.className+' bp';}
+  });
+  renderTrendChart();
+};
+
+window.renderTrendChart=function(){
+  const canvas=document.getElementById('chart-trend');
+  if(!canvas||typeof Chart==='undefined')return;
+
+  const desde=document.getElementById('trend-desde')?.value;
+  const hasta=document.getElementById('trend-hasta')?.value;
+
+  // Filter ventas by range
+  let ventas=(_ventas||[]).filter(v=>{
+    if(!v.fecha)return false;
+    if(desde&&v.fecha<desde)return false;
+    if(hasta&&v.fecha>hasta)return false;
+    return true;
+  });
+
+  if(!ventas.length){
+    // Show empty state
+    if(_trendChart){_trendChart.destroy();_trendChart=null;}
+    const ctx=canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#888';ctx.font='14px sans-serif';ctx.textAlign='center';
+    ctx.fillText('Sin datos para el rango seleccionado',canvas.width/2,canvas.height/2);
+    ['tk-fac','tk-cos','tk-gan','tk-mar'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='—';});
+    return;
+  }
+
+  // Key function: get label for a date based on granularity
+  function getLabel(fecha){
+    if(_trendGran==='dia') return fecha; // YYYY-MM-DD
+    if(_trendGran==='sem'){
+      const d=new Date(fecha+'T12:00:00');
+      // ISO week
+      const jan1=new Date(d.getFullYear(),0,1);
+      const w=Math.ceil(((d-jan1)/86400000+jan1.getDay()+1)/7);
+      return d.getFullYear()+'-S'+String(w).padStart(2,'0');
+    }
+    if(_trendGran==='mes') return fecha.substring(0,7); // YYYY-MM
+    if(_trendGran==='anio') return fecha.substring(0,4);
+    return fecha;
+  }
+
+  // Format label for display
+  function fmtLabel(lbl){
+    if(_trendGran==='dia'){
+      const [y,m,d]=lbl.split('-');
+      return d+'/'+m;
+    }
+    if(_trendGran==='sem') return lbl.replace('-','·');
+    if(_trendGran==='mes'){
+      const meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      const [y,m]=lbl.split('-');
+      return meses[parseInt(m)-1]+' '+y.slice(2);
+    }
+    return lbl;
+  }
+
+  // Aggregate facturado by bucket
+  const buckets={};
+  ventas.forEach(v=>{
+    const lbl=getLabel(v.fecha);
+    if(!buckets[lbl])buckets[lbl]={fac:0,cos:0};
+    buckets[lbl].fac+=(v.total||0);
+  });
+
+  // Estimate cost per bucket using _lotes (last known cost × qty sold)
+  ventas.forEach(v=>{
+    if(!v.items)return;
+    const lbl=getLabel(v.fecha);
+    if(!buckets[lbl])return;
+    v.items.forEach(it=>{
+      if(it.esPromo)return;
+      const lotes=(_lotes[it.nom]||[]).filter(l=>l.qty>0).sort((a,b)=>b.ts-a.ts);
+      const costo=lotes.length?lotes[0].costo:0;
+      if(costo>0) buckets[lbl].cos+=costo*(parseFloat(it.cant)||0);
+    });
+  });
+
+  const labels=Object.keys(buckets).sort();
+  const dataFac=labels.map(l=>Math.round(buckets[l].fac));
+  const dataCos=labels.map(l=>Math.round(buckets[l].cos));
+  const dataGan=labels.map((_,i)=>Math.max(0,dataFac[i]-dataCos[i]));
+
+  // KPIs
+  const totFac=dataFac.reduce((a,b)=>a+b,0);
+  const totCos=dataCos.reduce((a,b)=>a+b,0);
+  const totGan=totFac-totCos;
+  const margen=totFac>0?Math.round((totGan/totFac)*100):0;
+  const fmtK=n=>n>=1000000?'$'+(n/1000000).toFixed(1)+'M':n>=1000?'$'+(n/1000).toFixed(0)+'k':'$'+n;
+  const el=id=>document.getElementById(id);
+  if(el('tk-fac'))el('tk-fac').textContent=fmtK(totFac);
+  if(el('tk-cos'))el('tk-cos').textContent=totCos>0?fmtK(totCos):'sin costos';
+  if(el('tk-gan'))el('tk-gan').textContent=fmtK(totGan);
+  if(el('tk-mar')){
+    el('tk-mar').textContent=totCos>0?margen+'%':'—';
+    el('tk-mar').style.color=margen>=30?'#1D9E75':margen>=15?'#EF9F27':'#E24B4A';
+  }
+
+  // Destroy previous chart
+  if(_trendChart){_trendChart.destroy();_trendChart=null;}
+
+  const isDark=document.body.classList.contains('dark')||
+    getComputedStyle(document.documentElement).getPropertyValue('--bg').trim().includes('1a')
+    ||getComputedStyle(document.documentElement).getPropertyValue('--card').trim().includes('25');
+
+  const gridColor=isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)';
+  const tickColor=isDark?'#aaa':'#666';
+
+  const datasets=[{
+    label:'Facturado',
+    data:dataFac,
+    borderColor:'#378ADD',
+    backgroundColor:'rgba(55,138,221,0.10)',
+    fill:true,
+    tension:0.35,
+    pointRadius:labels.length>30?0:3,
+    pointHoverRadius:5,
+    borderWidth:2.5,
+  },{
+    label:'Ganancia bruta',
+    data:dataGan,
+    borderColor:'#1D9E75',
+    backgroundColor:'rgba(29,158,117,0.10)',
+    fill:true,
+    tension:0.35,
+    pointRadius:labels.length>30?0:3,
+    pointHoverRadius:5,
+    borderWidth:2.5,
+  }];
+
+  // Only show cost line if we have cost data
+  if(totCos>0){
+    datasets.splice(1,0,{
+      label:'Costo estimado',
+      data:dataCos,
+      borderColor:'#EF9F27',
+      backgroundColor:'rgba(239,159,39,0.07)',
+      fill:false,
+      tension:0.35,
+      pointRadius:labels.length>30?0:3,
+      pointHoverRadius:5,
+      borderWidth:2,
+      borderDash:[5,3],
+    });
+  }
+
+  _trendChart=new Chart(canvas,{
+    type:'line',
+    data:{labels:labels.map(fmtLabel),datasets},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{
+          position:'top',
+          labels:{color:tickColor,boxWidth:12,padding:16,font:{size:12}},
+        },
+        tooltip:{
+          backgroundColor:isDark?'#1e1e1e':'#fff',
+          borderColor:isDark?'#333':'#ddd',
+          borderWidth:1,
+          titleColor:isDark?'#fff':'#111',
+          bodyColor:isDark?'#ccc':'#444',
+          padding:10,
+          callbacks:{
+            label:ctx=>' '+ctx.dataset.label+': $'+ctx.parsed.y.toLocaleString('es-AR'),
+          }
+        },
+      },
+      scales:{
+        x:{
+          grid:{color:gridColor},
+          ticks:{color:tickColor,font:{size:11},maxRotation:45},
+        },
+        y:{
+          grid:{color:gridColor},
+          ticks:{
+            color:tickColor,font:{size:11},
+            callback:v=>v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'k':'$'+v,
+          },
+        },
+      },
+    },
+  });
+};
+
+function initTrendDates(){
+  // Default: last 6 months
+  const hoy=new Date();
+  const desde=new Date();desde.setMonth(desde.getMonth()-6);
+  const fmt=d=>d.toISOString().split('T')[0];
+  const dEl=document.getElementById('trend-desde');
+  const hEl=document.getElementById('trend-hasta');
+  if(dEl&&!dEl.value)dEl.value=fmt(desde);
+  if(hEl&&!hEl.value)hEl.value=fmt(hoy);
+}
 
 function renderItems(){
   const el=document.getElementById('v-items');
