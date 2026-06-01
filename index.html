@@ -4313,6 +4313,96 @@ window.switchProdTab=function(tab,btn){
   if(tab==='promos')renderPromoListReadOnly();
 };
 
+
+// ── RENOMBRAR PRODUCTO ────────────────────────────────────────────────────
+window.iniciarRenombrar=function(id, nombreActual){
+  const modal=document.getElementById('modal-overlay');
+  if(!modal)return;
+  modal.style.display='flex';
+  modal.innerHTML=`<div class="mo-inner" style="max-width:420px">
+    <h3 style="margin-bottom:16px">✏️ Renombrar producto</h3>
+    <div style="margin-bottom:8px;font-size:13px;color:#888">Nombre actual:</div>
+    <div style="font-weight:700;font-size:15px;margin-bottom:16px">${nombreActual}</div>
+    <label style="font-size:13px;font-weight:600">Nuevo nombre</label>
+    <input type="text" id="rename-input" value="${nombreActual}" style="width:100%;margin:8px 0 4px;padding:8px 12px;border:2px solid var(--primary);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text)"/>
+    <div id="rename-warn" style="font-size:11px;color:var(--danger);min-height:16px;margin-bottom:12px"></div>
+    <div style="background:rgba(239,159,39,0.12);border-radius:8px;padding:10px;font-size:12px;color:#b07800;margin-bottom:16px">
+      ⚠️ Se actualizarán: productos, inventario, lotes, historial de stock y ventas registradas.
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn bp" id="rename-confirm-btn" onclick="confirmarRenombrar('${id}','${nombreActual}')">Confirmar</button>
+      <button class="btn bs" onclick="document.getElementById('modal-overlay').style.display='none'">Cancelar</button>
+    </div>
+  </div>`;
+  document.getElementById('rename-input').focus();
+  document.getElementById('rename-input').select();
+};
+
+window.confirmarRenombrar=async function(id, nombreViejo){
+  const input=document.getElementById('rename-input');
+  const warn=document.getElementById('rename-warn');
+  const btn=document.getElementById('rename-confirm-btn');
+  const nuevoNombre=input?.value?.trim();
+  if(!nuevoNombre){warn.textContent='El nombre no puede estar vacío';return;}
+  if(nuevoNombre===nombreViejo){warn.textContent='El nombre es igual al actual';return;}
+  if(_productos.some(p=>p.nombre===nuevoNombre)){warn.textContent='Ya existe un producto con ese nombre';return;}
+
+  btn.disabled=true;btn.textContent='Actualizando...';
+  try{
+    // 1. Actualizar lista de productos
+    const nuevosProds=_productos.map(p=>p.id===id?{...p,nombre:nuevoNombre}:p);
+    await setDoc(doc(db,'productos',STORE),{lista:nuevosProds});
+
+    // 2. Actualizar inventario (clave = nombre del producto)
+    const newInv={..._inv};
+    if(newInv[nombreViejo]!==undefined){
+      newInv[nuevoNombre]=newInv[nombreViejo];
+      delete newInv[nombreViejo];
+      await setDoc(doc(db,'inventario',STORE),newInv);
+    }
+
+    // 3. Actualizar lotes (clave = nombre del producto)
+    const newLotes={..._lotes};
+    if(newLotes[nombreViejo]!==undefined){
+      newLotes[nuevoNombre]=newLotes[nombreViejo];
+      delete newLotes[nombreViejo];
+      await setDoc(doc(db,'lotes',STORE),newLotes);
+    }
+
+    // 4. Actualizar stock-historial (campo producto)
+    const snapSH=await getDocs(collection(db,'users',STORE,'stock-historial'));
+    const shDocs=snapSH.docs.filter(d=>d.data().producto===nombreViejo);
+    if(shDocs.length){
+      const batch=writeBatch(db);
+      shDocs.forEach(d=>batch.update(d.ref,{producto:nuevoNombre}));
+      await batch.commit();
+    }
+
+    // 5. Actualizar ventas (campo items[].nom)
+    const snapV=await getDocs(collection(db,'users',STORE,'ventas'));
+    const ventasAfectadas=snapV.docs.filter(d=>
+      d.data().items?.some(i=>i.nom===nombreViejo)
+    );
+    if(ventasAfectadas.length){
+      const batch2=writeBatch(db);
+      ventasAfectadas.forEach(d=>{
+        const nuevosItems=d.data().items.map(i=>
+          i.nom===nombreViejo?{...i,nom:nuevoNombre}:i
+        );
+        batch2.update(d.ref,{items:nuevosItems});
+      });
+      await batch2.commit();
+    }
+
+    toast(`"${nombreViejo}" renombrado a "${nuevoNombre}" ✓ (ventas: ${ventasAfectadas.length}, historial: ${shDocs.length})`);
+    document.getElementById('modal-overlay').style.display='none';
+    logAuditoria('renombró','producto',`${nombreViejo} → ${nuevoNombre}`,'','');
+  }catch(e){
+    if(warn)warn.textContent='Error: '+e.message;
+    if(btn){btn.disabled=false;btn.textContent='Confirmar';}
+    console.error('renombrar',e);
+  }
+};
 function renderProductos(){
   // Populate category selector in product form
   const catSel=document.getElementById('p-categoria');
@@ -4333,7 +4423,7 @@ function renderProductos(){
     if(!el)return;
     if(!_productos.length){el.innerHTML='<div class="empty">Sin productos</div>';return;}
     const UNITS=['unidad','kg','g','lts','ml','porcion','docena','pack'];
-    el.innerHTML=_productos.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">Stock: ${_inv[p.nombre]?.stock||0} &nbsp;·&nbsp; Unidad: <strong>${p.unidad||'unidad'}</strong></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><span style="width:86px;font-size:12px;padding:5px 8px;background:var(--bg);border-radius:6px;display:inline-block;text-align:right;color:#888" title="Modificar precio desde Stock">${fmt(p.precio||0)}</span><button class="btn ${p.activo===false?'bd':'bs'} bsm" onclick="toggleActivoProducto('${p.id}',${p.activo!==false})">${p.activo===false?'🔴':'🟢'}</button><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button></div></div>`).join('');
+    el.innerHTML=_productos.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">Stock: ${_inv[p.nombre]?.stock||0} &nbsp;·&nbsp; Unidad: <strong>${p.unidad||'unidad'}</strong></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><span style="width:86px;font-size:12px;padding:5px 8px;background:var(--bg);border-radius:6px;display:inline-block;text-align:right;color:#888" title="Modificar precio desde Stock">${fmt(p.precio||0)}</span><button class="btn ${p.activo===false?'bd':'bs'} bsm" onclick="toggleActivoProducto('${p.id}',${p.activo!==false})">${p.activo===false?'🔴':'🟢'}</button><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bs bsm" onclick="iniciarRenombrar('${p.id}','${p.nombre.replace(/'/g,"\\\\'")}')" title="Renombrar producto">✏️ Renombrar</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button></div></div>`).join('');
   } else {
     // Vendor view: read-only
     if(adminForm)adminForm.style.display='none';
@@ -7506,7 +7596,7 @@ ${topClientes.length?`<div class="card">
     <td class="td-costo-${s.id}">${s.costoUnitario?fmtARS(s.costoUnitario):'—'}</td>
     <td>${s.totalCosto?fmtARS(s.totalCosto):'—'}</td>
     <td>${s.proveedor||prod.proveedor||'—'}</td>
-    <td class="no-print">${s.legacy?'<span style="font-size:10px;color:#aaa;font-style:italic">histórico</span>':`<button class="btn-edit" onclick="editarFila('${s.id}',${s.cantidad||0},${s.costoUnitario||0})">✏ Editar</button>`}</td>
+    <td class="no-print">${s.legacy?'<span style="font-size:10px;color:#aaa;font-style:italic">histórico</span>':`<button class="btn-edit" onclick="editarFila(this,${s.cantidad||0},${s.costoUnitario||0},'${s.id}')">✏ Editar</button>`}</td>
   </tr>`).join('')}
   </tbody></table>`
   :`<p style="color:#888;text-align:center;padding:16px">Sin historial de compras registrado</p>`}
@@ -7528,33 +7618,32 @@ ${histPrecios.length?`<div class="card">
 </div>
 
 <script>
-function editarFila(docId, cantActual, costoActual){
-  const row=document.getElementById('row-'+docId);
-  if(!row)return;
-  const tdCant=row.querySelector('.td-cant-'+docId);
-  const tdCosto=row.querySelector('.td-costo-'+docId);
-  const tdEdit=row.cells[row.cells.length-1];
-  tdCant.innerHTML='<input type="number" id="inp-cant-'+docId+'" value="'+cantActual+'" min="0" step="0.01" style="width:70px"/>';
-  tdCosto.innerHTML='<input type="number" id="inp-costo-'+docId+'" value="'+(costoActual||'')+'" min="0" placeholder="Costo" style="width:80px"/>';
-  tdEdit.innerHTML='<button class="btn-save" onclick="guardarEdicionStock(\''+docId+'\')">✓ Guardar</button> <button class="btn-cancel" onclick="cancelarEdicion(\''+docId+'\','+cantActual+','+costoActual+')">✕</button>';
+function editarFila(btn, cantActual, costoActual, docId){
+  try{
+    const row=btn.closest('tr');
+    if(!row){alert('Error: no se encontró la fila');return;}
+    const cells=row.cells;
+    // cells: 0=fecha, 1=cantidad, 2=costo, 3=total, 4=proveedor, 5=editar
+    cells[1].innerHTML='<input type="number" id="inp-cant" value="'+cantActual+'" min="0" step="0.01" style="width:70px"/>';
+    cells[2].innerHTML='<input type="number" id="inp-costo" value="'+(costoActual||'')+'" min="0" placeholder="Costo" style="width:80px"/>';
+    cells[5].innerHTML='<button class="btn-save" onclick="guardarEdicion(\''+docId+'\',this)">✓ Guardar</button> <button class="btn-cancel" onclick="window.location.reload()">✕</button>';
+    document.getElementById('inp-cant').focus();
+  }catch(e){alert('Error al editar: '+e.message);}
 }
 
-function guardarEdicionStock(docId){
-  const cant=parseFloat(document.getElementById('inp-cant-'+docId)?.value)||0;
-  const costo=parseFloat(document.getElementById('inp-costo-'+docId)?.value)||0;
-  if(!cant){alert('La cantidad no puede ser 0');return;}
-  if(window.opener&&!window.opener.closed){
-    window.opener.editarEntradaStock(docId,'${nom}',cant,costo);
-    setTimeout(()=>window.location.reload(),1200);
-  } else {
-    alert('La ventana del CRM se cerró. Por favor reabrí la ficha desde el CRM.');
-  }
-}
-
-function cancelarEdicion(docId, cantActual, costoActual){
-  const row=document.getElementById('row-'+docId);
-  if(!row)return;
-  window.location.reload();
+function guardarEdicion(docId, btn){
+  try{
+    const cant=parseFloat(document.getElementById('inp-cant')?.value)||0;
+    const costo=parseFloat(document.getElementById('inp-costo')?.value)||0;
+    if(!cant){alert('La cantidad no puede ser 0');return;}
+    btn.textContent='Guardando...';btn.disabled=true;
+    if(window.opener&&!window.opener.closed){
+      window.opener.editarEntradaStock(docId,'${nom}',cant,costo);
+      setTimeout(()=>window.location.reload(),1500);
+    } else {
+      alert('Cerraste el CRM. Reabrí la ficha desde el CRM.');
+    }
+  }catch(e){alert('Error al guardar: '+e.message);}
 }
 <\/script>
 </body></html>`;
