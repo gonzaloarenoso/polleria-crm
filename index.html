@@ -4315,6 +4315,22 @@ window.switchProdTab=function(tab,btn){
 
 
 // ── RENOMBRAR PRODUCTO ────────────────────────────────────────────────────
+// ── ACTUALIZAR PROVEEDOR DESDE FICHA ─────────────────────────────────────
+window.actualizarProveedorProducto=async function(id, nuevoProveedor, callback){
+  try{
+    await setDoc(doc(db,'productos',STORE),{
+      lista:_productos.map(p=>p.id===id?{...p,proveedor:nuevoProveedor}:p)
+    });
+    const provData=(_proveedores||[]).find(p=>p.nombre===nuevoProveedor)||null;
+    toast('Proveedor actualizado');
+    logAuditoria('editó','producto','Proveedor → '+( nuevoProveedor||'sin proveedor'),'','');
+    if(callback)callback(true, provData);
+  }catch(e){
+    toast('Error: '+e.message,'error');
+    if(callback)callback(false, null);
+  }
+};
+
 window.iniciarRenombrar=function(id, nombreActual){
   const modal=document.getElementById('modal-overlay');
   if(!modal)return;
@@ -7562,10 +7578,30 @@ input[type=number]{width:90px;padding:4px 6px;border:1px solid #ccc;border-radiu
   ${margenPct!==null?`<div class="margen-badge" style="background:${margenColor}20;color:${margenColor}">Margen estimado: ${margenPct}%</div>`:''}
 </div>
 
-${prov?`<div class="card">
-  <h3>🏭 Proveedor</h3>
-  <div class="prov-box"><strong>${prov.nombre}</strong>${prov.contacto?' · '+prov.contacto:''}${prov.tel?'<br>📱 '+prov.tel:''}${prov.mail?'<br>✉ '+prov.mail:''}</div>
-</div>`:''}
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h3 style="margin:0">🏭 Proveedor</h3>
+    <button class="btn-edit" onclick="toggleEditProv()" id="btn-edit-prov">✏ Cambiar</button>
+  </div>
+  <!-- Vista normal -->
+  <div id="prov-view">
+    ${prov
+      ?`<div class="prov-box"><strong>${prov.nombre}</strong>${prov.contacto?' · '+prov.contacto:''}${prov.tel?'<br>📱 '+prov.tel:''}${prov.mail?'<br>✉ '+prov.mail:''}</div>`
+      :`<div class="prov-box" style="color:#aaa">Sin proveedor asignado</div>`
+    }
+  </div>
+  <!-- Edición -->
+  <div id="prov-edit" style="display:none">
+    <select id="prov-select" style="width:100%;padding:8px;border-radius:8px;border:1px solid #ccc;font-size:13px;margin-bottom:8px">
+      <option value="">Sin proveedor</option>
+      ${(_proveedores||[]).map(p=>`<option value="${p.nombre}" ${prod.proveedor===p.nombre?'selected':''}>${p.nombre}</option>`).join('')}
+    </select>
+    <div style="display:flex;gap:8px">
+      <button class="btn-save" onclick="guardarProveedorFicha('${id}')">✓ Guardar</button>
+      <button class="btn-cancel" onclick="toggleEditProv()">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
 
 ${meses.length?`<div class="card">
   <h3>📅 Ventas por mes</h3>
@@ -7618,6 +7654,43 @@ ${histPrecios.length?`<div class="card">
 </div>
 
 <script>
+function toggleEditProv(){
+  const view=document.getElementById('prov-view');
+  const edit=document.getElementById('prov-edit');
+  const btn=document.getElementById('btn-edit-prov');
+  if(!view||!edit)return;
+  const editing=edit.style.display!=='none';
+  view.style.display=editing?'':'none';
+  edit.style.display=editing?'none':'block';
+  btn.textContent=editing?'✏ Cambiar':'✕';
+}
+
+function guardarProveedorFicha(prodId){
+  const sel=document.getElementById('prov-select');
+  const nuevoProveedor=sel?sel.value:'';
+  const btn=document.querySelector('#prov-edit .btn-save');
+  if(btn){btn.textContent='Guardando...';btn.disabled=true;}
+  if(window.opener&&!window.opener.closed){
+    window.opener.actualizarProveedorProducto(prodId, nuevoProveedor, function(ok, provData){
+      if(ok){
+        // Update view
+        const view=document.getElementById('prov-view');
+        if(view){
+          view.innerHTML=provData
+            ?'<div class="prov-box"><strong>'+provData.nombre+'</strong>'+(provData.contacto?' · '+provData.contacto:'')+(provData.tel?'<br>📱 '+provData.tel:'')+(provData.mail?'<br>✉ '+provData.mail:'')+'</div>'
+            :'<div class="prov-box" style="color:#aaa">Sin proveedor asignado</div>';
+        }
+        toggleEditProv();
+      } else {
+        if(btn){btn.textContent='✓ Guardar';btn.disabled=false;}
+        alert('Error al guardar el proveedor');
+      }
+    });
+  } else {
+    alert('La ventana del CRM se cerró. Reabrí la ficha.');
+  }
+}
+
 function editarFila(btn, cantActual, costoActual, docId){
   try{
     const row=btn.closest('tr');
