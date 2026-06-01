@@ -7535,9 +7535,10 @@ window.verFichaProducto=async function(id){
   const lotesViejos=(_lotes[nom]||[]).filter(l=>l.qty>0);
   if(lotesViejos.length){
     // Build set of fechas ya en stock-historial para no duplicar
-    const fechasExistentes=new Set(compras.map(s=>s.fecha+'_'+s.cantidad));
+    // Deduplicar por fecha solamente — si ya hay una entrada en stock-historial para esa fecha, no mostrar el lote legacy
+    const fechasExistentes=new Set(compras.map(s=>s.fecha));
     const comprasViejas=lotesViejos
-      .filter(l=>!fechasExistentes.has((l.fecha||'')+'_'+l.qty))
+      .filter(l=>!fechasExistentes.has(l.fecha||''))
       .map((l,i)=>({
         id:'lote-legacy-'+i,
         producto:nom,
