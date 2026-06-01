@@ -2989,14 +2989,16 @@ function renderDash(){
     else ul.innerHTML=hv.slice(0,6).map(v=>`<div class="pr"><div><div style="font-weight:600;font-size:13px">${v.cliente}</div><div style="font-size:11px;color:#888">${v.hora} · ${v.tipo==='online'?'Online':v.canal}</div></div><span class="badge bg">${fmt(v.total)}</span></div>`).join('');
   }
   // Stock crítico + vencimiento
-  const nombresValidos=_productos.map(p=>p.nombre);
+  // Usar keys de _inv directamente (no depende de que _productos esté cargado)
+  const nombresValidos=Object.keys(_inv).filter(nom=>_productos.some(p=>p.nombre===nom)||true);
   const hoyMs=new Date().getTime();
   const al1=_cfgAvanzado?.vencAlerta1||{dias:10,color:'#FAC775'};
   const al2=_cfgAvanzado?.vencAlerta2||{dias:3,color:'#E24B4A'};
   const st=document.getElementById('d-stocktbl');
-  // Stock crítico: solo productos con stock <= alerta
+  // Stock crítico: stock <= alerta (misma lógica que el inventario)
   const productosConAlerta=nombresValidos.filter(nom=>{
-    const p=_inv[nom]||{stock:0,alerta:5};return p.stock<=(p.alerta||5);
+    const p=_inv[nom];if(!p)return false;
+    return p.stock<=(p.alerta||5);
   });
   if(st){
     if(!productosConAlerta.length){st.innerHTML='<tr><td colspan="3" style="text-align:center;color:#888;padding:12px">✅ Sin stock crítico</td></tr>';}
