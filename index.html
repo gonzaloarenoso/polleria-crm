@@ -7592,8 +7592,8 @@ input[type=number]{width:90px;padding:4px 6px;border:1px solid #ccc;border-radiu
 </head><body>
 
 <div class="no-print" style="margin-bottom:16px;display:flex;gap:8px">
-  <button onclick="window.print()" style="padding:8px 18px;font-size:13px;cursor:pointer;border:1px solid #ccc;border-radius:8px">🖨 Imprimir</button>
-  <button onclick="window.close()" style="padding:8px 18px;font-size:13px;cursor:pointer;border:1px solid #ccc;border-radius:8px">✕ Cerrar</button>
+  <button id="btn-print" style="padding:8px 18px;font-size:13px;cursor:pointer;border:1px solid #ccc;border-radius:8px">🖨 Imprimir</button>
+  <button id="btn-close" style="padding:8px 18px;font-size:13px;cursor:pointer;border:1px solid #ccc;border-radius:8px">✕ Cerrar</button>
 </div>
 
 <div class="card">
@@ -7612,7 +7612,7 @@ input[type=number]{width:90px;padding:4px 6px;border:1px solid #ccc;border-radiu
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <h3 style="margin:0">🏭 Proveedor</h3>
-    <button class="btn-edit" onclick="toggleEditProv()" id="btn-edit-prov">✏ Cambiar</button>
+    <button class="btn-edit" id="btn-edit-prov">✏ Cambiar</button>
   </div>
   <!-- Vista normal -->
   <div id="prov-view">
@@ -7628,8 +7628,8 @@ input[type=number]{width:90px;padding:4px 6px;border:1px solid #ccc;border-radiu
       ${(_proveedores||[]).map(p=>`<option value="${p.nombre}" ${prod.proveedor===p.nombre?'selected':''}>${p.nombre}</option>`).join('')}
     </select>
     <div style="display:flex;gap:8px">
-      <button class="btn-save" onclick="guardarProveedorFicha('${id}')">✓ Guardar</button>
-      <button class="btn-cancel" onclick="toggleEditProv()">✕ Cancelar</button>
+      <button class="btn-save" id="btn-save-prov" data-prodid="${id}">✓ Guardar</button>
+      <button class="btn-cancel" id="btn-cancel-prov">✕ Cancelar</button>
     </div>
   </div>
 </div>
@@ -7657,13 +7657,13 @@ ${topClientes.length?`<div class="card">
 <div class="card">
   <h3>🛒 Historial de compras de stock</h3>
   ${compras.length?`<table><thead><tr><th>Fecha</th><th>Cantidad</th><th>Costo unit.</th><th>Total</th><th>Proveedor</th><th class="no-print">Editar</th></tr></thead><tbody id="compras-tbody">
-  ${compras.map(s=>`<tr id="row-${s.id}">
+  ${compras.map(s=>`<tr id="row-${s.id}" data-docid="${s.id}">
     <td>${s.fecha||'—'}</td>
     <td class="td-cant-${s.id}">${fmtDec(s.cantidad||0)} ${uni}</td>
     <td class="td-costo-${s.id}">${s.costoUnitario?fmtARS(s.costoUnitario):'—'}</td>
     <td>${s.totalCosto?fmtARS(s.totalCosto):'—'}</td>
     <td>${s.proveedor||prod.proveedor||'—'}</td>
-    <td class="no-print">${s.legacy?'<span style="font-size:10px;color:#aaa;font-style:italic">histórico</span>':`<button class="btn-edit" onclick="editarFila(this,${s.cantidad||0},${s.costoUnitario||0},'${s.id}')">✏ Editar</button>`}</td>
+    <td class="no-print">${s.legacy?'<span style="font-size:10px;color:#aaa;font-style:italic">histórico</span>':`<button class="btn-edit" data-action="edit" data-docid="${s.id}" data-cant="${s.cantidad||0}" data-costo="${s.costoUnitario||0}">✏ Editar</button>`}</td>
   </tr>`).join('')}
   </tbody></table>`
   :`<p style="color:#888;text-align:center;padding:16px">Sin historial de compras registrado</p>`}
@@ -7685,6 +7685,9 @@ ${histPrecios.length?`<div class="card">
 </div>
 
 <script>
+// Estado edición actual
+let _editDocId=null;
+
 function toggleEditProv(){
   const view=document.getElementById('prov-view');
   const edit=document.getElementById('prov-edit');
@@ -7693,66 +7696,101 @@ function toggleEditProv(){
   const editing=edit.style.display!=='none';
   view.style.display=editing?'':'none';
   edit.style.display=editing?'none':'block';
-  btn.textContent=editing?'✏ Cambiar':'✕';
+  if(btn)btn.textContent=editing?'✏ Cambiar':'✕';
 }
 
 function guardarProveedorFicha(prodId){
   const sel=document.getElementById('prov-select');
   const nuevoProveedor=sel?sel.value:'';
-  const btn=document.querySelector('#prov-edit .btn-save');
-  if(btn){btn.textContent='Guardando...';btn.disabled=true;}
-  if(window.opener&&!window.opener.closed){
-    window.opener.actualizarProveedorProducto(prodId, nuevoProveedor, function(ok, provData){
-      if(ok){
-        // Update view
-        const view=document.getElementById('prov-view');
-        if(view){
-          view.innerHTML=provData
-            ?'<div class="prov-box"><strong>'+provData.nombre+'</strong>'+(provData.contacto?' · '+provData.contacto:'')+(provData.tel?'<br>📱 '+provData.tel:'')+(provData.mail?'<br>✉ '+provData.mail:'')+'</div>'
-            :'<div class="prov-box" style="color:#aaa">Sin proveedor asignado</div>';
-        }
-        toggleEditProv();
-      } else {
-        if(btn){btn.textContent='✓ Guardar';btn.disabled=false;}
-        alert('Error al guardar el proveedor');
-      }
-    });
-  } else {
-    alert('La ventana del CRM se cerró. Reabrí la ficha.');
+  const cmd={type:'prov',prodId:prodId,proveedor:nuevoProveedor,ts:Date.now()};
+  localStorage.setItem('crm-prov-edit',JSON.stringify(cmd));
+  const box=document.getElementById('prov-view');
+  if(box)box.innerHTML='<div class="prov-box">✓ Guardado</div>';
+  toggleEditProv();
+  setTimeout(()=>localStorage.removeItem('crm-prov-edit'),3000);
+}
+
+function editarFila(docId, cantActual, costoActual, rowIndex){
+  _editDocId=docId;
+  const table=document.querySelector('#compras-tbody');
+  if(!table)return;
+  const rows=table.rows;
+  for(let i=0;i<rows.length;i++){
+    if(rows[i].dataset.docid===docId){
+      const row=rows[i];
+      row.cells[1].innerHTML='<input type="number" id="inp-cant" value="'+cantActual+'" min="0" step="0.01" style="width:70px;padding:4px;border:2px solid #D85A30;border-radius:4px"/>';
+      row.cells[2].innerHTML='<input type="number" id="inp-costo" value="'+(costoActual>0?costoActual:'')+'" min="0" placeholder="Costo" style="width:80px;padding:4px;border:1px solid #ccc;border-radius:4px"/>';
+      row.cells[5].innerHTML='<button id="btn-guardar" style="background:#D85A30;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;margin-right:4px">✓ Guardar</button><button id="btn-cancelar" style="background:#eee;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer">✕</button>';
+      const inp=document.getElementById('inp-cant');
+      if(inp){inp.focus();inp.select();}
+      break;
+    }
   }
 }
 
-function editarFila(btn, cantActual, costoActual, docId){
-  try{
-    const row=btn.closest('tr');
-    if(!row){alert('Error: fila no encontrada. Recargá la ficha.');return;}
-    const cells=row.cells;
-    if(cells.length<6){alert('Error: estructura de tabla incorrecta ('+cells.length+' celdas)');return;}
-    cells[1].innerHTML='<input type="number" id="inp-cant" value="'+cantActual+'" min="0" step="0.01" style="width:70px;padding:3px 6px;border:1px solid #ccc;border-radius:4px"/>';
-    cells[2].innerHTML='<input type="number" id="inp-costo" value="'+(costoActual>0?costoActual:'')+'" min="0" placeholder="Costo" style="width:80px;padding:3px 6px;border:1px solid #ccc;border-radius:4px"/>';
-    cells[5].innerHTML='<button class="btn-save" onclick="guardarEdicion(\''+docId+'\',this)" style="margin-right:4px">✓ Guardar</button><button class="btn-cancel" onclick="window.location.reload()">✕</button>';
-    const inp=document.getElementById('inp-cant');
-    if(inp){inp.focus();inp.select();}
-  }catch(e){alert('Error al editar: '+e.message);}
-}
+// Event delegation - sin ningún onclick inline
+document.addEventListener('DOMContentLoaded',function(){
+  document.body.addEventListener('click',function(e){
+    const btn=e.target.closest('button');
+    if(!btn)return;
 
-function guardarEdicion(docId, btn){
-  try{
-    const cant=parseFloat(document.getElementById('inp-cant')?.value)||0;
-    const costo=parseFloat(document.getElementById('inp-costo')?.value)||0;
-    if(!cant){alert('La cantidad no puede ser 0');return;}
-    btn.textContent='Guardando...';btn.disabled=true;
-    // Communicate with CRM tab via localStorage
-    const cmd={docId:docId,nom:'${nom}',cant:cant,costo:costo,ts:Date.now()};
-    localStorage.setItem('crm-stock-edit',JSON.stringify(cmd));
-    // Give CRM time to process, then reload
-    setTimeout(()=>{
-      localStorage.removeItem('crm-stock-edit');
+    // Botón Editar
+    if(btn.dataset.action==='edit'){
+      e.preventDefault();
+      editarFila(btn.dataset.docid, parseFloat(btn.dataset.cant)||0, parseFloat(btn.dataset.costo)||0);
+      return;
+    }
+    // Botón Guardar edición
+    if(btn.id==='btn-guardar'){
+      e.preventDefault();
+      const cant=parseFloat(document.getElementById('inp-cant')?.value)||0;
+      const costo=parseFloat(document.getElementById('inp-costo')?.value)||0;
+      if(!cant){alert('La cantidad no puede ser 0');return;}
+      btn.textContent='Guardando...';btn.disabled=true;
+      const cmd={docId:_editDocId,nom:'${nom}',cant:cant,costo:costo,ts:Date.now()};
+      localStorage.setItem('crm-stock-edit',JSON.stringify(cmd));
+      btn.textContent='✓ Recargando...';
+      setTimeout(()=>{localStorage.removeItem('crm-stock-edit');window.location.reload();},1800);
+      return;
+    }
+    // Botón Cancelar edición
+    if(btn.id==='btn-cancelar'){
+      e.preventDefault();
       window.location.reload();
-    },1800);
-    btn.textContent='✓ Guardado — recargando...';
-  }catch(e){alert('Error al guardar: '+e.message);}
-}
+      return;
+    }
+    // Botón Cambiar proveedor
+    if(btn.id==='btn-edit-prov'){
+      e.preventDefault();
+      toggleEditProv();
+      return;
+    }
+    // Botón Guardar proveedor
+    if(btn.id==='btn-save-prov'){
+      e.preventDefault();
+      guardarProveedorFicha(btn.dataset.prodid);
+      return;
+    }
+    // Botón Imprimir
+    if(btn.id==='btn-print'){
+      e.preventDefault();
+      window.print();
+      return;
+    }
+    // Botón Cancelar proveedor
+    if(btn.id==='btn-cancel-prov'){
+      e.preventDefault();
+      toggleEditProv();
+      return;
+    }
+    // Botón Cerrar
+    if(btn.id==='btn-close'){
+      e.preventDefault();
+      window.close();
+      return;
+    }
+  });
+});
 <\/script>
 </body></html>`;
 
