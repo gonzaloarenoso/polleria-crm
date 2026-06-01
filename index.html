@@ -647,7 +647,15 @@ tr:hover td{background:#fafaf8}
         <div class="g2">
           <div class="card">
             <h3>Actualizar stock</h3>
-            <label>Producto</label><select id="s-prod-sel"></select>
+            <label>Producto</label>
+            <div style="position:relative">
+              <input type="text" id="s-prod-input" placeholder="Buscar producto..." autocomplete="off"
+                oninput="filtrarStockProd(this.value)"
+                onfocus="filtrarStockProd(this.value)"
+                style="width:100%"/>
+              <input type="hidden" id="s-prod-sel"/>
+              <div id="s-prod-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:8px;z-index:100;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15)"></div>
+            </div>
             <label>Cantidad a ingresar</label><input type="number" id="s-cant" placeholder="Ej: 10" min="0"/>
             <div id="s-costo-wrap">
               <label>Costo unitario ($) <span style="font-size:10px;color:#888">— solo admin</span></label>
@@ -2923,7 +2931,7 @@ function buildProdOptions(){
 }
 function renderProdSelect(){const s=document.getElementById('v-prod');if(s)s.innerHTML=buildProdOptions();}
 function renderEditProdSelect(){const s=document.getElementById('ev-prod');if(s)s.innerHTML=buildProdOptions();}
-function renderStockSel(){const s=document.getElementById('s-prod-sel');if(s)s.innerHTML=_productos.map(p=>`<option value="${p.nombre}">${p.nombre}</option>`).join('');}
+function renderStockSel(){} // replaced by filtrarStockProd
 function renderPromoSel(){const s=document.getElementById('pr-prod-sel');if(s)s.innerHTML=_productos.map(p=>`<option value="${p.nombre}">${p.nombre}</option>`).join('');}
 function renderDescuentoSelect(){
   const s=document.getElementById('v-desc');if(!s)return;
@@ -4038,13 +4046,50 @@ window.saveEditCliente=async function(){
 };
 
 // ── STOCK (updated with solicitudes) ─────────────────────────────────────────
+
+window.filtrarStockProd=function(q){
+  const dd=document.getElementById('s-prod-dropdown');
+  const hidden=document.getElementById('s-prod-sel');
+  if(!dd)return;
+  const activos=(_productos||[]).filter(p=>p.activo!==false);
+  const matches=q.trim()===''?activos:activos.filter(p=>p.nombre.toLowerCase().includes(q.toLowerCase()));
+  if(!matches.length){dd.style.display='none';return;}
+  dd.style.display='block';
+  dd.innerHTML=matches.map(p=>{
+    const stock=(_inv&&_inv[p.nombre])?(_inv[p.nombre].stock||0):0;
+    return `<div onclick="seleccionarStockProd('${p.nombre.replace(/'/g,"\'")}',this)"
+      style="padding:8px 12px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+      <span>${p.nombre}</span>
+      <span style="font-size:11px;color:#888">Stock: ${stock}</span>
+    </div>`;
+  }).join('');
+};
+
+window.seleccionarStockProd=function(nombre,el){
+  const input=document.getElementById('s-prod-input');
+  const hidden=document.getElementById('s-prod-sel');
+  const dd=document.getElementById('s-prod-dropdown');
+  if(input)input.value=nombre;
+  if(hidden)hidden.value=nombre;
+  if(dd)dd.style.display='none';
+  // Trigger calcSug in case cost is already filled
+  calcSug();
+};
+
+// Close dropdown when clicking outside
+document.addEventListener('click',function(e){
+  const dd=document.getElementById('s-prod-dropdown');
+  const wrap=document.getElementById('s-prod-input');
+  if(dd&&wrap&&!wrap.contains(e.target)&&!dd.contains(e.target))dd.style.display='none';
+});
 window.calcSug=function(){
   const c=parseInt(document.getElementById('s-costo').value)||0;
   const el=document.getElementById('s-sug');
   if(!el)return;
   if(c>0){
     // Suggest price at 60% margin. Also show last known price if exists
-    const prod=document.getElementById('s-prod-sel')?.value;
+    const prod=document.getElementById('s-prod-sel')?.value||document.getElementById('s-prod-input')?.value;
     const prodObj=prod?_productos.find(p=>p.nombre===prod):null;
     const precioActual=prodObj?.precio||0;
     const precioSug=Math.round(c*1.6);
@@ -4116,6 +4161,7 @@ function renderInv(){
 }
 window.updStock=async function(){
   const prod=document.getElementById('s-prod-sel').value;
+  if(!prod){alert('Seleccioná un producto de la lista');return;}
   const cant=parseInt(document.getElementById('s-cant').value)||0;
   const costo=parseInt(document.getElementById('s-costo').value)||0;
   if(!cant){alert('Ingresá una cantidad');return;}
@@ -7334,6 +7380,27 @@ window.verFichaProducto=async function(id){
       .sort((a,b)=>b.ts-a.ts).slice(0,20);
   }catch(e){console.warn('ficha load error',e);}
 
+  // Merge with lotes (datos históricos previos a stock-historial)
+  const lotesViejos=(_lotes[nom]||[]).filter(l=>l.qty>0);
+  if(lotesViejos.length){
+    // Build set of fechas ya en stock-historial para no duplicar
+    const fechasExistentes=new Set(compras.map(s=>s.fecha+'_'+s.cantidad));
+    const comprasViejas=lotesViejos
+      .filter(l=>!fechasExistentes.has((l.fecha||'')+'_'+l.qty))
+      .map((l,i)=>({
+        id:'lote-legacy-'+i,
+        producto:nom,
+        cantidad:l.qty,
+        costoUnitario:l.costo||null,
+        totalCosto:l.costo>0?l.costo*l.qty:null,
+        fecha:l.fecha||'(sin fecha)',
+        proveedor:prod.proveedor||null,
+        legacy:true
+      }));
+    compras=[...compras,...comprasViejas]
+      .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  }
+
   // Margen estimado
   const lastCosto=compras.find(s=>s.costoUnitario)?.costoUnitario||0;
   const margenPct=lastCosto&&prod.precio?Math.round(((prod.precio-lastCosto)/prod.precio)*100):null;
@@ -7425,7 +7492,7 @@ ${topClientes.length?`<div class="card">
     <td class="td-costo-${s.id}">${s.costoUnitario?fmtARS(s.costoUnitario):'—'}</td>
     <td>${s.totalCosto?fmtARS(s.totalCosto):'—'}</td>
     <td>${s.proveedor||prod.proveedor||'—'}</td>
-    <td class="no-print"><button class="btn-edit" onclick="editarFila('${s.id}',${s.cantidad||0},${s.costoUnitario||0})">✏ Editar</button></td>
+    <td class="no-print">${s.legacy?'<span style="font-size:10px;color:#aaa;font-style:italic">histórico</span>':`<button class="btn-edit" onclick="editarFila('${s.id}',${s.cantidad||0},${s.costoUnitario||0})">✏ Editar</button>`}</td>
   </tr>`).join('')}
   </tbody></table>`
   :`<p style="color:#888;text-align:center;padding:16px">Sin historial de compras registrado</p>`}
