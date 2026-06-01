@@ -4448,7 +4448,7 @@ window.confirmarRenombrar=async function(id, nombreViejo){
     console.error('renombrar',e);
   }
 };
-function renderProductos(){
+window.renderProductos=function renderProductos(){
   // Populate category selector in product form
   const catSel=document.getElementById('p-categoria');
   if(catSel&&_categorias?.length){
@@ -7742,12 +7742,15 @@ function guardarEdicion(docId, btn){
     const costo=parseFloat(document.getElementById('inp-costo')?.value)||0;
     if(!cant){alert('La cantidad no puede ser 0');return;}
     btn.textContent='Guardando...';btn.disabled=true;
-    if(window.opener&&!window.opener.closed){
-      window.opener.editarEntradaStock(docId,'${nom}',cant,costo);
-      setTimeout(()=>window.location.reload(),1500);
-    } else {
-      alert('Cerraste el CRM. Reabrí la ficha desde el CRM.');
-    }
+    // Communicate with CRM tab via localStorage
+    const cmd={docId:docId,nom:'${nom}',cant:cant,costo:costo,ts:Date.now()};
+    localStorage.setItem('crm-stock-edit',JSON.stringify(cmd));
+    // Give CRM time to process, then reload
+    setTimeout(()=>{
+      localStorage.removeItem('crm-stock-edit');
+      window.location.reload();
+    },1800);
+    btn.textContent='✓ Guardado — recargando...';
   }catch(e){alert('Error al guardar: '+e.message);}
 }
 <\/script>
@@ -7794,6 +7797,16 @@ window.editarEntradaStock=async function(docId, prodNombre, nuevaCant, nuevoCost
     console.error('editarEntradaStock',e);
   }
 };
+
+// ── LISTENER: recibir ediciones desde ficha (localStorage) ───────────────
+window.addEventListener('storage', async function(e){
+  if(e.key!=='crm-stock-edit'||!e.newValue)return;
+  try{
+    const cmd=JSON.parse(e.newValue);
+    if(!cmd.docId||!cmd.nom||!cmd.cant)return;
+    await editarEntradaStock(cmd.docId, cmd.nom, cmd.cant, cmd.costo||0);
+  }catch(err){console.warn('crm-stock-edit listener error',err);}
+});
 
 window.verFichaProveedor=async function(id){
   const p=_proveedores.find(x=>x.id===id);if(!p)return;
