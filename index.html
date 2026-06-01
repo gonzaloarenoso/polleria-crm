@@ -616,10 +616,11 @@ tr:hover td{background:#fafaf8}
             <div class="row"><button class="btn bp" id="p-btn" onclick="addProducto()">Agregar producto</button></div>
           </div>
           <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
               <h3 style="margin-bottom:0">Lista de productos</h3>
               <button class="btn bs bsm" onclick="exportListaPrecios()">📋 Exportar lista de precios</button>
             </div>
+            <input type="text" id="p-buscador" placeholder="🔍 Buscar producto..." oninput="renderProductos()" style="width:100%;margin-bottom:10px;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px"/>
             <div id="p-lista"><div class="empty">Cargando...</div></div>
           </div>
         </div>
@@ -4459,6 +4460,7 @@ function renderProductos(){
   // Admin view: editable list
   const el=document.getElementById('p-lista');
   const elVend=document.getElementById('p-lista-vend');
+  const busq=(document.getElementById('p-buscador')?.value||'').toLowerCase().trim();
   const adminForm=document.getElementById('p-admin-form');
   const vendList=document.getElementById('p-vend-list');
   if(USER_ROLE==='admin'){
@@ -4467,7 +4469,8 @@ function renderProductos(){
     if(!el)return;
     if(!_productos.length){el.innerHTML='<div class="empty">Sin productos</div>';return;}
     const UNITS=['unidad','kg','g','lts','ml','porcion','docena','pack'];
-    el.innerHTML=_productos.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">Stock: ${_inv[p.nombre]?.stock||0} &nbsp;·&nbsp; Unidad: <strong>${p.unidad||'unidad'}</strong></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><span style="width:86px;font-size:12px;padding:5px 8px;background:var(--bg);border-radius:6px;display:inline-block;text-align:right;color:#888" title="Modificar precio desde Stock">${fmt(p.precio||0)}</span><button class="btn ${p.activo===false?'bd':'bs'} bsm" onclick="toggleActivoProducto('${p.id}',${p.activo!==false})">${p.activo===false?'🔴':'🟢'}</button><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bs bsm" onclick="iniciarRenombrar('${p.id}','${p.nombre.replace(/'/g,"\\\\'")}')" title="Renombrar producto">✏️ Renombrar</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button></div></div>`).join('');
+    const prodsFiltrados=busq?_productos.filter(p=>p.nombre.toLowerCase().includes(busq)||(p.categoria||'').toLowerCase().includes(busq)||(p.proveedor||'').toLowerCase().includes(busq)):_productos;
+    el.innerHTML=prodsFiltrados.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">Stock: ${_inv[p.nombre]?.stock||0} &nbsp;·&nbsp; Unidad: <strong>${p.unidad||'unidad'}</strong></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><span style="width:86px;font-size:12px;padding:5px 8px;background:var(--bg);border-radius:6px;display:inline-block;text-align:right;color:#888" title="Modificar precio desde Stock">${fmt(p.precio||0)}</span><button class="btn ${p.activo===false?'bd':'bs'} bsm" onclick="toggleActivoProducto('${p.id}',${p.activo!==false})">${p.activo===false?'🔴':'🟢'}</button><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bs bsm" onclick="iniciarRenombrar('${p.id}','${p.nombre.replace(/'/g,"\\\\'")}')" title="Renombrar producto">✏️ Renombrar</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button></div></div>`).join('');
   } else {
     // Vendor view: read-only
     if(adminForm)adminForm.style.display='none';
@@ -7722,13 +7725,14 @@ function guardarProveedorFicha(prodId){
 function editarFila(btn, cantActual, costoActual, docId){
   try{
     const row=btn.closest('tr');
-    if(!row){alert('Error: no se encontró la fila');return;}
+    if(!row){alert('Error: fila no encontrada. Recargá la ficha.');return;}
     const cells=row.cells;
-    // cells: 0=fecha, 1=cantidad, 2=costo, 3=total, 4=proveedor, 5=editar
-    cells[1].innerHTML='<input type="number" id="inp-cant" value="'+cantActual+'" min="0" step="0.01" style="width:70px"/>';
-    cells[2].innerHTML='<input type="number" id="inp-costo" value="'+(costoActual||'')+'" min="0" placeholder="Costo" style="width:80px"/>';
-    cells[5].innerHTML='<button class="btn-save" onclick="guardarEdicion(\''+docId+'\',this)">✓ Guardar</button> <button class="btn-cancel" onclick="window.location.reload()">✕</button>';
-    document.getElementById('inp-cant').focus();
+    if(cells.length<6){alert('Error: estructura de tabla incorrecta ('+cells.length+' celdas)');return;}
+    cells[1].innerHTML='<input type="number" id="inp-cant" value="'+cantActual+'" min="0" step="0.01" style="width:70px;padding:3px 6px;border:1px solid #ccc;border-radius:4px"/>';
+    cells[2].innerHTML='<input type="number" id="inp-costo" value="'+(costoActual>0?costoActual:'')+'" min="0" placeholder="Costo" style="width:80px;padding:3px 6px;border:1px solid #ccc;border-radius:4px"/>';
+    cells[5].innerHTML='<button class="btn-save" onclick="guardarEdicion(\''+docId+'\',this)" style="margin-right:4px">✓ Guardar</button><button class="btn-cancel" onclick="window.location.reload()">✕</button>';
+    const inp=document.getElementById('inp-cant');
+    if(inp){inp.focus();inp.select();}
   }catch(e){alert('Error al editar: '+e.message);}
 }
 
@@ -7749,11 +7753,13 @@ function guardarEdicion(docId, btn){
 <\/script>
 </body></html>`;
 
-  // Open in new tab
-  const w=window.open('','_blank');
-  if(!w){toast('El navegador bloqueó la nueva pestaña. Permitir ventanas emergentes.','error');return;}
-  w.document.write(html);
-  w.document.close();
+  // Open in new tab via Blob URL (scripts execute reliably)
+  const blob=new Blob([html],{type:'text/html'});
+  const blobUrl=URL.createObjectURL(blob);
+  const w=window.open(blobUrl,'_blank');
+  if(!w){toast('El navegador bloqueó la nueva pestaña. Permitir ventanas emergentes.','error');URL.revokeObjectURL(blobUrl);return;}
+  // Revoke after tab loads
+  setTimeout(()=>URL.revokeObjectURL(blobUrl),10000);
 };
 
 
