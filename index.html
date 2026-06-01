@@ -4273,7 +4273,7 @@ function renderProductos(){
     if(!el)return;
     if(!_productos.length){el.innerHTML='<div class="empty">Sin productos</div>';return;}
     const UNITS=['unidad','kg','g','lts','ml','porcion','docena','pack'];
-    el.innerHTML=_productos.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">Stock: ${_inv[p.nombre]?.stock||0} &nbsp;·&nbsp; Unidad: <strong>${p.unidad||'unidad'}</strong></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><input type="number" value="${p.precio}" style="width:86px;font-size:12px;padding:5px 8px" onchange="updatePrecio('${p.id}',this.value)" title="Precio"/><button class="btn ${p.activo===false?'bd':'bs'} bsm" onclick="toggleActivoProducto('${p.id}',${p.activo!==false})">${p.activo===false?'🔴':'🟢'}</button><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verHistorialPrecios('${p.id}','${p.nombre}')">📈</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button></div></div>`).join('');
+    el.innerHTML=_productos.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">Stock: ${_inv[p.nombre]?.stock||0} &nbsp;·&nbsp; Unidad: <strong>${p.unidad||'unidad'}</strong></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><input type="number" value="${p.precio}" style="width:86px;font-size:12px;padding:5px 8px" onchange="updatePrecio('${p.id}',this.value)" title="Precio"/><button class="btn ${p.activo===false?'bd':'bs'} bsm" onclick="toggleActivoProducto('${p.id}',${p.activo!==false})">${p.activo===false?'🔴':'🟢'}</button><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button></div></div>`).join('');
   } else {
     // Vendor view: read-only
     if(adminForm)adminForm.style.display='none';
@@ -4388,48 +4388,6 @@ tr:hover td{background:#fafaf8}
   w.document.close();
 };
 
-window.verHistorialPrecios=async function(id,nombre){
-  try{
-    const [histSnap]=await Promise.all([
-      getDocs(collection(db,'users',STORE,'historial-precios'))
-    ]);
-    const hist=histSnap.docs.map(d=>d.data()).filter(h=>h.productoId===id).sort((a,b)=>b.ts-a.ts).slice(0,20);
-    // Ventas stats for this product
-    const ventasProd=_ventas.filter(v=>v.items?.some(i=>i.nom===nombre));
-    const totalUnid=ventasProd.reduce((a,v)=>a+(v.items.find(i=>i.nom===nombre)?.cant||0),0);
-    const totalFact=ventasProd.reduce((a,v)=>{const it=v.items.find(i=>i.nom===nombre);return a+(it?it.cant*it.precio:0);},0);
-    const promedio=ventasProd.length?Math.round(totalFact/ventasProd.length):0;
-    const ultimas=ventasProd.slice(-8).reverse();
-    const rows=hist.length?hist.map(h=>'<tr><td>'+h.fecha+'</td><td>$'+Math.round(h.precioAnterior).toLocaleString('es-AR')+'</td><td>$'+Math.round(h.precioNuevo).toLocaleString('es-AR')+'</td><td>'+h.cambiadoPor+'</td></tr>').join(''):
-      '<tr><td colspan="4" style="text-align:center;color:#888;padding:20px">Sin cambios registrados</td></tr>';
-    const ventasRows=ultimas.map(v=>{const it=v.items.find(i=>i.nom===nombre);return'<tr><td>'+v.fecha+'</td><td>'+v.hora+'</td><td>'+(it?it.cant:0)+' '+((it?.unidad)||'unid.')+'</td><td>$'+(it?Math.round(it.cant*it.precio).toLocaleString('es-AR'):0)+'</td></tr>';}).join('');
-    const w=window.open('','_hist','width=620,height:800');
-    w.document.write('<!DOCTYPE html><html><head><title>'+nombre+'</title>'+
-    '<style>body{font-family:-apple-system,sans-serif;padding:20px;color:#1a1a1a;background:#f5f4f0}'+
-    '.card{background:#fff;border-radius:10px;padding:16px;margin-bottom:16px}'+
-    'h2{font-size:18px;margin-bottom:4px;color:#D85A30}h3{font-size:14px;margin-bottom:10px;color:#1a1a1a}'+
-    '.grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:16px}'+
-    '.stat{background:#f5f4f0;border-radius:8px;padding:10px;text-align:center}'+
-    '.stat-n{font-size:20px;font-weight:700;color:#D85A30}.stat-l{font-size:10px;color:#888}'+
-    'table{width:100%;border-collapse:collapse}th{background:#1a1a1a;color:#fff;padding:7px 10px;text-align:left;font-size:12px}'+
-    'td{padding:7px 10px;border-bottom:1px solid #f0ede8;font-size:12px}'+
-    '@media print{button{display:none}}</style></head><body>'+
-    '<button onclick="window.print()" style="margin-bottom:12px;padding:8px 20px;font-size:13px;cursor:pointer;border:1px solid #ccc;border-radius:8px">🖨 Imprimir</button>'+
-    '<div class="card"><h2>'+nombre+'</h2><p style="font-size:13px;color:#888;margin:0">Ficha completa del producto</p></div>'+
-    '<div class="grid">'+
-    '<div class="stat"><div class="stat-n">'+totalUnid+'</div><div class="stat-l">Unidades vendidas</div></div>'+
-    '<div class="stat"><div class="stat-n">'+ventasProd.length+'</div><div class="stat-l">Apariciones en ventas</div></div>'+
-    '<div class="stat"><div class="stat-n">$'+Math.round(totalFact).toLocaleString('es-AR')+'</div><div class="stat-l">Facturación total</div></div>'+
-    '<div class="stat"><div class="stat-n">$'+promedio.toLocaleString('es-AR')+'</div><div class="stat-l">Promedio por venta</div></div>'+
-    '</div>'+
-    '<div class="card"><h3>Historial de precios</h3>'+
-    '<table><thead><tr><th>Fecha</th><th>Precio anterior</th><th>Precio nuevo</th><th>Modificado por</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
-    (ultimas.length?'<div class="card"><h3>Últimas '+ultimas.length+' ventas</h3>'+
-    '<table><thead><tr><th>Fecha</th><th>Hora</th><th>Cantidad</th><th>Subtotal</th></tr></thead><tbody>'+ventasRows+'</tbody></table></div>':'')+
-    '</body></html>');
-    w.document.close();
-  }catch(e){alert('Error: '+e.message);}
-};
 
 window.subirFotoProducto=async function(id,input){
   const file=input.files[0];if(!file)return;
@@ -7323,43 +7281,23 @@ function renderProveedores(){
 }
 
 window.verFichaProducto=async function(id){
-  const modal=document.getElementById('modal-overlay');
-  if(!modal)return;
   const prod=_productos.find(p=>p.id===id);
   if(!prod)return;
   const nom=prod.nombre;
   const uni=prod.unidad||'unidad';
 
-  // — ventas que contienen este producto —
+  // Ventas del producto
   const ventasProd=(_ventas||[]).filter(v=>v.items&&v.items.some(i=>i.nom===nom))
     .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const totalVendido=ventasProd.reduce((a,v)=>{const it=v.items.find(i=>i.nom===nom);return a+(it?parseFloat(it.cant||0):0);},0);
+  const totalFacturado=ventasProd.reduce((a,v)=>{const it=v.items.find(i=>i.nom===nom);return a+(it?(it.cant||0)*(it.precio||0):0);},0);
 
-  // totales globales
-  const totalVendido=ventasProd.reduce((a,v)=>{
-    const it=v.items.find(i=>i.nom===nom);return a+(it?parseFloat(it.cant||0):0);
-  },0);
-  const totalFacturado=ventasProd.reduce((a,v)=>{
-    const it=v.items.find(i=>i.nom===nom);return a+(it?(it.cant||0)*(it.precio||0):0);
-  },0);
-
-  // evolución precio de venta (últimos cambios detectados)
-  const preciosVenta=[];
-  let lastPV=null;
-  [...ventasProd].reverse().forEach(v=>{
-    const it=v.items.find(i=>i.nom===nom);
-    if(it&&it.precio&&it.precio!==lastPV){
-      preciosVenta.push({fecha:v.fecha,precio:it.precio});
-      lastPV=it.precio;
-    }
-  });
-
-  // ventas por mes (últimos 6 meses)
+  // Ventas por mes (últimos 6)
   const ventasMes={};
   ventasProd.forEach(v=>{
     if(!v.fecha)return;
     const mes=v.fecha.substring(0,7);
-    const it=v.items.find(i=>i.nom===nom);
-    if(!it)return;
+    const it=v.items.find(i=>i.nom===nom);if(!it)return;
     if(!ventasMes[mes])ventasMes[mes]={cant:0,fac:0,ops:0};
     ventasMes[mes].cant+=parseFloat(it.cant||0);
     ventasMes[mes].fac+=(it.cant||0)*(it.precio||0);
@@ -7367,161 +7305,218 @@ window.verFichaProducto=async function(id){
   });
   const meses=Object.keys(ventasMes).sort().slice(-6);
 
-  // clientes top
+  // Top clientes
   const clienteMap={};
   ventasProd.forEach(v=>{
     const k=v.cliente||'Mostrador';
-    const it=v.items.find(i=>i.nom===nom);
-    if(!it)return;
+    const it=v.items.find(i=>i.nom===nom);if(!it)return;
     if(!clienteMap[k])clienteMap[k]={cant:0,fac:0};
     clienteMap[k].cant+=parseFloat(it.cant||0);
     clienteMap[k].fac+=(it.cant||0)*(it.precio||0);
   });
   const topClientes=Object.entries(clienteMap).sort((a,b)=>b[1].fac-a[1].fac).slice(0,5);
 
-  // stock y proveedor
   const stockActual=(_inv&&_inv[nom])?(_inv[nom].stock||0):0;
   const prov=(_proveedores||[]).find(p=>p.nombre===prod.proveedor);
 
-  // mostrar modal con loader
-  modal.style.display='flex';
-  modal.innerHTML=`<div class="mo-inner">
-    <button onclick="document.getElementById('modal-overlay').style.display='none'" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:22px;cursor:pointer;color:var(--text)">✕</button>
-    <div style="font-size:20px;font-weight:700;margin-bottom:2px">📦 ${nom}</div>
-    <div style="font-size:12px;color:var(--primary);font-weight:600;margin-bottom:16px">${uni}${prod.categoria?' · '+prod.categoria:''}${prod.proveedor?' · '+prod.proveedor:''}</div>
-
-    <!-- KPIs -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
-      <div style="background:var(--bg);border-radius:10px;padding:10px;text-align:center">
-        <div style="font-size:21px;font-weight:700;color:var(--primary)">${stockActual}</div>
-        <div style="font-size:10px;color:#888;margin-top:2px">Stock actual</div>
-      </div>
-      <div style="background:var(--bg);border-radius:10px;padding:10px;text-align:center">
-        <div style="font-size:21px;font-weight:700">${totalVendido.toLocaleString('es-AR',{maximumFractionDigits:1})}</div>
-        <div style="font-size:10px;color:#888;margin-top:2px">Total vendido</div>
-      </div>
-      <div style="background:var(--bg);border-radius:10px;padding:10px;text-align:center">
-        <div style="font-size:18px;font-weight:700">$${Math.round(totalFacturado).toLocaleString('es-AR')}</div>
-        <div style="font-size:10px;color:#888;margin-top:2px">Facturado</div>
-      </div>
-      <div style="background:var(--bg);border-radius:10px;padding:10px;text-align:center">
-        <div style="font-size:18px;font-weight:700;color:#27ae60">$${(prod.precio||0).toLocaleString('es-AR')}</div>
-        <div style="font-size:10px;color:#888;margin-top:2px">Precio venta</div>
-      </div>
-    </div>
-
-    <!-- Ventas por mes (mini barras) -->
-    ${meses.length?`<div style="font-weight:700;font-size:13px;margin-bottom:8px">📅 Ventas por mes (últimos ${meses.length})</div>
-    <div style="overflow-x:auto;margin-bottom:16px"><table style="font-size:12px;width:100%">
-      <thead><tr><th>Mes</th><th>Cant.</th><th>Ops.</th><th>Facturado</th></tr></thead>
-      <tbody>${meses.map(m=>{
-        const d=ventasMes[m];
-        return `<tr><td><strong>${m}</strong></td><td>${d.cant.toLocaleString('es-AR',{maximumFractionDigits:1})} ${uni}</td><td>${d.ops}</td><td>$${Math.round(d.fac).toLocaleString('es-AR')}</td></tr>`;
-      }).join('')}
-      <tr style="font-weight:700;border-top:2px solid var(--border)"><td>Total</td>
-        <td>${meses.reduce((a,m)=>a+ventasMes[m].cant,0).toLocaleString('es-AR',{maximumFractionDigits:1})} ${uni}</td>
-        <td>${meses.reduce((a,m)=>a+ventasMes[m].ops,0)}</td>
-        <td>$${Math.round(meses.reduce((a,m)=>a+ventasMes[m].fac,0)).toLocaleString('es-AR')}</td>
-      </tr></tbody></table></div>`
-    :''}
-
-    <!-- Evolución precio de venta -->
-    ${preciosVenta.length>1?`<div style="font-weight:700;font-size:13px;margin-bottom:8px">💲 Evolución precio de venta</div>
-    <div style="overflow-x:auto;margin-bottom:16px"><table style="font-size:12px">
-      <thead><tr><th>Desde</th><th>Precio</th></tr></thead>
-      <tbody>${preciosVenta.map(p=>`<tr><td>${p.fecha}</td><td><strong>$${p.precio.toLocaleString('es-AR')}</strong></td></tr>`).join('')}</tbody>
-    </table></div>`:''}
-
-    <!-- Top clientes -->
-    ${topClientes.length?`<div style="font-weight:700;font-size:13px;margin-bottom:8px">🏆 Clientes top</div>
-    <div style="overflow-x:auto;margin-bottom:16px"><table style="font-size:12px">
-      <thead><tr><th>Cliente</th><th>Cant.</th><th>Facturado</th></tr></thead>
-      <tbody>${topClientes.map(([k,v])=>`<tr><td>${k}</td><td>${v.cant.toLocaleString('es-AR',{maximumFractionDigits:1})} ${uni}</td><td>$${Math.round(v.fac).toLocaleString('es-AR')}</td></tr>`).join('')}</tbody>
-    </table></div>`:''}
-
-    <!-- Proveedor -->
-    ${prov?`<div style="font-weight:700;font-size:13px;margin-bottom:6px">🏭 Proveedor</div>
-    <div style="background:var(--bg);border-radius:10px;padding:10px;font-size:13px;margin-bottom:16px">
-      <strong>${prov.nombre}</strong>${prov.contacto?' · '+prov.contacto:''}${prov.tel?'<br>📱 '+prov.tel:''}
-    </div>`:''}
-
-    <!-- Historial compras (cargando...) -->
-    <div style="font-weight:700;font-size:13px;margin-bottom:8px">🛒 Historial de compras de stock</div>
-    <div id="ficha-compras-section"><div style="text-align:center;padding:16px;color:#888">⏳ Cargando compras...</div></div>
-
-    <!-- Últimas 20 ventas -->
-    <div style="font-weight:700;font-size:13px;margin:16px 0 8px">🧾 Últimas ventas</div>
-    ${ventasProd.length?`<div style="overflow-x:auto"><table style="font-size:12px">
-      <thead><tr><th>Fecha</th><th>Cliente</th><th>Canal</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead>
-      <tbody>${ventasProd.slice(0,20).map(v=>{
-        const it=v.items.find(i=>i.nom===nom);
-        const subtotal=(it?.cant||0)*(it?.precio||0);
-        return `<tr><td>${v.fecha||'—'}</td><td>${v.cliente||'Mostrador'}</td><td>${v.canal||'—'}</td><td>${it?.cant||0} ${uni}</td><td>$${(it?.precio||0).toLocaleString('es-AR')}</td><td>$${Math.round(subtotal).toLocaleString('es-AR')}</td></tr>`;
-      }).join('')}</tbody>
-    </table></div>`:`<div class="empty">Sin ventas registradas</div>`}
-  </div>`;
-
-  // cargar compras de stock async
+  // Load from Firestore: stock-historial + historial-precios
+  let compras=[], histPrecios=[];
   try{
-    const snap=await getDocs(collection(db,'users',STORE,'stock-historial'));
-    const compras=snap.docs.map(d=>({id:d.id,...d.data()}))
+    const [snapC,snapH]=await Promise.all([
+      getDocs(collection(db,'users',STORE,'stock-historial')),
+      getDocs(collection(db,'users',STORE,'historial-precios'))
+    ]);
+    compras=snapC.docs.map(d=>({id:d.id,...d.data()}))
       .filter(s=>s.producto===nom)
       .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+    histPrecios=snapH.docs.map(d=>({id:d.id,...d.data()}))
+      .filter(h=>h.productoId===id)
+      .sort((a,b)=>b.ts-a.ts).slice(0,20);
+  }catch(e){console.warn('ficha load error',e);}
 
-    const seccion=document.getElementById('ficha-compras-section');
-    if(!seccion)return;
+  // Margen estimado
+  const lastCosto=compras.find(s=>s.costoUnitario)?.costoUnitario||0;
+  const margenPct=lastCosto&&prod.precio?Math.round(((prod.precio-lastCosto)/prod.precio)*100):null;
+  const margenColor=margenPct>=40?'#1D9E75':margenPct>=25?'#EF9F27':'#e74c3c';
 
-    if(!compras.length){
-      seccion.innerHTML='<div class="empty">Sin historial de compras registrado</div>';
-      return;
-    }
+  const fmtARS=n=>'$'+Math.round(n).toLocaleString('es-AR');
+  const fmtDec=n=>n.toLocaleString('es-AR',{maximumFractionDigits:2});
 
-    // calcular margen estimado con ultimo costo conocido
-    const lastCosto=compras.find(s=>s.costoUnitario)?.costoUnitario||0;
-    const precioVentaActual=prod.precio||0;
-    const margen=lastCosto&&precioVentaActual?Math.round(((precioVentaActual-lastCosto)/precioVentaActual)*100):null;
+  // ── Build HTML for new tab ──
+  const html=`<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"/>
+<title>Ficha: ${nom}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f4f0;color:#1a1a1a;padding:20px;font-size:14px}
+.card{background:#fff;border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+h1{font-size:22px;color:#D85A30;margin-bottom:2px}
+h3{font-size:14px;font-weight:700;margin-bottom:12px;color:#1a1a1a}
+.sub{font-size:12px;color:#D85A30;font-weight:600;margin-bottom:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:#f5f4f0;border-radius:10px;padding:12px;text-align:center}
+.kpi-v{font-size:20px;font-weight:700;color:#D85A30}
+.kpi-l{font-size:10px;color:#888;margin-top:3px}
+.margen-badge{display:inline-block;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#1a1a1a;color:#fff;padding:7px 10px;text-align:left}
+td{padding:7px 10px;border-bottom:1px solid #f0ede8;vertical-align:middle}
+tr:hover td{background:#faf9f6}
+.btn-edit{background:#f0ede8;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600}
+.btn-edit:hover{background:#D85A30;color:#fff}
+.no-print{} @media print{.no-print{display:none!important}}
+.prov-box{background:#f5f4f0;border-radius:10px;padding:12px;font-size:13px}
+input[type=number]{width:90px;padding:4px 6px;border:1px solid #ccc;border-radius:6px;font-size:12px}
+.btn-save{background:#D85A30;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600}
+.btn-cancel{background:#eee;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer}
+</style>
+</head><body>
 
-    // insertar KPI de margen si disponible
-    if(margen!==null){
-      const kpiGrid=modal.querySelector('div[style*="grid-template-columns:repeat(4"]');
-      if(kpiGrid){
-        const kpiM=document.createElement('div');
-        kpiM.style.cssText='background:var(--bg);border-radius:10px;padding:10px;text-align:center;margin-top:8px;grid-column:1/-1';
-        kpiM.innerHTML=`<span style="font-size:13px;color:#888">Margen estimado (último costo $${lastCosto.toLocaleString('es-AR')} → venta $${precioVentaActual.toLocaleString('es-AR')}): </span><strong style="font-size:16px;color:${margen>=0?'#27ae60':'#e74c3c'}">${margen}%</strong>`;
-        kpiGrid.after(kpiM);
-      }
-    }
+<div class="no-print" style="margin-bottom:16px;display:flex;gap:8px">
+  <button onclick="window.print()" style="padding:8px 18px;font-size:13px;cursor:pointer;border:1px solid #ccc;border-radius:8px">🖨 Imprimir</button>
+  <button onclick="window.close()" style="padding:8px 18px;font-size:13px;cursor:pointer;border:1px solid #ccc;border-radius:8px">✕ Cerrar</button>
+</div>
 
-    // evolución costo de compra
-    const costosHist=compras.filter(s=>s.costoUnitario).map(s=>({fecha:s.fecha,costo:s.costoUnitario}));
-    let evolucionCostos='';
-    if(costosHist.length>0){
-      evolucionCostos=`<div style="font-weight:700;font-size:13px;margin-bottom:6px;margin-top:4px">📈 Evolución costo de compra</div>
-      <div style="overflow-x:auto;margin-bottom:12px"><table style="font-size:12px">
-        <thead><tr><th>Fecha</th><th>Costo unitario</th></tr></thead>
-        <tbody>${costosHist.map(h=>`<tr><td>${h.fecha||'—'}</td><td><strong>$${h.costo.toLocaleString('es-AR')}</strong></td></tr>`).join('')}</tbody>
-      </table></div>`;
-    }
+<div class="card">
+  <h1>${nom}</h1>
+  <div class="sub">${uni}${prod.categoria?' · '+prod.categoria:''}${prod.proveedor?' · '+prod.proveedor:''}</div>
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-v">${stockActual}</div><div class="kpi-l">Stock actual</div></div>
+    <div class="kpi"><div class="kpi-v">${fmtDec(totalVendido)}</div><div class="kpi-l">Total vendido</div></div>
+    <div class="kpi"><div class="kpi-v">${fmtARS(totalFacturado)}</div><div class="kpi-l">Facturado total</div></div>
+    <div class="kpi"><div class="kpi-v" style="color:#27ae60">${fmtARS(prod.precio||0)}</div><div class="kpi-l">Precio de venta</div></div>
+    ${lastCosto>0?`<div class="kpi"><div class="kpi-v" style="color:#555">${fmtARS(lastCosto)}</div><div class="kpi-l">Último costo</div></div>`:''}
+  </div>
+  ${margenPct!==null?`<div class="margen-badge" style="background:${margenColor}20;color:${margenColor}">Margen estimado: ${margenPct}%</div>`:''}
+</div>
 
-    seccion.innerHTML=evolucionCostos+
-      `<div style="overflow-x:auto"><table style="font-size:12px">
-        <thead><tr><th>Fecha</th><th>Cantidad</th><th>Costo unit.</th><th>Total costo</th><th>Proveedor</th><th>P.Venta ref.</th></tr></thead>
-        <tbody>${compras.map(s=>`<tr>
-          <td>${s.fecha||'—'}</td>
-          <td>${(s.cantidad||0).toLocaleString('es-AR',{maximumFractionDigits:2})} ${uni}</td>
-          <td>${s.costoUnitario?'$'+s.costoUnitario.toLocaleString('es-AR'):'—'}</td>
-          <td>${s.totalCosto?'$'+Math.round(s.totalCosto).toLocaleString('es-AR'):'—'}</td>
-          <td>${s.proveedor||prod.proveedor||'—'}</td>
-          <td>${s.precioVenta?'$'+s.precioVenta.toLocaleString('es-AR'):'—'}</td>
-        </tr>`).join('')}</tbody>
-      </table></div>`;
-  }catch(e){
-    const seccion=document.getElementById('ficha-compras-section');
-    if(seccion)seccion.innerHTML='<div class="empty">No se pudo cargar el historial de compras</div>';
-    console.warn('stock-historial',e);
+${prov?`<div class="card">
+  <h3>🏭 Proveedor</h3>
+  <div class="prov-box"><strong>${prov.nombre}</strong>${prov.contacto?' · '+prov.contacto:''}${prov.tel?'<br>📱 '+prov.tel:''}${prov.mail?'<br>✉ '+prov.mail:''}</div>
+</div>`:''}
+
+${meses.length?`<div class="card">
+  <h3>📅 Ventas por mes</h3>
+  <table><thead><tr><th>Mes</th><th>Cant.</th><th>Ops.</th><th>Facturado</th></tr></thead><tbody>
+  ${meses.map(m=>{const d=ventasMes[m];return`<tr><td><strong>${m}</strong></td><td>${fmtDec(d.cant)} ${uni}</td><td>${d.ops}</td><td>${fmtARS(d.fac)}</td></tr>`;}).join('')}
+  <tr style="font-weight:700;border-top:2px solid #eee">
+    <td>Total</td>
+    <td>${fmtDec(meses.reduce((a,m)=>a+ventasMes[m].cant,0))} ${uni}</td>
+    <td>${meses.reduce((a,m)=>a+ventasMes[m].ops,0)}</td>
+    <td>${fmtARS(meses.reduce((a,m)=>a+ventasMes[m].fac,0))}</td>
+  </tr>
+  </tbody></table>
+</div>`:''}
+
+${topClientes.length?`<div class="card">
+  <h3>🏆 Clientes top</h3>
+  <table><thead><tr><th>Cliente</th><th>Cant.</th><th>Facturado</th></tr></thead><tbody>
+  ${topClientes.map(([k,v])=>`<tr><td>${k}</td><td>${fmtDec(v.cant)} ${uni}</td><td>${fmtARS(v.fac)}</td></tr>`).join('')}
+  </tbody></table>
+</div>`:''}
+
+<div class="card">
+  <h3>🛒 Historial de compras de stock</h3>
+  ${compras.length?`<table><thead><tr><th>Fecha</th><th>Cantidad</th><th>Costo unit.</th><th>Total</th><th>Proveedor</th><th class="no-print">Editar</th></tr></thead><tbody id="compras-tbody">
+  ${compras.map(s=>`<tr id="row-${s.id}">
+    <td>${s.fecha||'—'}</td>
+    <td class="td-cant-${s.id}">${fmtDec(s.cantidad||0)} ${uni}</td>
+    <td class="td-costo-${s.id}">${s.costoUnitario?fmtARS(s.costoUnitario):'—'}</td>
+    <td>${s.totalCosto?fmtARS(s.totalCosto):'—'}</td>
+    <td>${s.proveedor||prod.proveedor||'—'}</td>
+    <td class="no-print"><button class="btn-edit" onclick="editarFila('${s.id}',${s.cantidad||0},${s.costoUnitario||0})">✏ Editar</button></td>
+  </tr>`).join('')}
+  </tbody></table>`
+  :`<p style="color:#888;text-align:center;padding:16px">Sin historial de compras registrado</p>`}
+</div>
+
+${histPrecios.length?`<div class="card">
+  <h3>💲 Historial de precios de venta</h3>
+  <table><thead><tr><th>Fecha</th><th>Precio anterior</th><th>Precio nuevo</th><th>Modificado por</th></tr></thead><tbody>
+  ${histPrecios.map(h=>`<tr><td>${h.fecha||'—'}</td><td>${fmtARS(h.precioAnterior||0)}</td><td><strong>${fmtARS(h.precioNuevo||0)}</strong></td><td>${h.cambiadoPor||'—'}</td></tr>`).join('')}
+  </tbody></table>
+</div>`:''}
+
+<div class="card">
+  <h3>🧾 Últimas ventas</h3>
+  ${ventasProd.length?`<table><thead><tr><th>Fecha</th><th>Cliente</th><th>Canal</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>
+  ${ventasProd.slice(0,20).map(v=>{const it=v.items.find(i=>i.nom===nom);return`<tr><td>${v.fecha||'—'}</td><td>${v.cliente||'Mostrador'}</td><td>${v.canal||'—'}</td><td>${it?.cant||0} ${uni}</td><td>${fmtARS(it?.precio||0)}</td><td>${fmtARS((it?.cant||0)*(it?.precio||0))}</td></tr>`;}).join('')}
+  </tbody></table>`
+  :`<p style="color:#888;text-align:center;padding:16px">Sin ventas registradas</p>`}
+</div>
+
+<script>
+function editarFila(docId, cantActual, costoActual){
+  const row=document.getElementById('row-'+docId);
+  if(!row)return;
+  const tdCant=row.querySelector('.td-cant-'+docId);
+  const tdCosto=row.querySelector('.td-costo-'+docId);
+  const tdEdit=row.cells[row.cells.length-1];
+  tdCant.innerHTML='<input type="number" id="inp-cant-'+docId+'" value="'+cantActual+'" min="0" step="0.01" style="width:70px"/>';
+  tdCosto.innerHTML='<input type="number" id="inp-costo-'+docId+'" value="'+(costoActual||'')+'" min="0" placeholder="Costo" style="width:80px"/>';
+  tdEdit.innerHTML='<button class="btn-save" onclick="guardarEdicionStock(\''+docId+'\')">✓ Guardar</button> <button class="btn-cancel" onclick="cancelarEdicion(\''+docId+'\','+cantActual+','+costoActual+')">✕</button>';
+}
+
+function guardarEdicionStock(docId){
+  const cant=parseFloat(document.getElementById('inp-cant-'+docId)?.value)||0;
+  const costo=parseFloat(document.getElementById('inp-costo-'+docId)?.value)||0;
+  if(!cant){alert('La cantidad no puede ser 0');return;}
+  if(window.opener&&!window.opener.closed){
+    window.opener.editarEntradaStock(docId,'${nom}',cant,costo);
+    setTimeout(()=>window.location.reload(),1200);
+  } else {
+    alert('La ventana del CRM se cerró. Por favor reabrí la ficha desde el CRM.');
   }
+}
+
+function cancelarEdicion(docId, cantActual, costoActual){
+  const row=document.getElementById('row-'+docId);
+  if(!row)return;
+  window.location.reload();
+}
+<\/script>
+</body></html>`;
+
+  // Open in new tab
+  const w=window.open('','_blank');
+  if(!w){toast('El navegador bloqueó la nueva pestaña. Permitir ventanas emergentes.','error');return;}
+  w.document.write(html);
+  w.document.close();
 };
 
+
+
+// ── EDITAR ENTRADA DE STOCK DESDE FICHA (llamado desde nueva pestaña) ──
+window.editarEntradaStock=async function(docId, prodNombre, nuevaCant, nuevoCosto){
+  try{
+    const ref=doc(db,'users',STORE,'stock-historial',docId);
+    const snapDoc=await getDoc(ref);
+    if(!snapDoc.exists()){toast('Entrada no encontrada','error');return;}
+    const dataOld=snapDoc.data();
+    const cantAnterior=dataOld.cantidad||0;
+    const diff=nuevaCant-cantAnterior;
+    // Update stock-historial doc
+    await updateDoc(ref,{
+      cantidad:nuevaCant,
+      costoUnitario:nuevoCosto||null,
+      totalCosto:nuevoCosto>0?nuevoCosto*nuevaCant:null,
+      editado:true,editadoTs:Date.now(),editadoPor:CU
+    });
+    // Adjust inventory stock by the difference
+    if(diff!==0){
+      const newInv={..._inv};
+      if(!newInv[prodNombre])newInv[prodNombre]={stock:0,alerta:5};
+      newInv[prodNombre]={...newInv[prodNombre],stock:Math.max(0,(newInv[prodNombre].stock||0)+diff)};
+      await setDoc(doc(db,'inventario',STORE),newInv);
+    }
+    toast(prodNombre+': entrada de stock actualizada ('+( diff>=0?'+':'')+diff+' unidades)');
+    logAuditoria('editó','stock','Stock-historial '+prodNombre+': cant '+cantAnterior+'→'+nuevaCant,'','');
+  }catch(e){
+    toast('Error al editar: '+e.message,'error');
+    console.error('editarEntradaStock',e);
+  }
+};
 
 window.verFichaProveedor=async function(id){
   const p=_proveedores.find(x=>x.id===id);if(!p)return;
