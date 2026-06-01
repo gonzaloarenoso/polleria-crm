@@ -591,7 +591,7 @@ tr:hover td{background:#fafaf8}
         <button class="tab-btn active" id="inv-tab-prods" onclick="switchInvTab('prods',this)">Productos</button>
         <button class="tab-btn" id="inv-tab-stock" onclick="switchInvTab('stock',this)">Stock</button>
         <button class="tab-btn" id="inv-tab-promos" onclick="switchInvTab('promos',this)">Promociones</button>
-        <button class="tab-btn" id="inv-tab-proveedores" onclick="switchInvTab('proveedores',this)">Proveedores</button>
+        <button class="tab-btn" id="inv-tab-proveedores" onclick="switchInvTab('proveedores',this)" style="display:none">Proveedores</button>
       </div>
       <!-- SUB-TAB: PRODUCTOS -->
       <div id="inv-prods">
@@ -654,7 +654,8 @@ tr:hover td{background:#fafaf8}
               <input type="number" id="s-costo" placeholder="Ej: 1800" oninput="calcSug()"/>
               <div id="s-sug" class="sug"></div>
               <label style="margin-top:10px">Precio de venta ($) <span style="font-size:10px;color:#888">— opcional</span></label>
-              <input type="number" id="s-precio-venta" placeholder="Ej: 2800"/>
+              <input type="number" id="s-precio-venta" placeholder="Ej: 2800" oninput="calcMargenReal()"/>
+              <div id="s-margen-real" style="display:none;margin-top:4px;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600"></div>
             </div>
             <div class="row"><button class="btn bp" id="s-btn" onclick="updStock()">Actualizar stock</button></div>
           </div>
@@ -2172,7 +2173,7 @@ function statusClass(s){
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
 const ADMIN_TABS=[['dashboard','Panel'],['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['ventas-dia','Ventas'],['caja','Caja'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['configuracion','⚙ Configuración']];
-const VEND_TABS=[['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['ventas-dia','Ventas'],['caja','Caja'],['calendario','📅 Calendario']];
+const VEND_TABS=[['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['caja','Caja'],['calendario','📅 Calendario']];
 
 function buildNav(role){
   const tabs=role==='admin'?ADMIN_TABS:VEND_TABS;
@@ -2204,7 +2205,11 @@ window.showSec=function(id,btn){
   if(id==='empleados'){renderEmp();}
   if(id==='dashboard')renderDash();
   if(id==='ventas-dia')renderVentasDia();
-  if(id==='inventario')renderInventarioTab();
+  if(id==='inventario'){
+    renderInventarioTab();
+    const tabProv=document.getElementById('inv-tab-proveedores');
+    if(tabProv)tabProv.style.display=USER_ROLE==='admin'?'':'none';
+  }
   if(id==='productos'){renderProductos();renderPromoListReadOnly();}
   if(id==='promociones')renderPromociones();
   if(id==='pedidos-online'){renderPedidosOnline();loadDeliveryConfig();loadPortalConfig();}
@@ -4036,8 +4041,45 @@ window.saveEditCliente=async function(){
 window.calcSug=function(){
   const c=parseInt(document.getElementById('s-costo').value)||0;
   const el=document.getElementById('s-sug');
-  if(c>0){el.style.display='block';el.innerHTML=`Precio sugerido: <strong>${fmt(Math.round(c*1.6))}</strong> (~60% margen).`;}
-  else el.style.display='none';
+  if(!el)return;
+  if(c>0){
+    // Suggest price at 60% margin. Also show last known price if exists
+    const prod=document.getElementById('s-prod-sel')?.value;
+    const prodObj=prod?_productos.find(p=>p.nombre===prod):null;
+    const precioActual=prodObj?.precio||0;
+    const precioSug=Math.round(c*1.6);
+    let html=`Precio sugerido: <strong>${fmt(precioSug)}</strong> (~60% margen)`;
+    if(precioActual>0&&precioActual!==precioSug){
+      const margenActual=Math.round(((precioActual-c)/precioActual)*100);
+      html+=`<br>Precio actual: <strong>${fmt(precioActual)}</strong> → margen real: <strong style="color:${margenActual>=30?'#1D9E75':margenActual>=15?'#EF9F27':'#e74c3c'}">${margenActual}%</strong>`;
+    }
+    el.style.display='block';
+    el.innerHTML=html;
+    // Also fill precio venta with suggestion if empty
+    const pvEl=document.getElementById('s-precio-venta');
+    if(pvEl&&!pvEl.value&&precioActual===0)pvEl.value=precioSug;
+  } else {
+    el.style.display='none';
+  }
+  calcMargenReal();
+};
+
+window.calcMargenReal=function(){
+  const c=parseInt(document.getElementById('s-costo').value)||0;
+  const pv=parseInt(document.getElementById('s-precio-venta').value)||0;
+  const el=document.getElementById('s-margen-real');
+  if(!el)return;
+  if(c>0&&pv>0){
+    const margen=Math.round(((pv-c)/pv)*100);
+    const ganancia=pv-c;
+    const color=margen>=40?'#1D9E75':margen>=25?'#EF9F27':'#e74c3c';
+    el.style.display='block';
+    el.style.background=margen>=40?'rgba(29,158,117,0.12)':margen>=25?'rgba(239,159,39,0.12)':'rgba(231,76,60,0.12)';
+    el.style.color=color;
+    el.innerHTML=`Margen real: <strong>${margen}%</strong> · Ganancia por unidad: <strong>${fmt(ganancia)}</strong>`;
+  } else {
+    el.style.display='none';
+  }
 };
 function renderInv(){
   const nombresValidos=_productos.map(p=>p.nombre);
@@ -4090,6 +4132,21 @@ window.updStock=async function(){
       newLotes[prod]=[...newLotes[prod],{qty:cant,costo,fecha:today(),ts:Date.now()}];
       await setDoc(doc(db,'lotes',STORE),newLotes);
     }
+    // Save to stock-historial collection for product history
+    const precioVentaRef=parseInt(document.getElementById('s-precio-venta')?.value)||0;
+    const prodObj2=_productos.find(p=>p.nombre===prod);
+    try{
+      await addDoc(collection(db,'users',STORE,'stock-historial'),{
+        producto:prod,
+        cantidad:cant,
+        costoUnitario:costo||null,
+        totalCosto:costo>0?costo*cant:null,
+        precioVenta:precioVentaRef||prodObj2?.precio||null,
+        proveedor:prodObj2?.proveedor||null,
+        fecha:today(),
+        ts:Date.now()
+      });
+    }catch(e){console.warn('stock-historial save error',e);}
     // Update product price if provided
     const nuevoPrecio=parseInt(document.getElementById('s-precio-venta')?.value)||0;
     if(nuevoPrecio>0){
@@ -4103,7 +4160,7 @@ window.updStock=async function(){
     if(document.getElementById('s-precio-venta'))document.getElementById('s-precio-venta').value='';
     document.getElementById('s-sug').style.display='none';
     toast(prod+': stock actualizado'+(costo>0?' con costo FIFO':'')+(nuevoPrecio>0?' y precio actualizado':''));
-    logAuditoria('registró','stock','Stock '+prod+': +'+cantidad,'','');
+    logAuditoria('registró','stock','Stock '+prod+': +'+cant,'','');
   }catch(e){alert('Error: '+e.message);}
   setBtn('s-btn',false,'Actualizar stock');
 };
