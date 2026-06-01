@@ -4129,6 +4129,14 @@ window.seleccionarStockProd=function(nombre,el){
     alertaEl.placeholder='Actual: '+alertaActual;
     alertaEl.value='';
   }
+  // Show last known cost as placeholder
+  const costoEl=document.getElementById('s-costo');
+  if(costoEl){
+    const lotesProd=(_lotes[nombre]||[]).filter(l=>l.costo>0).sort((a,b)=>(b.ts||0)-(a.ts||0));
+    const ultimoCosto=lotesProd[0]?.costo||0;
+    costoEl.placeholder=ultimoCosto>0?'Último: $'+ultimoCosto.toLocaleString('es-AR'):'Ej: 1800';
+    costoEl.value='';
+  }
   calcSug();
 };
 
@@ -4242,7 +4250,17 @@ window.updStock=async function(){
   const prod=document.getElementById('s-prod-sel').value;
   if(!prod){alert('Seleccioná un producto de la lista');return;}
   const cant=parseDecimal(document.getElementById('s-cant').value);
-  const costo=parseInt(document.getElementById('s-costo').value)||0;
+  let costo=parseInt(document.getElementById('s-costo').value)||0;
+  // Si no se ingresó costo, usar el último costo conocido del producto
+  if(!costo&&prod){
+    const lotesProd=(_lotes[prod]||[]).filter(l=>l.costo>0).sort((a,b)=>(b.ts||0)-(a.ts||0));
+    if(lotesProd.length)costo=lotesProd[0].costo;
+    // También mostrar en el campo para que el usuario lo vea
+    if(costo){
+      const costoEl=document.getElementById('s-costo');
+      if(costoEl&&!costoEl.value)costoEl.placeholder='Último: $'+costo.toLocaleString('es-AR');
+    }
+  }
   const pvCheck=parseInt(document.getElementById('s-precio-venta')?.value)||0;
   const alertaCheck=parseInt(document.getElementById('s-alerta')?.value)||0;
   if(!cant&&!pvCheck&&!alertaCheck){alert('Ingresá al menos una cantidad, precio de venta o alerta de stock');return;}
