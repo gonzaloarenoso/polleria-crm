@@ -489,7 +489,7 @@ tr:hover td{background:#fafaf8}
             <div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px"><span>Total</span><span id="v-total">$0</span></div>
           </div>
           <label style="margin-top:14px">Medio de pago</label>
-          <select id="v-pago" onchange="checkAndApplyAutoDiscount()"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta débito</option><option>Tarjeta crédito</option></select>
+          <select id="v-pago" onchange="checkAndApplyAutoDiscount();renderTotales();"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta débito</option><option>Tarjeta crédito</option></select>
           <div style="margin-top:10px">
             <label>Cupón de descuento (opcional)</label>
             <div style="display:flex;gap:6px">
@@ -1788,6 +1788,22 @@ tr:hover td{background:#fafaf8}
         </div>
       </div>
       <div id="inf-resultado"></div>
+
+      <!-- RESUMEN MENSUAL -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+          <h3 style="margin:0">📊 Resumen mensual completo</h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="resumen-mes-sel" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px">
+              <option value="">— Seleccionar mes —</option>
+            </select>
+            <button class="btn bp bsm" onclick="generarResumenMensual()">Generar</button>
+            <button class="btn bs bsm no-print" onclick="window.print()">🖨 Imprimir</button>
+          </div>
+        </div>
+        <div id="resumen-mensual-resultado"><div class="empty">Seleccioná un mes y presioná Generar</div></div>
+      </div>
+
       <!-- Gráfico 24 meses + comparativa año anterior -->
       <div class="card" style="margin-top:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -2244,7 +2260,7 @@ window.showSec=function(id,btn){
   if(id==='configuracion')renderConfiguracion();
   if(id==='mensajes-admin')renderMensajesAdmin();
   if(id==='calendario')renderCalendario();
-  if(id==='informes')loadCierresMensuales();
+  if(id==='informes'){loadCierresMensuales();initResumenMesSel();}
   if(id==='turnos')initTurnos();
 };
 
@@ -3592,6 +3608,16 @@ function renderTotales(){
   } else {
     html=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px"><span>Total</span><span id="v-total">${fmt(itemTotal)}</span></div>`;
   }
+  // Redondeo a múltiplo de $50 para efectivo
+  const pagoSel=document.getElementById('v-pago')?.value||'';
+  const esEfectivo=pagoSel.toLowerCase().includes('efectivo');
+  if(esEfectivo&&final>0){
+    const finalRedondeado=Math.floor(final/50)*50;
+    if(finalRedondeado!==final){
+      html+=`<div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-top:2px"><span>↳ Redondeo efectivo</span><span>-${fmt(final-finalRedondeado)}</span></div>`;
+      html+=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:16px;margin-top:4px;color:var(--primary)"><span>Total efectivo</span><span id="v-total-ef">${fmt(finalRedondeado)}</span></div>`;
+    }
+  }
   el.innerHTML=html;
 }
 
@@ -3768,6 +3794,9 @@ window.confirmar=async function(){
   }
   const descMonto=(ventaDescuento?Math.round(itemTotal*ventaDescuento.porcentaje/100):0)+cuponDescuento;
   const finalTotal=itemTotal-descMonto;
+  const pagoSelGuardar=document.getElementById('v-pago')?.value||'';
+  const totalGuardar=pagoSelGuardar.toLowerCase().includes('efectivo')&&finalTotal>0
+    ?Math.floor(finalTotal/50)*50:finalTotal;
   const venta={
     ts:now.getTime(),fecha:today(),hora:ftime(),
     canal:window._ventaSinCliente?'Mostrador':'Mostrador',
@@ -3782,7 +3811,7 @@ window.confirmar=async function(){
     descuentoMotivo:ventaDescuento?ventaDescuento.motivo:null,
     descuentoPct:ventaDescuento?ventaDescuento.porcentaje:0,
     descuentoMonto:descMonto,
-    total:finalTotal,
+    total:totalGuardar,
     tipo:'presencial'
   };
   try{
@@ -6159,6 +6188,22 @@ telRow+userRow+altaRow+
 '<div class="stat"><div class="stat-n">'+(sueldo>0?'$'+sueldoAPagar.toLocaleString("es-AR"):totalEst)+'</div><div class="stat-l">'+(sueldo>0?'A pagar':'Total estimado')+'</div></div>'+
 '</div>'+asistenciaTable+
 '</div>'+
+'<div class="card" id="pago-card">'+
+'<h2>Pago del mes — '+mesNombreDisplay+'</h2>'+
+'<div style="background:#f0fdf4;border-radius:10px;padding:12px;margin-bottom:12px">'+
+'<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px">Sueldo calculado:</span><span style="font-weight:700;font-size:15px;color:#1D9E75">$'+sueldoAPagar.toLocaleString('es-AR')+'</span></div>'+
+'</div>'+
+'<div id="historial-pagos-wrap"><div style="color:#888;text-align:center;padding:12px;font-size:13px">Cargando historial...</div></div>'+
+'<div style="margin-top:14px;border-top:1px solid #f0ede8;padding-top:14px">'+
+'<h2 style="margin-bottom:10px">Confirmar pago</h2>'+
+'<div class="form-row">'+
+'<div><label>Monto abonado ($)</label><input type="number" id="pago-monto" placeholder="'+sueldoAPagar+'" style="border:2px solid #D85A30"/></div>'+
+'<div><label>Fecha de pago</label><input type="date" id="pago-fecha" value="'+today()+'"/></div>'+
+'</div>'+
+'<div style="margin-bottom:10px"><label>Observaciones (opcional)</label><input type="text" id="pago-obs" placeholder="Ej: Pago completo, adelanto, etc."/></div>'+
+'<button class="btn bp" id="btn-confirmar-pago">✓ Confirmar pago</button>'+
+'</div>'+
+'</div>'+
 '<script>'+
 'var EMP_ID="'+id+'";'+
 'function toggleMod(){'+
@@ -6181,10 +6226,42 @@ telRow+userRow+altaRow+
 '.then(function(r){if(r.ok){alert("Configuracion guardada!");}else{alert("Error al guardar.");}})'+
 '.catch(function(e){alert("Error: "+e.message);});'+
 '}'+
+'var _mesActual="'+mesActual+'";'+
+'var _empId="'+id+'";'+
+'var _empNombre='+JSON.stringify(emp.nombre)+';'+
+'var _sueldoCalc='+sueldoAPagar+';\n'+
+'function cargarHistorialPagos(){'+
+'  var wrap=document.getElementById("historial-pagos-wrap");if(!wrap)return;'+
+'  fetch("https://firestore.googleapis.com/v1/projects/granja-los-abuelos-55288/databases/(default)/documents/users/admin/pagos-empleados?pageSize=20")'+
+'  .then(function(r){return r.json();}).then(function(data){'+
+'    var docs=(data.documents||[]).filter(function(d){return d.fields&&d.fields.empleadoId&&d.fields.empleadoId.stringValue===_empId;});'+
+'    docs.sort(function(a,b){return(b.fields.ts?.integerValue||0)-(a.fields.ts?.integerValue||0);});'+
+'    if(!docs.length){wrap.innerHTML="<p style=\\"color:#888;text-align:center;font-size:13px\\">Sin pagos registrados</p>";return;}'+
+'    var rows=docs.map(function(d){var f=d.fields;return"<tr><td>"+(f.fecha?.stringValue||"—")+"</td><td>"+(f.mes?.stringValue||"—")+"</td><td style=\\"font-weight:700;color:#1D9E75\\">$"+parseInt(f.monto?.integerValue||0).toLocaleString("es-AR")+"</td><td>"+(f.obs?.stringValue||"")+"</td></tr>";}).join("");'+
+'    wrap.innerHTML="<table><thead><tr><th>Fecha pago</th><th>Mes</th><th>Monto</th><th>Obs.</th></tr></thead><tbody>"+rows+"</tbody></table>";'+
+'  }).catch(function(){wrap.innerHTML="<p style=\\"color:#888;font-size:12px\\">Error al cargar</p>";});'+
+'}'+
+'cargarHistorialPagos();'+
+'document.getElementById("btn-confirmar-pago").addEventListener("click",function(){'+
+'  var monto=parseInt(document.getElementById("pago-monto").value)||_sueldoCalc;'+
+'  var fecha=document.getElementById("pago-fecha").value;'+
+'  var obs=document.getElementById("pago-obs").value||"";'+
+'  if(!monto){alert("Ingresá el monto abonado");return;}'+
+'  var btn=document.getElementById("btn-confirmar-pago");'+
+'  btn.textContent="Guardando...";btn.disabled=true;'+
+'  var body={fields:{empleadoId:{stringValue:_empId},empleadoNombre:{stringValue:_empNombre},mes:{stringValue:_mesActual},monto:{integerValue:String(monto)},sueldoCalc:{integerValue:String(_sueldoCalc)},fecha:{stringValue:fecha},obs:{stringValue:obs},ts:{integerValue:String(Date.now())}}};'+
+'  fetch("https://firestore.googleapis.com/v1/projects/granja-los-abuelos-55288/databases/(default)/documents/users/admin/pagos-empleados",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})'+
+'  .then(function(r){'+
+'    if(r.ok){alert("Pago confirmado: $"+monto.toLocaleString("es-AR")+" para "+_empNombre);'+
+'    document.getElementById("pago-monto").value="";document.getElementById("pago-obs").value="";'+
+'    cargarHistorialPagos();}else{alert("Error al guardar");}'+
+'    btn.textContent="✓ Confirmar pago";btn.disabled=false;'+
+'  }).catch(function(e){alert("Error: "+e.message);btn.textContent="✓ Confirmar pago";btn.disabled=false;});'+
+'});'+
 '<\/script>'+
 '</body></html>';
 
-  const w=window.open('','_fichaEmp','width=700,height=850');
+  const w=window.open('','_fichaEmp','width=700,height=900');
   w.document.write(html);
   w.document.close();
 };
@@ -7269,6 +7346,110 @@ window.printCierre=async function(id){
 };
 let _cierresCache=[];
 
+
+// ── RESUMEN MENSUAL ───────────────────────────────────────────────────────
+function initResumenMesSel(){
+  const sel=document.getElementById('resumen-mes-sel');
+  if(!sel||sel.options.length>1)return;
+  const now=new Date();
+  for(let i=0;i<12;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const val=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const label=meses[d.getMonth()]+' '+d.getFullYear();
+    const opt=document.createElement('option');
+    opt.value=val;opt.textContent=label;
+    if(i===0)opt.selected=true;
+    sel.appendChild(opt);
+  }
+}
+
+window.generarResumenMensual=async function(){
+  const mes=document.getElementById('resumen-mes-sel')?.value;
+  if(!mes)return;
+  const el=document.getElementById('resumen-mensual-resultado');
+  if(!el)return;
+  el.innerHTML='<div style="text-align:center;padding:20px;color:#888">Calculando...</div>';
+  const [anio,mesN]=mes.split('-');
+  const mesesNom=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const mesLabel=mesesNom[parseInt(mesN)-1]+' '+anio;
+  const fmtARS=n=>'$'+Math.round(n).toLocaleString('es-AR');
+  const colorN=n=>n>=0?'#1D9E75':'#e74c3c';
+
+  // Ventas
+  const ventas=(_ventas||[]).filter(v=>v.fecha&&v.fecha.startsWith(mes));
+  const totalFac=ventas.reduce((a,v)=>a+(v.total||0),0);
+  const nVentas=ventas.length;
+  const ticketProm=nVentas>0?Math.round(totalFac/nVentas):0;
+  const canalMap={};
+  ventas.forEach(v=>{const k=v.canal||'Mostrador';canalMap[k]=(canalMap[k]||0)+(v.total||0);});
+  const canalRows=Object.entries(canalMap).sort((a,b)=>b[1]-a[1])
+    .map(([k,v])=>`<tr><td style="padding-left:12px;color:#888;font-size:12px">↳ ${k}</td><td style="text-align:right;color:#888;font-size:12px">${fmtARS(v)} (${totalFac>0?Math.round(v/totalFac*100):0}%)</td></tr>`).join('');
+
+  // Compras
+  let comprasMes=[],totalCompras=0;
+  try{
+    const snap=await getDocs(collection(db,'users',STORE,'stock-historial'));
+    comprasMes=snap.docs.map(d=>d.data()).filter(s=>s.fecha&&s.fecha.startsWith(mes));
+    totalCompras=comprasMes.reduce((a,s)=>a+(s.totalCosto||0),0);
+  }catch(e){}
+
+  // Caja chica
+  const cajachica=(_cajachica||[]).filter(g=>g.fecha&&g.fecha.startsWith(mes));
+  const totalCajaChica=cajachica.reduce((a,g)=>a+(g.monto||0),0);
+
+  // Sueldos pagados
+  let pagosMes=[],totalSueldos=0;
+  try{
+    const snapP=await getDocs(collection(db,'users',STORE,'pagos-empleados'));
+    pagosMes=snapP.docs.map(d=>({id:d.id,...d.data()})).filter(p=>p.mes===mes);
+    totalSueldos=pagosMes.reduce((a,p)=>a+(parseInt(p.monto)||0),0);
+  }catch(e){}
+
+  const gananciaBruta=totalFac-totalCompras;
+  const totalGastos=totalCajaChica+totalSueldos;
+  const gananciaNeta=gananciaBruta-totalGastos;
+  const margenBruto=totalFac>0?Math.round((gananciaBruta/totalFac)*100):0;
+  const margenNeto=totalFac>0?Math.round((gananciaNeta/totalFac)*100):0;
+
+  el.innerHTML=`
+  <div style="border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div style="font-size:17px;font-weight:700">${mesLabel}</div>
+    <div style="font-size:12px;color:#888">${nVentas} ventas · ticket prom. ${fmtARS(ticketProm)}</div>
+  </div>
+  <div style="margin-bottom:16px">
+    <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">💰 Ingresos</div>
+    <table style="font-size:13px;width:100%">
+      <tr><td>Facturado total</td><td style="text-align:right;font-weight:700;font-size:16px;color:#1D9E75">${fmtARS(totalFac)}</td></tr>
+      ${canalRows}
+    </table>
+  </div>
+  <div style="margin-bottom:16px">
+    <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">🛒 Costo de mercadería</div>
+    <table style="font-size:13px;width:100%">
+      <tr><td>Total compras</td><td style="text-align:right;font-weight:700;color:#e74c3c">${totalCompras>0?fmtARS(totalCompras):'Sin costos cargados'}</td></tr>
+      ${comprasMes.length?`<tr><td style="color:#888;font-size:12px;padding-left:12px">↳ ${comprasMes.length} entradas de stock</td><td></td></tr>`:''}
+    </table>
+  </div>
+  <div style="margin-bottom:16px">
+    <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">🧾 Gastos operativos</div>
+    <table style="font-size:13px;width:100%">
+      <tr><td>Caja chica</td><td style="text-align:right">${fmtARS(totalCajaChica)}</td></tr>
+      <tr><td>Sueldos pagados</td><td style="text-align:right">${totalSueldos>0?fmtARS(totalSueldos):'<span style="color:#aaa;font-size:12px">Sin pagos confirmados</span>'}</td></tr>
+      ${pagosMes.map(p=>`<tr><td style="color:#888;font-size:12px;padding-left:12px">↳ ${p.empleadoNombre||'—'}</td><td style="text-align:right;color:#888;font-size:12px">$${parseInt(p.monto||0).toLocaleString('es-AR')}</td></tr>`).join('')}
+      <tr style="border-top:1px solid var(--border)"><td style="font-weight:700">Total gastos</td><td style="text-align:right;font-weight:700;color:#e74c3c">${fmtARS(totalGastos)}</td></tr>
+    </table>
+  </div>
+  <div style="background:var(--bg);border-radius:10px;padding:14px">
+    <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">📊 Resultado</div>
+    <table style="font-size:13px;width:100%">
+      <tr><td>Ganancia bruta <span style="font-size:11px;color:#888">(Facturado − Compras)</span></td><td style="text-align:right;font-weight:700;color:${colorN(gananciaBruta)}">${fmtARS(gananciaBruta)} <span style="font-size:11px">(${margenBruto}%)</span></td></tr>
+      <tr><td style="padding-top:10px;font-weight:700;font-size:15px">Ganancia neta</td><td style="text-align:right;font-weight:700;font-size:18px;padding-top:10px;color:${colorN(gananciaNeta)}">${fmtARS(gananciaNeta)}</td></tr>
+      <tr><td style="font-size:12px;color:#888">Margen neto</td><td style="text-align:right;font-weight:700;font-size:14px;color:${colorN(gananciaNeta)}">${margenNeto}%</td></tr>
+    </table>
+  </div>`;
+};
+
 window.generarInforme=function(){
   const desde=document.getElementById('inf-desde').value;const hasta=document.getElementById('inf-hasta').value;
   if(!desde||!hasta){alert('Seleccioná un período');return;}
@@ -7850,6 +8031,36 @@ ${topClientes.length?`<div class="card">
   :`<p style="color:#888;text-align:center;padding:16px">Sin historial de compras registrado</p>`}
 </div>
 
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h3 style="margin:0">🏷 Precios por tramo</h3>
+    <button class="btn-edit" id="btn-edit-tramos">✏ Editar</button>
+  </div>
+  <div id="tramos-view">
+    ${(prod.tramos&&prod.tramos.length)?`
+    <table style="font-size:12px;width:100%">
+      <thead><tr><th>Desde</th><th>Hasta</th><th>Tipo</th><th>Precio</th></tr></thead>
+      <tbody>
+        ${prod.tramos.map(t=>`<tr>
+          <td>${t.desde} ${uni}</td>
+          <td>${t.hasta!=null?t.hasta+' '+uni:'∞'}</td>
+          <td>${t.tipo==='precio_fijo'?'Precio fijo':'$/unidad'}</td>
+          <td>${t.tipo==='precio_fijo'?'$'+t.precio.toLocaleString('es-AR')+' c/'+t.cantref+' '+uni:'$'+t.precio.toLocaleString('es-AR')}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`
+    :`<div style="color:#aaa;font-size:13px;padding:8px 0">Sin tramos configurados</div>`}
+  </div>
+  <div id="tramos-edit" style="display:none">
+    <div id="tramos-edit-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
+    <button class="btn-edit" id="btn-add-tramo" style="margin-bottom:10px">+ Agregar tramo</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn-save" id="btn-save-tramos">✓ Guardar tramos</button>
+      <button class="btn-cancel" id="btn-cancel-tramos">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
 ${histPrecios.length?`<div class="card">
   <h3>💲 Historial de precios de venta</h3>
   <table><thead><tr><th>Fecha</th><th>Precio anterior</th><th>Precio nuevo</th><th>Modificado por</th></tr></thead><tbody>
@@ -7868,6 +8079,81 @@ ${histPrecios.length?`<div class="card">
 <script>
 // Estado edición actual
 let _editDocId=null;
+
+
+// ── TRAMOS EDITING ─────────────────────────────────────────────────────
+var _tramosData='+JSON.stringify(prod.tramos||[])+';
+
+function toggleEditTramos(){
+  const view=document.getElementById('tramos-view');
+  const edit=document.getElementById('tramos-edit');
+  const btn=document.getElementById('btn-edit-tramos');
+  if(!view||!edit)return;
+  const editing=edit.style.display!=='none';
+  view.style.display=editing?'':'none';
+  edit.style.display=editing?'none':'block';
+  if(btn)btn.textContent=editing?'✏ Editar':'✕';
+  if(!editing)initTramosEdit();
+}
+
+function initTramosEdit(){
+  var list=document.getElementById('tramos-edit-list');
+  if(!list)return;
+  list.innerHTML='';
+  (_tramosData||[]).forEach(function(t,i){addTramoFichaRow(t);});
+}
+
+function addTramoFicha(){
+  addTramoFichaRow(null);
+}
+
+function addTramoFichaRow(t){
+  var list=document.getElementById('tramos-edit-list');
+  if(!list)return;
+  var div=document.createElement('div');
+  div.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;background:#f5f4f0;padding:8px;border-radius:8px;align-items:end';
+  div.innerHTML='<div><div style="font-size:10px;color:#888;margin-bottom:2px">Desde</div>'+
+    '<input type="number" class="t-desde" value="'+(t?t.desde:0)+'" min="0" step="0.01" style="width:100%;padding:5px 8px;border-radius:6px;border:1px solid #ccc;font-size:12px"/></div>'+
+    '<div><div style="font-size:10px;color:#888;margin-bottom:2px">Hasta (vacío=∞)</div>'+
+    '<input type="number" class="t-hasta" value="'+(t&&t.hasta!=null?t.hasta:'')+'" min="0" step="0.01" placeholder="∞" style="width:100%;padding:5px 8px;border-radius:6px;border:1px solid #ccc;font-size:12px"/></div>'+
+    '<div><div style="font-size:10px;color:#888;margin-bottom:2px">Tipo</div>'+
+    '<select class="t-tipo" style="width:100%;padding:5px 8px;border-radius:6px;border:1px solid #ccc;font-size:12px">'+
+    '<option value="por_unidad"'+(t&&t.tipo==='por_unidad'?' selected':'')+'>$/unidad</option>'+
+    '<option value="precio_fijo"'+(t&&t.tipo==='precio_fijo'?' selected':'')+'>Precio fijo</option>'+
+    '</select></div>'+
+    '<button style="background:#e74c3c;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px" onclick="this.closest(\'div[style]\').remove()">✕</button>'+
+    '<div style="grid-column:1/3"><div style="font-size:10px;color:#888;margin-bottom:2px">Precio ($)</div>'+
+    '<input type="number" class="t-precio" value="'+(t?t.precio:'')+'" placeholder="Ej: 9600" style="width:100%;padding:5px 8px;border-radius:6px;border:1px solid #ccc;font-size:12px"/></div>'+
+    '<div><div style="font-size:10px;color:#888;margin-bottom:2px">Cant. ref.</div>'+
+    '<input type="number" class="t-cantref" value="'+(t?t.cantref:1)+'" min="0.01" step="0.01" style="width:100%;padding:5px 8px;border-radius:6px;border:1px solid #ccc;font-size:12px"/></div>';
+  list.appendChild(div);
+}
+
+function guardarTramos(prodId){
+  var rows=document.querySelectorAll('#tramos-edit-list > div');
+  var tramos=[];
+  rows.forEach(function(row){
+    var desde=parseFloat(row.querySelector('.t-desde')?.value)||0;
+    var hastaVal=row.querySelector('.t-hasta')?.value;
+    var hasta=hastaVal?parseFloat(hastaVal):null;
+    var tipo=row.querySelector('.t-tipo')?.value||'por_unidad';
+    var precio=parseFloat(row.querySelector('.t-precio')?.value)||0;
+    var cantref=parseFloat(row.querySelector('.t-cantref')?.value)||1;
+    if(precio>0)tramos.push({desde:desde,hasta:hasta,tipo:tipo,precio:precio,cantref:cantref});
+  });
+  var cmd={type:'tramos',prodId:prodId,tramos:tramos,ts:Date.now()};
+  localStorage.setItem('crm-tramos-edit',JSON.stringify(cmd));
+  _tramosData=tramos;
+  toggleEditTramos();
+  // Update view
+  var view=document.getElementById('tramos-view');
+  if(view){
+    if(!tramos.length){view.innerHTML='<div style="color:#aaa;font-size:13px;padding:8px 0">Sin tramos configurados</div>';return;}
+    var rows2=tramos.map(function(t){return'<tr><td>'+t.desde+'</td><td>'+(t.hasta!=null?t.hasta:'∞')+'</td><td>'+(t.tipo==='precio_fijo'?'Precio fijo':'$/unidad')+'</td><td>$'+t.precio.toLocaleString('es-AR')+(t.tipo==='precio_fijo'?' c/'+t.cantref:'')+'</td></tr>';}).join('');
+    view.innerHTML='<table style="font-size:12px;width:100%"><thead><tr><th>Desde</th><th>Hasta</th><th>Tipo</th><th>Precio</th></tr></thead><tbody>'+rows2+'</tbody></table>';
+  }
+  setTimeout(function(){localStorage.removeItem('crm-tramos-edit');},3000);
+}
 
 function toggleEditProv(){
   const view=document.getElementById('prov-view');
@@ -7964,6 +8250,27 @@ document.addEventListener('DOMContentLoaded',function(){
       toggleEditProv();
       return;
     }
+    // Tramos
+    if(btn.id==='btn-edit-tramos'){
+      e.preventDefault();
+      toggleEditTramos();
+      return;
+    }
+    if(btn.id==='btn-add-tramo'){
+      e.preventDefault();
+      addTramoFicha();
+      return;
+    }
+    if(btn.id==='btn-save-tramos'){
+      e.preventDefault();
+      guardarTramos('${id}');
+      return;
+    }
+    if(btn.id==='btn-cancel-tramos'){
+      e.preventDefault();
+      toggleEditTramos();
+      return;
+    }
     // Botón Cerrar
     if(btn.id==='btn-close'){
       e.preventDefault();
@@ -8019,6 +8326,26 @@ window.editarEntradaStock=async function(docId, prodNombre, nuevaCant, nuevoCost
 
 // ── LISTENER: recibir ediciones desde ficha (localStorage) ───────────────
 window.addEventListener('storage', async function(e){
+  // Tramos edit from ficha
+  if(e.key==='crm-tramos-edit'&&e.newValue){
+    try{
+      const cmd=JSON.parse(e.newValue);
+      if(cmd.type==='tramos'&&cmd.prodId){
+        const nuevosProds=_productos.map(p=>p.id===cmd.prodId?{...p,tramos:cmd.tramos}:p);
+        await setDoc(doc(db,'productos',STORE),{lista:nuevosProds});
+        toast('Tramos de precio actualizados ✓');
+      }
+    }catch(err){console.warn('crm-tramos-edit',err);}
+    return;
+  }
+  // Proveedor edit from ficha
+  if(e.key==='crm-prov-edit'&&e.newValue){
+    try{
+      const cmd=JSON.parse(e.newValue);
+      if(cmd.prodId)await actualizarProveedorProducto(cmd.prodId,cmd.proveedor,null);
+    }catch(err){console.warn('crm-prov-edit',err);}
+    return;
+  }
   if(e.key!=='crm-stock-edit'||!e.newValue)return;
   try{
     const cmd=JSON.parse(e.newValue);
