@@ -8121,7 +8121,7 @@ function addTramoFichaRow(t){
     '<option value="por_unidad"'+(t&&t.tipo==='por_unidad'?' selected':'')+'>$/unidad</option>'+
     '<option value="precio_fijo"'+(t&&t.tipo==='precio_fijo'?' selected':'')+'>Precio fijo</option>'+
     '</select></div>'+
-    '<button style="background:#e74c3c;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px" onclick="this.closest(\'div[style]\').remove()">✕</button>'+
+    '<button data-action="del-tramo" style="background:#e74c3c;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px">✕</button>'+
     '<div style="grid-column:1/3"><div style="font-size:10px;color:#888;margin-bottom:2px">Precio ($)</div>'+
     '<input type="number" class="t-precio" value="'+(t?t.precio:'')+'" placeholder="Ej: 9600" style="width:100%;padding:5px 8px;border-radius:6px;border:1px solid #ccc;font-size:12px"/></div>'+
     '<div><div style="font-size:10px;color:#888;margin-bottom:2px">Cant. ref.</div>'+
@@ -8269,6 +8269,11 @@ document.addEventListener('DOMContentLoaded',function(){
     if(btn.id==='btn-cancel-tramos'){
       e.preventDefault();
       toggleEditTramos();
+      return;
+    }
+    if(btn.dataset.action==='del-tramo'){
+      e.preventDefault();
+      btn.closest('div[style]')?.remove();
       return;
     }
     // Botón Cerrar
