@@ -489,7 +489,7 @@ tr:hover td{background:#fafaf8}
             <div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px"><span>Total</span><span id="v-total">$0</span></div>
           </div>
           <label style="margin-top:14px">Medio de pago</label>
-          <select id="v-pago" onchange="checkAndApplyAutoDiscount();renderTotales();"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta débito</option><option>Tarjeta crédito</option></select>
+          <select id="v-pago" onchange="checkAndApplyAutoDiscount();renderTotales();"><option>Efectivo</option></select>
           <div style="margin-top:10px">
             <label>Cupón de descuento (opcional)</label>
             <div style="display:flex;gap:6px">
@@ -673,7 +673,15 @@ tr:hover td{background:#fafaf8}
               <input type="hidden" id="s-prod-sel"/>
               <div id="s-prod-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:8px;z-index:100;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15)"></div>
             </div>
-            <label>Cantidad a ingresar</label><input type="text" inputmode="decimal" id="s-cant" placeholder="Ej: 10 o 0,87"/>
+            <!-- Modo: agregar / ajustar -->
+            <div style="display:flex;gap:6px;margin-bottom:10px">
+              <button type="button" id="s-modo-agregar" class="btn bp bsm" onclick="setStockModo('agregar')">➕ Agregar stock</button>
+              <button type="button" id="s-modo-ajustar" class="btn bs bsm" onclick="setStockModo('ajustar')">➖ Ajuste / corrección</button>
+            </div>
+            <div id="s-ajuste-info" style="display:none;background:rgba(239,159,39,0.12);border-radius:8px;padding:8px 12px;font-size:12px;color:#b07800;margin-bottom:8px">
+              ⚠️ Modo ajuste: resta del inventario sin generar costo ni gasto. Usalo para correcciones de balanza o merma.
+            </div>
+            <label id="s-cant-label">Cantidad a ingresar</label><input type="text" inputmode="decimal" id="s-cant" placeholder="Ej: 10 o 0,87"/>
             <div id="s-costo-wrap">
               <label>Costo unitario ($) <span style="font-size:10px;color:#888">— solo admin</span></label>
               <input type="number" id="s-costo" placeholder="Ej: 1800" oninput="calcSug()"/>
@@ -685,6 +693,7 @@ tr:hover td{background:#fafaf8}
             <label style="margin-top:10px">Alerta stock mínimo <span style="font-size:10px;color:#888">— opcional, deja vacío para no cambiar</span></label>
             <input type="number" id="s-alerta" placeholder="Ej: 5" min="0"/>
             <div class="row"><button class="btn bp" id="s-btn" onclick="updStock()">Actualizar stock</button></div>
+            <input type="hidden" id="s-modo" value="agregar"/>
           </div>
           <div class="card">
             <h3>Inventario actual</h3>
@@ -2922,6 +2931,12 @@ function startClienteListeners(){
       if(pagoSel&&_metodosPago.length){
         pagoSel.innerHTML=_metodosPago.filter(m=>m.activo).map(m=>'<option value="'+m.nombre+'">'+m.nombre+'</option>').join('');
       }
+      // Also update main sale form payment selector
+      const ventaPagoSel=document.getElementById('v-pago');
+      if(ventaPagoSel&&_metodosPago.length){
+        const curVal=ventaPagoSel.value;
+        ventaPagoSel.innerHTML=_metodosPago.filter(m=>m.activo).map(m=>'<option value="'+m.nombre+'"'+(m.nombre===curVal?' selected':'')+'>'+m.nombre+'</option>').join('');
+      }
       // Re-render info local if active
       if(document.getElementById('cli-sec-info-local')?.style.display!=='none')renderInfoLocal();
     }
@@ -3578,8 +3593,8 @@ window.applyDiscount=function(){
   const sel=document.getElementById('v-desc');
   const box=document.getElementById('v-desc-box');
   if(!sel)return;
-  // MOD 6: If client has fixed discount, selector is disabled — don't override
-  if(sel.disabled){return;}
+  // Si el selector está deshabilitado, hay descuento fijo de cliente — no tocar ventaDescuento
+  if(sel.disabled){renderTotales();return;}
   const id=sel.value;
   if(!id||!itemTotal){ventaDescuento=null;box.style.display='none';renderTotales();return;}
   const d=_descuentos.find(x=>x.id===id);
@@ -4275,6 +4290,33 @@ function renderInv(){
     det.innerHTML=detalles.map(d=>`<div style="display:flex;justify-content:space-between;font-size:12px;color:#ccc;margin-bottom:4px"><span>${d.nom} (${d.stock} unid. × ${fmt(d.ultimoCosto)})</span><span style="color:#fff;font-weight:600">${fmt(d.valor)}</span></div>`).join('');
   }
 }
+
+window.setStockModo=function(modo){
+  document.getElementById('s-modo').value=modo;
+  const btnAg=document.getElementById('s-modo-agregar');
+  const btnAj=document.getElementById('s-modo-ajustar');
+  const info=document.getElementById('s-ajuste-info');
+  const costoWrap=document.getElementById('s-costo-wrap');
+  const cantLabel=document.getElementById('s-cant-label');
+  const btn=document.getElementById('s-btn');
+  if(modo==='ajustar'){
+    if(btnAg)btnAg.className='btn bs bsm';
+    if(btnAj)btnAj.className='btn bp bsm';
+    if(info)info.style.display='block';
+    if(costoWrap&&USER_ROLE==='admin')costoWrap.style.display='none';
+    if(cantLabel)cantLabel.textContent='Cantidad a restar';
+    if(btn){btn.textContent='Aplicar ajuste';btn.style.background='var(--warning,#EF9F27)';}
+    document.getElementById('s-cant').placeholder='Ej: 0,03';
+  } else {
+    if(btnAg)btnAg.className='btn bp bsm';
+    if(btnAj)btnAj.className='btn bs bsm';
+    if(info)info.style.display='none';
+    if(costoWrap&&USER_ROLE==='admin')costoWrap.style.display='block';
+    if(cantLabel)cantLabel.textContent='Cantidad a ingresar';
+    if(btn){btn.textContent='Actualizar stock';btn.style.background='';}
+    document.getElementById('s-cant').placeholder='Ej: 10 o 0,87';
+  }
+};
 window.updStock=async function(){
   const prod=document.getElementById('s-prod-sel').value;
   if(!prod){alert('Seleccioná un producto de la lista');return;}
@@ -4295,15 +4337,35 @@ window.updStock=async function(){
   if(!cant&&!pvCheck&&!alertaCheck){alert('Ingresá al menos una cantidad, precio de venta o alerta de stock');return;}
   setBtn('s-btn',true,'Actualizar stock');setSyncDot('syncing');
   try{
+    const modoAjuste=document.getElementById('s-modo')?.value==='ajustar';
     const newInv={..._inv};
     if(!newInv[prod])newInv[prod]={stock:0,alerta:5};
     const nuevaAlerta=parseInt(document.getElementById('s-alerta')?.value);
+    const stockActualProd=newInv[prod].stock||0;
+    const nuevoStock=modoAjuste
+      ?Math.round((stockActualProd-cant)*1000)/1000
+      :Math.round((stockActualProd+cant)*1000)/1000;
     newInv[prod]={
       ...newInv[prod],
-      stock:Math.round((newInv[prod].stock+cant)*1000)/1000,
+      stock:Math.max(0,nuevoStock),
       ...(nuevaAlerta>0?{alerta:nuevaAlerta}:{})
     };
     await setDoc(doc(db,'inventario',STORE),newInv);
+    // Si es ajuste, guardar en stock-historial con tipo ajuste (sin costo)
+    if(modoAjuste){
+      try{
+        await addDoc(collection(db,'users',STORE,'stock-historial'),{
+          producto:prod,
+          cantidad:-cant,
+          costoUnitario:null,
+          totalCosto:null,
+          tipo:'ajuste',
+          obs:'Ajuste de inventario',
+          fecha:today(),
+          ts:Date.now()
+        });
+      }catch(e){console.warn('ajuste historial',e);}
+    }
     // FIFO: save lote with cost
     if(costo>0){
       const newLotes={..._lotes};
@@ -4311,7 +4373,8 @@ window.updStock=async function(){
       newLotes[prod]=[...newLotes[prod],{qty:cant,costo,fecha:today(),ts:Date.now()}];
       await setDoc(doc(db,'lotes',STORE),newLotes);
     }
-    // Save to stock-historial collection for product history
+    // Save to stock-historial (solo si no es ajuste, ajuste ya guardado arriba)
+    if(!modoAjuste){
     const precioVentaRef=parseInt(document.getElementById('s-precio-venta')?.value)||0;
     const prodObj2=_productos.find(p=>p.nombre===prod);
     try{
@@ -4339,8 +4402,11 @@ window.updStock=async function(){
     if(document.getElementById('s-precio-venta'))document.getElementById('s-precio-venta').value='';
     if(document.getElementById('s-alerta'))document.getElementById('s-alerta').value='';
     document.getElementById('s-sug').style.display='none';
-    toast(prod+': stock actualizado'+(costo>0?' con costo FIFO':'')+(nuevoPrecio>0?' y precio actualizado':''));
-    logAuditoria('registró','stock','Stock '+prod+': +'+cant,'','');
+    // Reset to agregar mode
+    setStockModo('agregar');
+    toast(prod+': stock '+(modoAjuste?'ajustado -':' actualizado +')+cant+(costo>0?' con costo FIFO':'')+(nuevoPrecio>0?' y precio actualizado':''));
+    logAuditoria('registró','stock','Stock '+prod+(modoAjuste?': ajuste -':': +')+cant,'','');
+    } // end if(!modoAjuste)
   }catch(e){alert('Error: '+e.message);}
   setBtn('s-btn',false,'Actualizar stock');
 };
@@ -7962,7 +8028,7 @@ input[type=number]{width:90px;padding:4px 6px;border:1px solid #ccc;border-radiu
   <h1>${nom}</h1>
   <div class="sub">${uni}${prod.categoria?' · '+prod.categoria:''}${prod.proveedor?' · '+prod.proveedor:''}</div>
   <div class="kpis">
-    <div class="kpi"><div class="kpi-v">${stockActual}</div><div class="kpi-l">Stock actual</div></div>
+    <div class="kpi"><div class="kpi-v">${Math.round(stockActual*1000)/1000}</div><div class="kpi-l">Stock actual</div></div>
     <div class="kpi"><div class="kpi-v">${fmtDec(totalVendido)}</div><div class="kpi-l">Total vendido</div></div>
     <div class="kpi"><div class="kpi-v">${fmtARS(totalFacturado)}</div><div class="kpi-l">Facturado total</div></div>
     <div class="kpi"><div class="kpi-v" style="color:#27ae60">${fmtARS(prod.precio||0)}</div><div class="kpi-l">Precio de venta</div></div>
@@ -8019,13 +8085,13 @@ ${topClientes.length?`<div class="card">
 <div class="card">
   <h3>🛒 Historial de compras de stock</h3>
   ${compras.length?`<table><thead><tr><th>Fecha</th><th>Cantidad</th><th>Costo unit.</th><th>Total</th><th>Proveedor</th><th class="no-print">Editar</th></tr></thead><tbody id="compras-tbody">
-  ${compras.map(s=>`<tr id="row-${s.id}" data-docid="${s.id}">
-    <td>${s.fecha||'—'}</td>
-    <td class="td-cant-${s.id}">${fmtDec(s.cantidad||0)} ${uni}</td>
-    <td class="td-costo-${s.id}">${s.costoUnitario?fmtARS(s.costoUnitario):'—'}</td>
-    <td>${s.totalCosto?fmtARS(s.totalCosto):'—'}</td>
+  ${compras.map(s=>`<tr id="row-${s.id}" data-docid="${s.id}" style="${s.tipo==='ajuste'?'background:rgba(239,159,39,0.07)':''}">
+    <td>${s.fecha||'—'}${s.tipo==='ajuste'?'<br><span style="font-size:10px;color:#EF9F27;font-weight:600">ajuste</span>':''}</td>
+    <td class="td-cant-${s.id}" style="${s.tipo==='ajuste'?'color:#EF9F27;font-weight:700':''}"><span>${s.tipo==='ajuste'?'−':''}${fmtDec(Math.abs(s.cantidad||0))} ${uni}</span></td>
+    <td class="td-costo-${s.id}">${s.tipo==='ajuste'?'<span style="color:#aaa;font-size:11px">sin costo</span>':s.costoUnitario?fmtARS(s.costoUnitario):'—'}</td>
+    <td>${s.tipo==='ajuste'?'—':s.totalCosto?fmtARS(s.totalCosto):'—'}</td>
     <td>${s.proveedor||prod.proveedor||'—'}</td>
-    <td class="no-print">${s.legacy?'<span style="font-size:10px;color:#aaa;font-style:italic">histórico</span>':`<button class="btn-edit" data-action="edit" data-docid="${s.id}" data-cant="${s.cantidad||0}" data-costo="${s.costoUnitario||0}">✏ Editar</button>`}</td>
+    <td class="no-print">${s.legacy?'<span style="font-size:10px;color:#aaa;font-style:italic">histórico</span>':s.tipo==='ajuste'?'<span style="font-size:10px;color:#EF9F27;font-style:italic">ajuste</span>':`<button class="btn-edit" data-action="edit" data-docid="${s.id}" data-cant="${s.cantidad||0}" data-costo="${s.costoUnitario||0}">✏ Editar</button>`}</td>
   </tr>`).join('')}
   </tbody></table>`
   :`<p style="color:#888;text-align:center;padding:16px">Sin historial de compras registrado</p>`}
@@ -8082,7 +8148,7 @@ let _editDocId=null;
 
 
 // ── TRAMOS EDITING ─────────────────────────────────────────────────────
-var _tramosData='+JSON.stringify(prod.tramos||[])+';
+var _tramosData=${JSON.stringify(prod.tramos||[])};
 
 function toggleEditTramos(){
   const view=document.getElementById('tramos-view');
