@@ -473,11 +473,25 @@ tr:hover td{background:#fafaf8}
             </div>
             <button class="btn bs bsm" onclick="addItem()">+ Agregar</button>
           </div>
-          <label>Descuento (MOD 6)</label>
-          <select id="v-desc" onchange="applyDiscount()">
-            <option value="">Sin descuento</option>
-          </select>
-          <div id="v-desc-box" class="desc-box"></div>
+          <!-- Descuentos -->
+          <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <label style="margin:0">Descuento</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#888;cursor:pointer;margin:0">
+                <input type="checkbox" id="v-acum-toggle" onchange="toggleAcumDesc()"/> Acumular descuentos
+              </label>
+            </div>
+            <!-- Descuento por motivo (preconfigurado) -->
+            <select id="v-desc" onchange="applyDiscount()" style="margin-bottom:6px">
+              <option value="">Sin descuento por motivo</option>
+            </select>
+            <!-- Descuento manual ad-hoc -->
+            <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+              <input type="number" id="v-desc-manual-pct" placeholder="% manual" min="0" max="100" style="width:90px;font-size:12px" oninput="applyManualDiscount()"/>
+              <input type="text" id="v-desc-manual-mot" placeholder="Motivo (ej: promo jueves)" style="flex:1;font-size:12px" oninput="applyManualDiscount()"/>
+            </div>
+            <div id="v-desc-box" class="desc-box"></div>
+          </div>
           <label>Observaciones</label>
           <textarea id="v-obs" rows="2" placeholder="Sin sal, bien cocido..."></textarea>
         </div>
@@ -603,6 +617,7 @@ tr:hover td{background:#fafaf8}
           <div class="card">
             <h3>Agregar producto</h3>
             <label>Nombre del producto</label><input type="text" id="p-nom" placeholder="Ej: Pollo entero"/>
+            <label style="margin-top:8px">Código <span style="font-size:10px;color:#888">— opcional</span></label><input type="text" id="p-codigo" placeholder="Ej: 001 o POLL-01"/>
             <label>Proveedor</label>
             <select id="p-proveedor"><option value="">Sin proveedor</option></select>
             <label>Categoría</label>
@@ -658,7 +673,10 @@ tr:hover td{background:#fafaf8}
                 <div style="font-size:18px;font-weight:600;color:#EF9F27" id="stock-prod-con-costo">0</div>
               </div>
             </div>
-            <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:10px" id="stock-detalle-costos"></div>
+            <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;display:flex;justify-content:flex-end">
+              <button onclick="toggleCapitalDetalle()" id="btn-capital-toggle" style="background:rgba(255,255,255,0.1);color:#fff;border:none;border-radius:20px;padding:4px 14px;font-size:11px;cursor:pointer;font-weight:600">▼ Ver detalle</button>
+            </div>
+            <div id="stock-detalle-costos" style="display:none;margin-top:8px"></div>
           </div>
         </div>
         <div class="g2">
@@ -2933,9 +2951,12 @@ function startClienteListeners(){
       }
       // Also update main sale form payment selector
       const ventaPagoSel=document.getElementById('v-pago');
-      if(ventaPagoSel&&_metodosPago.length){
-        const curVal=ventaPagoSel.value;
-        ventaPagoSel.innerHTML=_metodosPago.filter(m=>m.activo).map(m=>'<option value="'+m.nombre+'"'+(m.nombre===curVal?' selected':'')+'>'+m.nombre+'</option>').join('');
+      if(ventaPagoSel){
+        const activos=_metodosPago.filter(m=>m.activo);
+        if(activos.length){
+          const curVal=ventaPagoSel.value;
+          ventaPagoSel.innerHTML=activos.map(m=>'<option value="'+m.nombre+'"'+(m.nombre===curVal?' selected':'')+'>'+m.nombre+'</option>').join('');
+        }
       }
       // Re-render info local if active
       if(document.getElementById('cli-sec-info-local')?.style.display!=='none')renderInfoLocal();
@@ -3179,6 +3200,10 @@ window.toggleVentaSinCliente=function(checked){
     ventaDescuento=null;
     const ds=document.getElementById('v-desc');if(ds){ds.value='';ds.disabled=false;}
     const db2=document.getElementById('v-desc-box');if(db2)db2.style.display='none';
+    const dmp=document.getElementById('v-desc-manual-pct');if(dmp)dmp.value='';
+    const dmm=document.getElementById('v-desc-manual-mot');if(dmm)dmm.value='';
+    const dat=document.getElementById('v-acum-toggle');if(dat)dat.checked=false;
+    _descManual={pct:0,motivo:''};_acumDesc=false;
     renderTotales();
   } else {
     selectedClienteId=null;window._selectedClienteUsuario=null;window._ventaSinCliente=false;
@@ -3191,7 +3216,7 @@ window.searchProdSuggestions=function(val){
   const dd=document.getElementById('v-prod-dd');if(!dd)return;
   if(!val||val.length<1){dd.style.display='none';return;}
   const q=val.toLowerCase();
-  const prods=(_productos||[]).filter(p=>p.activo!==false&&p.nombre.toLowerCase().includes(q)).slice(0,8);
+  const prods=(_productos||[]).filter(p=>p.activo!==false&&(p.nombre.toLowerCase().includes(q)||(p.codigo&&p.codigo.toLowerCase().includes(q)))).slice(0,8);
   const promos=(_promociones||[]).filter(p=>p.activa&&p.nombre.toLowerCase().includes(q)).slice(0,4);
   if(!prods.length&&!promos.length){dd.style.display='none';return;}
   dd.style.display='block';
@@ -3199,7 +3224,7 @@ window.searchProdSuggestions=function(val){
     prods.map(p=>{
       const stock=_inv[p.nombre]?.stock||0;
       const sinStock=stock===0;
-      return'<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;'+(sinStock?'opacity:0.5':'')+'" onmousedown="selectProdSuggestion(\'prod\',\''+p.nombre+'\','+p.precio+')">'+'<div><div style="font-weight:600;font-size:13px">'+p.nombre+(p.categoria?' <span style="font-size:10px;color:#aaa">'+p.categoria+'</span>':'')+'</div><div style="font-size:11px;color:#888">'+p.unidad+' · Stock: '+stock+(sinStock?' · Sin stock':'')+'</div></div><div style="font-weight:700;color:var(--primary)">'+fmt(p.precio)+'</div></div>';
+      return'<div style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;'+(sinStock?'opacity:0.5':'')+'" onmousedown="selectProdSuggestion(\'prod\',\''+p.nombre+'\','+p.precio+')">'+'<div><div style="font-weight:600;font-size:13px">'+(p.codigo?'<span style="background:var(--bg);border-radius:3px;padding:1px 4px;font-size:10px;margin-right:4px">'+p.codigo+'</span>':'')+p.nombre+(p.categoria?' <span style="font-size:10px;color:#aaa">'+p.categoria+'</span>':'')+'</div><div style="font-size:11px;color:#888">'+p.unidad+' · Stock: '+stock+(sinStock?' · Sin stock':'')+'</div></div><div style="font-weight:700;color:var(--primary)">'+fmt(p.precio)+'</div></div>';
     }).join('')+
     promos.map(p=>{
       const s=promoStock(p);
@@ -3589,21 +3614,93 @@ window.checkAndApplyAutoDiscount=function(){
   }
 };
 
-window.applyDiscount=function(){
+
+// ── CAPITAL DESPLEGABLE ──────────────────────────────────────────────────
+window.toggleCapitalDetalle=function(){
+  const det=document.getElementById('stock-detalle-costos');
+  const btn=document.getElementById('btn-capital-toggle');
+  if(!det||!btn)return;
+  const visible=det.style.display!=='none';
+  det.style.display=visible?'none':'block';
+  btn.textContent=visible?'▼ Ver detalle':'▲ Ocultar';
+};
+
+// ── DESCUENTO MANUAL + ACUMULACIÓN ──────────────────────────────────────
+let _descManual={pct:0,motivo:''};
+let _acumDesc=false;
+
+window.toggleAcumDesc=function(){
+  _acumDesc=document.getElementById('v-acum-toggle')?.checked||false;
+  recalcDescuentos();
+};
+
+window.applyManualDiscount=function(){
+  const pct=parseFloat(document.getElementById('v-desc-manual-pct')?.value)||0;
+  const mot=document.getElementById('v-desc-manual-mot')?.value?.trim()||'';
+  _descManual={pct,motivo:mot};
+  recalcDescuentos();
+};
+
+function recalcDescuentos(){
   const sel=document.getElementById('v-desc');
   const box=document.getElementById('v-desc-box');
-  if(!sel)return;
-  // Si el selector está deshabilitado, hay descuento fijo de cliente — no tocar ventaDescuento
-  if(sel.disabled){renderTotales();return;}
-  const id=sel.value;
-  if(!id||!itemTotal){ventaDescuento=null;box.style.display='none';renderTotales();return;}
-  const d=_descuentos.find(x=>x.id===id);
-  if(!d){ventaDescuento=null;box.style.display='none';renderTotales();return;}
-  ventaDescuento=d;
-  const monto=Math.round(itemTotal*d.porcentaje/100);
-  box.style.display='block';
-  box.innerHTML=`Descuento ${d.porcentaje}% — Motivo: <strong>${d.motivo}</strong> → Ahorrás <strong>${fmt(monto)}</strong>`;
+  if(!box)return;
+
+  // Descuento preconfigurado
+  let descPre=null;
+  if(sel&&!sel.disabled&&sel.value){
+    const d=_descuentos.find(x=>x.id===sel.value);
+    if(d)descPre=d;
+  }
+
+  // Descuento fijo del cliente
+  const descCliente=sel?.disabled?ventaDescuento:null;
+
+  // Descuento manual
+  const descMan=_descManual.pct>0?_descManual:null;
+
+  if(_acumDesc){
+    // Acumular todos
+    const partes=[];
+    if(descCliente)partes.push({pct:descCliente.porcentaje,mot:descCliente.motivo});
+    if(descPre)partes.push({pct:descPre.porcentaje,mot:descPre.motivo});
+    if(descMan)partes.push({pct:descMan.pct,mot:descMan.motivo||'Manual'});
+
+    if(partes.length>0){
+      const totalPct=partes.reduce((a,p)=>a+p.pct,0);
+      ventaDescuento={motivo:partes.map(p=>p.mot).join(' + '),porcentaje:totalPct,fijo:!!descCliente};
+      box.style.display='block';
+      box.innerHTML=partes.map(p=>`<span>Desc. ${p.pct}% — ${p.mot}</span>`).join('<br>')+
+        `<br><strong>Total descuento: ${totalPct}% → -${fmt(Math.round(itemTotal*totalPct/100))}</strong>`;
+    } else {
+      if(!descCliente)ventaDescuento=null;
+      box.style.display='none';
+    }
+  } else {
+    // Sin acumulación: prioridad cliente > manual > preconfigurado
+    if(descCliente){
+      ventaDescuento=descCliente;
+      box.style.display='block';
+      let txt=`Descuento cliente: ${descCliente.porcentaje}%`;
+      if(descMan)txt+=`<br><span style="color:#aaa;font-size:11px">(+ ${descMan.pct}% manual ignorado — activá "Acumular")</span>`;
+      box.innerHTML=txt;
+    } else if(descMan){
+      ventaDescuento={motivo:descMan.motivo||'Manual',porcentaje:descMan.pct};
+      box.style.display='block';
+      box.innerHTML=`Descuento manual: <strong>${descMan.pct}%</strong>${descMan.motivo?' — '+descMan.motivo:''} → -${fmt(Math.round(itemTotal*descMan.pct/100))}`;
+    } else if(descPre){
+      ventaDescuento=descPre;
+      box.style.display='block';
+      box.innerHTML=`Descuento ${descPre.porcentaje}% — ${descPre.motivo} → -${fmt(Math.round(itemTotal*descPre.porcentaje/100))}`;
+    } else {
+      ventaDescuento=null;
+      box.style.display='none';
+    }
+  }
   renderTotales();
+}
+window.applyDiscount=function(){
+  recalcDescuentos();
 };
 
 function renderTotales(){
@@ -4145,7 +4242,8 @@ window.filtrarStockProd=function(q){
   const hidden=document.getElementById('s-prod-sel');
   if(!dd)return;
   const activos=(_productos||[]).filter(p=>p.activo!==false);
-  const matches=q.trim()===''?activos:activos.filter(p=>p.nombre.toLowerCase().includes(q.toLowerCase()));
+  const ql=q.toLowerCase();
+  const matches=q.trim()===''?activos:activos.filter(p=>p.nombre.toLowerCase().includes(ql)||(p.codigo&&p.codigo.toLowerCase().includes(ql)));
   if(!matches.length){dd.style.display='none';return;}
   dd.style.display='block';
   dd.innerHTML=matches.map(p=>{
@@ -4626,8 +4724,8 @@ window.renderProductos=function renderProductos(){
     if(!el)return;
     if(!_productos.length){el.innerHTML='<div class="empty">Sin productos</div>';return;}
     const UNITS=['unidad','kg','g','lts','ml','porcion','docena','pack'];
-    const prodsFiltrados=busq?_productos.filter(p=>p.nombre.toLowerCase().includes(busq)||(p.categoria||'').toLowerCase().includes(busq)||(p.proveedor||'').toLowerCase().includes(busq)):_productos;
-    el.innerHTML=prodsFiltrados.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">Stock: ${_inv[p.nombre]?.stock||0} &nbsp;·&nbsp; Unidad: <strong>${p.unidad||'unidad'}</strong>${p.tramos?.length?` &nbsp;·&nbsp; <span style="color:#378ADD">🏷 ${p.tramos.length} tramo${p.tramos.length>1?'s':''}</span>`:''}</div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><span style="width:86px;font-size:12px;padding:5px 8px;background:var(--bg);border-radius:6px;display:inline-block;text-align:right;color:#888" title="Modificar precio desde Stock">${fmt(p.precio||0)}</span><button class="btn ${p.activo===false?'bd':'bs'} bsm" onclick="toggleActivoProducto('${p.id}',${p.activo!==false})">${p.activo===false?'🔴':'🟢'}</button><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bs bsm" onclick="iniciarRenombrar('${p.id}','${p.nombre.replace(/'/g,"\\\\'")}')" title="Renombrar producto">✏️ Renombrar</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button></div></div>`).join('');
+    const prodsFiltrados=busq?_productos.filter(p=>p.nombre.toLowerCase().includes(busq)||(p.categoria||'').toLowerCase().includes(busq)||(p.proveedor||'').toLowerCase().includes(busq)||(p.codigo||'').toLowerCase().includes(busq)):_productos;
+    el.innerHTML=prodsFiltrados.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">${p.codigo?`<span style="background:var(--bg);border-radius:4px;padding:1px 5px;font-weight:600;margin-right:4px">${p.codigo}</span>`:''}Stock: ${_inv[p.nombre]?.stock||0} &nbsp;·&nbsp; Unidad: <strong>${p.unidad||'unidad'}</strong>${p.tramos?.length?` &nbsp;·&nbsp; <span style="color:#378ADD">🏷 ${p.tramos.length} tramo${p.tramos.length>1?'s':''}</span>`:''}</div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><span style="width:86px;font-size:12px;padding:5px 8px;background:var(--bg);border-radius:6px;display:inline-block;text-align:right;color:#888" title="Modificar precio desde Stock">${fmt(p.precio||0)}</span><button class="btn ${p.activo===false?'bd':'bs'} bsm" onclick="toggleActivoProducto('${p.id}',${p.activo!==false})">${p.activo===false?'🔴':'🟢'}</button><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bs bsm" onclick="iniciarRenombrar('${p.id}','${p.nombre.replace(/'/g,"\\\\'")}')" title="Renombrar producto">✏️ Renombrar</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button></div></div>`).join('');
   } else {
     // Vendor view: read-only
     if(adminForm)adminForm.style.display='none';
@@ -4778,11 +4876,13 @@ window.addProducto=async function(){
   try{
     const vencimiento=document.getElementById('p-vencimiento')?.value||'';
     const tramos=leerTramos();
-    const newList=[..._productos,{id:'p'+Date.now(),nombre:nom,precio:0,unidad,categoria,proveedor,vencimiento,tramos}];
+    const codigo=(document.getElementById('p-codigo')?.value||'').trim();
+    const newList=[..._productos,{id:'p'+Date.now(),nombre:nom,precio:0,unidad,categoria,proveedor,vencimiento,tramos,codigo}];
     await setDoc(doc(db,'productos',STORE),{lista:newList});
     const newInv={..._inv,[nom]:{stock:0,alerta}};
     await setDoc(doc(db,'inventario',STORE),newInv);
     document.getElementById('p-nom').value='';document.getElementById('p-alerta').value='5';document.getElementById('p-unidad').value='unidad';const ps=document.getElementById('p-proveedor');if(ps)ps.value='';const tw=document.getElementById('p-tramos-wrap');if(tw)tw.innerHTML='';
+    const pc=document.getElementById('p-codigo');if(pc)pc.value='';
     toast('Producto agregado');
     logAuditoria('agregó','producto','Producto: '+nom,'','');
   }catch(e){alert('Error: '+e.message);}
