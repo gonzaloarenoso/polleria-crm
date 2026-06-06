@@ -1355,9 +1355,9 @@ tr:hover td{background:#fafaf8}
             <div class="card">
               <h3>Descuento por motivo (manual)</h3>
               <label>Motivo del descuento</label>
-              <input type="text" id="dc-motivo" placeholder="Ej: Amigo del dueño"/>
+              <input type="text" id="dc-motivo2" placeholder="Ej: Amigo del dueño"/>
               <label>Porcentaje (%)</label>
-              <input type="number" id="dc-pct" placeholder="Ej: 30" min="1" max="100"/>
+              <input type="number" id="dc-pct2" placeholder="Ej: 30" min="1" max="100"/>
               <div class="row"><button class="btn bp" id="dc-btn" onclick="addDescuento()">Agregar descuento</button></div>
             </div>
             <div class="card">
@@ -2269,6 +2269,14 @@ window.showSec=function(id,btn){
     // Hide cost field for vendors
     const costoWrap=document.getElementById('s-costo-wrap');
     if(costoWrap)costoWrap.style.display=USER_ROLE==='admin'?'block':'none';
+  }
+  if(id==='ventas'){
+    const vp=document.getElementById('v-pago');
+    if(vp&&_metodosPago.length){
+      const cur=vp.value;
+      const activos=_metodosPago.filter(m=>m.activo);
+      if(activos.length)vp.innerHTML=activos.map(m=>'<option value="'+m.nombre+'"'+(m.nombre===cur?' selected':'')+'>'+m.nombre+'</option>').join('');
+    }
   }
   if(id==='caja'){renderCaja();setTimeout(checkRecepcionTurno,500);}
   if(id==='clientes')renderClientes();
@@ -5051,25 +5059,32 @@ window.deletePromo=async function(id){if(!confirm('¿Eliminar?'))return;try{awai
 function renderDescuentos(){
   const el=document.getElementById('dc-lista');
   if(!_descuentos.length){el.innerHTML='<div class="empty">Sin descuentos configurados</div>';return;}
-  el.innerHTML=_descuentos.map(d=>`<div class="pr"><div><div style="font-weight:600;font-size:13px">${d.motivo}</div><div style="font-size:12px;color:var(--danger)">Descuento: ${d.porcentaje}%</div></div><button class="btn bd bsm" onclick="deleteDescuento('${d.id}')">Eliminar</button></div>`).join('');
+  el.innerHTML=_descuentos.map((d,i)=>{const did=d.id||('legacy_'+i);return`<div class="pr"><div><div style="font-weight:600;font-size:13px">${d.motivo}</div><div style="font-size:12px;color:var(--danger)">Descuento: ${d.porcentaje}%</div></div><button class="btn bd bsm" onclick="deleteDescuento('${did}')">Eliminar</button></div>`;}).join('');
 }
 window.addDescuento=async function(){
-  const motivo=document.getElementById('dc-motivo').value.trim();const pct=parseInt(document.getElementById('dc-pct').value)||0;
+  const motivoEl=document.getElementById('dc-motivo2')||document.getElementById('dc-motivo');
+  const pctEl=document.getElementById('dc-pct2')||document.getElementById('dc-pct');
+  const motivo=motivoEl?.value.trim()||'';const pct=parseInt(pctEl?.value)||0;
   if(!motivo||!pct){alert('Ingresá motivo y porcentaje');return;}
   if(pct<1||pct>100){alert('El porcentaje debe ser entre 1 y 100');return;}
   setBtn('dc-btn',true,'Agregar descuento');setSyncDot('syncing');
   try{
     const newList=[..._descuentos,{id:'dc'+Date.now(),motivo,porcentaje:pct}];
     await setDoc(doc(db,'descuentos',STORE),{lista:newList});
-    document.getElementById('dc-motivo').value='';document.getElementById('dc-pct').value='';
+    if(motivoEl)motivoEl.value='';if(pctEl)pctEl.value='';
     toast('Descuento agregado');
   }catch(e){alert('Error: '+e.message);}
   setBtn('dc-btn',false,'Agregar descuento');
 };
 window.deleteDescuento=async function(id){
   if(!confirm('¿Eliminar este descuento?'))return;
-  try{await setDoc(doc(db,'descuentos',STORE),{lista:_descuentos.filter(d=>d.id!==id)});toast('Descuento eliminado');}
-  catch(e){alert('Error: '+e.message);}
+  try{
+    // Handle discounts with or without id
+    const filtered=_descuentos.filter(d=>d.id!==id&&!(id===undefined&&!d.id));
+    // If nothing was filtered and id is undefined, try matching by index
+    await setDoc(doc(db,'descuentos',STORE),{lista:filtered});
+    toast('Descuento eliminado');
+  }catch(e){alert('Error: '+e.message);}
 };
 
 // ── MOD 9: PEDIDOS ONLINE ────────────────────────────────────────────────────
@@ -5531,8 +5546,11 @@ function renderDescuentosList(){
   const el=document.getElementById('dc-lista');
   if(el&&typeof _descuentos!=='undefined'&&_descuentos){
     if(!_descuentos.length){el.innerHTML='<div class="empty">Sin descuentos</div>';return;}
-    el.innerHTML=_descuentos.map(d=>'<div class="pr"><div><strong>'+d.motivo+'</strong> — '+d.porcentaje+'%</div>'+
-      '<button class="btn bd bsm" onclick="deleteDescuento(this.dataset.id)" data-id="'+d.id+'">Eliminar</button></div>').join('');
+    el.innerHTML=_descuentos.map((d,i)=>{
+      const did=d.id||('legacy_'+i);
+      return '<div class="pr"><div><strong>'+d.motivo+'</strong> — '+d.porcentaje+'%</div>'+
+      '<button class="btn bd bsm" onclick="deleteDescuento(\"'+did+'\")" >Eliminar</button></div>';
+    }).join('');
   }
 }
 
