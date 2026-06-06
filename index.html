@@ -3730,7 +3730,8 @@ function renderTotales(){
   }
   // Redondeo a múltiplo de $50 para efectivo
   const pagoSel=document.getElementById('v-pago')?.value||'';
-  const esEfectivo=pagoSel.toLowerCase().includes('efectivo');
+  // Only round for exact "Efectivo" match (case-insensitive), not for Posnet, Transferencia, etc.
+  const esEfectivo=pagoSel.toLowerCase()==='efectivo';
   if(esEfectivo&&final>0){
     const finalRedondeado=Math.floor(final/50)*50;
     if(finalRedondeado!==final){
@@ -3915,7 +3916,7 @@ window.confirmar=async function(){
   const descMonto=(ventaDescuento?Math.round(itemTotal*ventaDescuento.porcentaje/100):0)+cuponDescuento;
   const finalTotal=itemTotal-descMonto;
   const pagoSelGuardar=document.getElementById('v-pago')?.value||'';
-  const totalGuardar=pagoSelGuardar.toLowerCase().includes('efectivo')&&finalTotal>0
+  const totalGuardar=pagoSelGuardar.toLowerCase()==='efectivo'&&finalTotal>0
     ?Math.floor(finalTotal/50)*50:finalTotal;
   const venta={
     ts:now.getTime(),fecha:today(),hora:ftime(),
