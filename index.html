@@ -3376,8 +3376,7 @@ window.addItem=function(){
       if(resultado)precio=resultado.precio;
     }
   }
-  const maxItems=_cfgAvanzado?.maxItems||20;
-  if(items.length>=maxItems){toast('Máximo de '+maxItems+' productos por pedido');return;}
+  // Sin límite de productos en Nueva Venta (el límite aplica solo al portal online)
   if(type==='promo'){const promo=_promociones.find(p=>p.id===refId);if(promoStock(promo)<cant){toast('Stock insuficiente para esta promoción');return;}}
   items.push({nom,precio,cant,unidad,esPromo:type==='promo',refId});
   itemTotal+=precio*parseFloat(cant);
