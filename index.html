@@ -502,6 +502,7 @@ tr:hover td{background:#fafaf8}
           <div id="v-totales">
             <div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px"><span>Total</span><span id="v-total">$0</span></div>
           </div>
+          <div id="v-cc-indicator" style="display:none;margin-bottom:6px"></div>
           <label style="margin-top:14px">Medio de pago</label>
           <select id="v-pago" onchange="checkAndApplyAutoDiscount();renderTotales();"><option>Efectivo</option></select>
           <div style="margin-top:10px">
@@ -557,6 +558,11 @@ tr:hover td{background:#fafaf8}
                 <label>Nueva contraseña (dejá vacío para no cambiar)</label>
                 <input type="password" id="ce-pass" placeholder="Mínimo 4 caracteres"/>
               </div>
+              <div style="background:var(--bg);border-radius:8px;padding:10px;margin-bottom:8px">
+                <label style="font-weight:600;margin-bottom:4px">Tipo de cliente</label>
+                <select id="ce-tipo" style="width:100%;margin-bottom:6px"></select>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="ce-cc"/> Habilitado para cuenta corriente</label>
+              </div>
               <div class="access-box" style="margin-top:10px;background:#FFF8F0;border:1px solid #FAC775">
                 <div class="access-box-title" style="color:#854F0B">Descuento fijo del cliente</div>
                 <label style="margin-top:0;color:#854F0B">% de descuento fijo (0 = sin descuento)</label>
@@ -584,6 +590,8 @@ tr:hover td{background:#fafaf8}
           <label>Dirección *</label><input type="text" id="c-dir2" placeholder="Calle y número" required/>
           <label>Barrio / Localidad *</label><input type="text" id="c-bar" placeholder="Barrio" required/>
           <label>Notas</label><input type="text" id="c-not" placeholder="Preferencias, alergias..."/>
+          <label>Tipo de cliente</label><select id="c-tipo" style="margin-bottom:6px"></select>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="c-cc"/> Habilitado para cuenta corriente</label>
           <div class="access-box">
             <div class="access-box-title">Acceso al portal de pedidos (obligatorio)</div>
             <label style="margin-top:0">Usuario <span style="font-size:11px;color:#888">(se genera automáticamente)</span></label>
@@ -1317,7 +1325,17 @@ tr:hover td{background:#fafaf8}
         <!-- Categories + Payment methods row -->
         <div class="g2" style="margin-top:0">
           <div class="card">
-            <h3>Categorías de productos</h3>
+            <h3 style="margin-top:4px">Tipos de cliente</h3>
+          <div style="font-size:12px;color:#888;margin-bottom:8px">Configurá tipos con descuento automático y cuenta corriente.</div>
+          <div id="cfg-tipos-cliente-lista" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input type="text" id="cfg-tipo-nombre" placeholder="Ej: Empleado, Mayorista" style="flex:1;min-width:100px"/>
+            <input type="number" id="cfg-tipo-desc" placeholder="% desc." min="0" max="100" style="width:70px"/>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap"><input type="checkbox" id="cfg-tipo-cc"/> Cta.Cte.</label>
+            <button class="btn bp bsm" onclick="addTipoCliente()">+ Agregar</button>
+          </div>
+          <hr style="margin:14px 0 8px"/>
+          <h3>Categorías de productos</h3>
             <div style="font-size:12px;color:#888;margin-bottom:10px">Estas categorías aparecen en el catálogo del portal del cliente.</div>
             <div id="cfg-categorias-lista" style="margin-bottom:10px"></div>
             <div style="display:flex;gap:6px;margin-bottom:6px">
@@ -2183,6 +2201,7 @@ let CU=null, STORE=null, USER_ROLE=null, CLI_DATA=null;
 let _ventas=[], _clientes=[], _empleados=[], _inv={}, _productos=[], _promociones=[];
 let _descuentos=[], _franjas=['10-12hs','12-14hs','14-16hs','16-18hs','18-20hs'];
 let _lotes={}; // FIFO
+let _tiposCliente=[{id:'tradicional',nombre:'Tradicional',descuento:0,cuentaCorriente:false}];
 let _gastos=[];
 let _cfgNegocio={};
 let _cfgPedidos={};
@@ -2282,7 +2301,7 @@ window.showSec=function(id,btn){
     }
   }
   if(id==='caja'){renderCaja();setTimeout(checkRecepcionTurno,500);}
-  if(id==='clientes')renderClientes();
+  if(id==='clientes'){renderClientes();renderTiposClienteSel('c-tipo','tradicional');}
   if(id==='empleados'){renderEmp();}
   if(id==='dashboard')renderDash();
   if(id==='ventas-dia')renderVentasDia();
@@ -2295,7 +2314,7 @@ window.showSec=function(id,btn){
   if(id==='promociones')renderPromociones();
   if(id==='pedidos-online'){renderPedidosOnline();loadDeliveryConfig();loadPortalConfig();}
   if(id==='descuentos')renderDescuentos();
-  if(id==='configuracion')renderConfiguracion();
+  if(id==='configuracion'){renderConfiguracion();renderCfgTiposCliente();}
   if(id==='mensajes-admin')renderMensajesAdmin();
   if(id==='calendario')renderCalendario();
   if(id==='informes'){loadCierresMensuales();initResumenMesSel();}
@@ -2840,6 +2859,7 @@ function startListeners(){
       _cfgAvanzado=d.avanzado||{};
       if(d.nivelesCliente&&d.nivelesCliente.length)_nivelesCliente=d.nivelesCliente;
       if(d.catsCajaChica&&d.catsCajaChica.length){_catsCajaChica=d.catsCajaChica;updateCCSelect();}
+      if(d.tiposCliente&&d.tiposCliente.length)_tiposCliente=d.tiposCliente;
       // Apply custom color if set
       if(d.avanzado?.colorPrimary)document.documentElement.style.setProperty('--primary',d.avanzado.colorPrimary);
       renderDescuentoAutoSelect();
@@ -3326,8 +3346,25 @@ window.selectCli=function(id){
     renderTotales();
   }
   // MOD 6: auto-apply client fixed discount
-  if(c.descuentoFijo&&c.descuentoFijo>0){
-    ventaDescuento={motivo:'Descuento cliente ('+c.nombre+')',porcentaje:c.descuentoFijo,fijo:true};
+  const tipoC=_tiposCliente.find(t=>t.id===c.tipoCliente)||_tiposCliente[0];
+  const descToApply=c.descuentoFijo||tipoC?.descuento||0;
+  const ccInd=document.getElementById('v-cc-indicator');
+  if(ccInd){
+    const hasCC=c.cuentaCorriente||tipoC?.cuentaCorriente;
+    if(hasCC){
+      ccInd.style.display='block';
+      ccInd.innerHTML='<span style="background:rgba(55,138,221,0.12);color:#378ADD;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600">💳 '+c.nombre+' — Cuenta corriente habilitada</span>';
+      const vp=document.getElementById('v-pago');
+      if(vp&&!Array.from(vp.options).some(o=>o.value==='Cuenta corriente')){
+        const opt=document.createElement('option');opt.value='Cuenta corriente';opt.textContent='Cuenta corriente';vp.appendChild(opt);
+      }
+      mostrarSaldoCC(id).then(saldo=>{
+        if(saldo>0&&ccInd)ccInd.innerHTML+='<span style="margin-left:8px;color:var(--danger);font-size:12px"> · Saldo: $'+Math.round(saldo).toLocaleString("es-AR")+'</span>';
+      });
+    } else { ccInd.style.display='none'; }
+  }
+  if(descToApply>0){
+    ventaDescuento={motivo:'Descuento cliente ('+c.nombre+')',porcentaje:descToApply,fijo:true};
     const sel=document.getElementById('v-desc');
     if(sel){sel.value='';sel.disabled=true;}
     const box=document.getElementById('v-desc-box');
@@ -3336,7 +3373,7 @@ window.selectCli=function(id){
   } else {
     const sel=document.getElementById('v-desc');
     if(sel)sel.disabled=false;
-    ventaDescuento=null;
+    ventaDescuento=null;recalcDescuentos();
     const box=document.getElementById('v-desc-box');
     if(box)box.style.display='none';
     renderTotales();
@@ -3949,6 +3986,15 @@ window.confirmar=async function(){
       }
     }
     docRef=await addDoc(collection(db,'users',STORE,'ventas'),venta);
+    if(venta.pago==='Cuenta corriente'&&selectedClienteId){
+      const cliCC=_clientes.find(x=>x.id===selectedClienteId);
+      try{await addDoc(collection(db,'users',STORE,'cuenta-corriente'),{
+        clienteId:selectedClienteId,clienteNombre:cliCC?.nombre||'—',
+        monto:venta.total,tipo:'cargo',
+        concepto:'Venta '+venta.fecha+' - '+venta.items.map(i=>i.nom).join(', '),
+        fecha:venta.fecha,ts:Date.now()
+      });}catch(e){console.warn('cc save',e);}
+    }
     const newInv={..._inv};let changed=false;
     for(const it of items){
       if(it.esPromo){
@@ -4111,6 +4157,7 @@ function renderClientes(){
           </div>
           ${c.usuario?`<div style="font-size:12px;color:var(--success);margin-top:4px">Portal: <strong>${c.usuario}</strong></div>`:'<div style="font-size:11px;color:#bbb;margin-top:4px">Sin acceso al portal</div>'}
           ${c.descuentoFijo?`<div style="font-size:11px;color:var(--warn);margin-top:2px">Descuento fijo: <strong>${c.descuentoFijo}%</strong></div>`:''}
+          ${(()=>{const t=_tiposCliente.find(x=>x.id===c.tipoCliente);return t&&t.id!=='tradicional'?`<div style="font-size:11px;color:#555;margin-top:2px">Tipo: <strong>${t.nombre}</strong>${t.descuento?' · '+t.descuento+'% dto.':''}${(t.cuentaCorriente||c.cuentaCorriente)?' · <span style=\"color:#378ADD\">CC</span>':''}</div>`:'';})()} 
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
           <div style="text-align:right">
@@ -4121,6 +4168,7 @@ function renderClientes(){
             ${isInactivo&&c.tel?`<button class="btn bs bsm" style="background:#FFF3CD;border-color:#FAC775;color:#854F0B;font-weight:600" onclick="sendRecordatorio('${c.tel}','${c.nombre}','${c.id}')">💬 Recordatorio</button>`:''}
             <button class="btn bs bsm" style="font-size:11px;${c.noRecordatorio?'background:#EAF3DE;color:#1D6B48;border-color:#3B6D11':''}" onclick="toggleNoRecordatorio('${c.id}',${!c.noRecordatorio})">${c.noRecordatorio?'🔔 Reactivar recordatorio':'🔕 No molestar'}</button>
             <button class="btn bs bsm" onclick="viewClienteInfo('${c.usuario||''}','${c.nombre}')">📋 Ver ficha</button>
+            ${(c.cuentaCorriente||(_tiposCliente.find(t=>t.id===c.tipoCliente)?.cuentaCorriente))?`<button class="btn bs bsm" style="color:#378ADD;border-color:#378ADD" onclick="verCuentaCorriente('${c.id}','${c.nombre}')">💳 CC</button>`:''} 
             ${isAdmin&&c.usuario?`<button class="btn bs bsm" onclick="openResetPass('${c.usuario}','${c.nombre}')">🔑 Clave</button>`:''}
             <button class="btn bs bsm" onclick="startEditCliente('${c.id}')">Editar</button>
             ${isAdmin?`<button class="btn bd bsm" onclick="deleteCliente('${c.id}','${c.usuario||''}')">Eliminar</button>`:''}
@@ -4168,7 +4216,9 @@ window.addCliente=async function(){
       }
       await setDoc(doc(db,'users',usuario),{username:usuario,passHash:hash(clave),role:'cliente',parentAdmin:STORE,nombre:n,tel:document.getElementById('c-tel').value,mail:document.getElementById('c-mail').value,dir:document.getElementById('c-dir2').value,barrio:document.getElementById('c-bar').value,createdAt:today()});
     }
-    await addDoc(collection(db,'users',STORE,'clientes'),{nombre:n,tel:document.getElementById('c-tel').value,mail:document.getElementById('c-mail').value,dir:document.getElementById('c-dir2').value,barrio:document.getElementById('c-bar').value,notas:document.getElementById('c-not').value,usuario:usuario||null,createdAt:today()});
+    const cTipo=document.getElementById('c-tipo')?.value||'tradicional';
+    const cCC=document.getElementById('c-cc')?.checked||false;
+    await addDoc(collection(db,'users',STORE,'clientes'),{nombre:n,tel:document.getElementById('c-tel').value,mail:document.getElementById('c-mail').value,dir:document.getElementById('c-dir2').value,barrio:document.getElementById('c-bar').value,notas:document.getElementById('c-not').value,usuario:usuario||null,tipoCliente:cTipo,cuentaCorriente:cCC,createdAt:today()});
     ['c-nom','c-ape','c-tel','c-mail','c-dir2','c-bar','c-not','c-user','c-clave'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     toast('Cliente guardado'+(usuario?' con acceso al portal':''));
   }catch(e){alert('Error: '+e.message);}
@@ -4201,6 +4251,8 @@ window.startEditCliente=function(id){
   document.getElementById('ce-user').value='';
   document.getElementById('ce-pass').value='';
   document.getElementById('ce-descuento').value=cli.descuentoFijo||0;
+  renderTiposClienteSel('ce-tipo',cli.tipoCliente||'tradicional');
+  const ceCCel=document.getElementById('ce-cc');if(ceCCel)ceCCel.checked=!!cli.cuentaCorriente;
   const ua=document.getElementById('ce-user-actual');
   if(ua)ua.textContent=cli.usuario||'Sin acceso';
   document.getElementById('cli-edit-wrap').style.display='block';
@@ -4219,7 +4271,9 @@ window.saveEditCliente=async function(){
   if(!nom){alert('El nombre es obligatorio');return;}
   setBtn('ce-save-btn',true,'Guardando...');setSyncDot('syncing');
   const descFijo=parseInt(document.getElementById('ce-descuento').value)||0;
-  const updates={nombre:nom,tel:document.getElementById('ce-tel').value,mail:document.getElementById('ce-mail').value,dir:document.getElementById('ce-dir').value,barrio:document.getElementById('ce-bar').value,notas:document.getElementById('ce-not').value,descuentoFijo:descFijo};
+  const ceTipo=document.getElementById('ce-tipo')?.value||'tradicional';
+  const ceCC=document.getElementById('ce-cc')?.checked||false;
+  const updates={nombre:nom,tel:document.getElementById('ce-tel').value,mail:document.getElementById('ce-mail').value,dir:document.getElementById('ce-dir').value,barrio:document.getElementById('ce-bar').value,notas:document.getElementById('ce-not').value,descuentoFijo:descFijo,tipoCliente:ceTipo,cuentaCorriente:ceCC};
   try{
     await updateDoc(doc(db,'users',STORE,'clientes',editingClienteId),updates);
     if(cli.usuario){
@@ -5806,6 +5860,122 @@ window.reabrirCaja=async function(){
   }catch(e){alert('Error: '+e.message);}
 };
 
+
+// ── TIPOS DE CLIENTE ─────────────────────────────────────────────────────
+function renderTiposClienteSel(elId,selectedId){
+  const sel=document.getElementById(elId);if(!sel)return;
+  sel.innerHTML=_tiposCliente.map(t=>`<option value="${t.id}"${t.id===selectedId?' selected':''}>${t.nombre}${t.descuento?` (${t.descuento}% dto.)`:''}${t.cuentaCorriente?' · CC':''}</option>`).join('');
+}
+function renderCfgTiposCliente(){
+  const el=document.getElementById('cfg-tipos-cliente-lista');if(!el)return;
+  if(!_tiposCliente.length){el.innerHTML='<div class="empty" style="font-size:12px">Sin tipos</div>';return;}
+  el.innerHTML=_tiposCliente.map((t,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bg);border-radius:8px;margin-bottom:4px;font-size:13px"><span><strong>${t.nombre}</strong>${t.descuento?` · ${t.descuento}% dto.`:''}${t.cuentaCorriente?' · <span style="color:#378ADD">CC</span>':''}</span>${t.id!=='tradicional'?`<button class="btn bd bsm" onclick="deleteTipoCliente(${i})">Eliminar</button>`:'<span style="color:#aaa;font-size:11px">predeterminado</span>'}</div>`).join('');
+}
+window.addTipoCliente=async function(){
+  const nom=document.getElementById('cfg-tipo-nombre')?.value.trim();
+  const desc=parseInt(document.getElementById('cfg-tipo-desc')?.value)||0;
+  const cc=document.getElementById('cfg-tipo-cc')?.checked||false;
+  if(!nom){alert('Ingresá un nombre');return;}
+  const nuevo={id:'tc_'+Date.now(),nombre:nom,descuento:desc,cuentaCorriente:cc};
+  const nuevos=[..._tiposCliente,nuevo];
+  try{
+    const ex=await getDoc(doc(db,'config',STORE));
+    await setDoc(doc(db,'config',STORE),{...(ex.exists()?ex.data():{}),tiposCliente:nuevos});
+    _tiposCliente=nuevos;renderCfgTiposCliente();
+    document.getElementById('cfg-tipo-nombre').value='';
+    document.getElementById('cfg-tipo-desc').value='';
+    document.getElementById('cfg-tipo-cc').checked=false;
+    toast('Tipo de cliente agregado');
+  }catch(e){alert('Error: '+e.message);}
+};
+window.deleteTipoCliente=async function(idx){
+  if(!confirm('¿Eliminar este tipo de cliente?'))return;
+  const nuevos=_tiposCliente.filter((_,i)=>i!==idx);
+  try{
+    const ex=await getDoc(doc(db,'config',STORE));
+    await setDoc(doc(db,'config',STORE),{...(ex.exists()?ex.data():{}),tiposCliente:nuevos});
+    _tiposCliente=nuevos;renderCfgTiposCliente();toast('Tipo eliminado');
+  }catch(e){alert('Error: '+e.message);}
+};
+
+// ── CUENTA CORRIENTE ─────────────────────────────────────────────────────
+window.mostrarSaldoCC=async function(clienteId){
+  try{
+    const snap=await getDocs(collection(db,'users',STORE,'cuenta-corriente'));
+    const movs=snap.docs.map(d=>d.data()).filter(m=>m.clienteId===clienteId);
+    return movs.reduce((a,m)=>a+(m.tipo==='cargo'?m.monto:-(m.monto)),0);
+  }catch(e){return 0;}
+};
+window.registrarPagoCC=async function(clienteId,clienteNombre,monto,concepto){
+  try{
+    await addDoc(collection(db,'users',STORE,'cuenta-corriente'),{
+      clienteId,clienteNombre,monto:Math.abs(monto),tipo:'pago',
+      concepto:concepto||'Pago a cuenta',fecha:today(),ts:Date.now()
+    });
+    toast('Pago registrado en CC de '+clienteNombre);return true;
+  }catch(e){toast('Error: '+e.message,'error');return false;}
+};
+window.verCuentaCorriente=async function(clienteId,clienteNombre){
+  try{
+    const snap=await getDocs(collection(db,'users',STORE,'cuenta-corriente'));
+    const movs=snap.docs.map(d=>({id:d.id,...d.data()})).filter(m=>m.clienteId===clienteId).sort((a,b)=>b.ts-a.ts);
+    const saldo=movs.reduce((a,m)=>a+(m.tipo==='cargo'?m.monto:-(m.monto)),0);
+    const fmtARS=n=>'$'+Math.round(n).toLocaleString('es-AR');
+    const cid=clienteId.replace(/'/g,"\\'").replace(/"/g,'\\"');
+    const cnom=clienteNombre.replace(/'/g,"\\'").replace(/"/g,'\\"');
+    const rows=movs.map(m=>`<tr><td>${m.fecha||'—'}</td><td style="color:${m.tipo==='cargo'?'#e74c3c':'#1D9E75'}">${m.tipo==='cargo'?'Cargo':'Pago'}</td><td>${m.concepto||'—'}</td><td style="text-align:right;font-weight:600;color:${m.tipo==='cargo'?'#e74c3c':'#1D9E75'}">${m.tipo==='cargo'?'+':'-'}${fmtARS(m.monto)}</td></tr>`).join('');
+    const html=`<!DOCTYPE html><html><head><title>CC: ${clienteNombre}</title>
+    <style>body{font-family:sans-serif;margin:20px;font-size:13px}table{width:100%;border-collapse:collapse}th{background:#1a1a1a;color:#fff;padding:8px;text-align:left}td{padding:7px;border-bottom:1px solid #eee}@media print{button{display:none}}</style></head><body>
+    <button onclick="window.print()" style="margin-bottom:12px;padding:6px 16px;cursor:pointer;border:1px solid #ccc;border-radius:6px">Imprimir</button>
+    <h2>Cuenta Corriente — ${clienteNombre}</h2>
+    <div style="background:${saldo>0?'#fde8e8':'#e8fdf1'};padding:12px;border-radius:8px;margin-bottom:16px;font-size:15px;font-weight:700">Saldo: <span style="color:${saldo>0?'#e74c3c':'#1D9E75'}">${fmtARS(saldo)}</span>${saldo>0?' (debe)':' (sin deuda)'}</div>
+    <table><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Monto</th></tr></thead><tbody>${rows||'<tr><td colspan="4" style="text-align:center;color:#888;padding:16px">Sin movimientos</td></tr>'}</tbody></table>
+    <div style="margin-top:16px;padding:12px;background:#f5f4f0;border-radius:8px"><strong>Registrar pago:</strong>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <input type="number" id="pm" placeholder="Monto $" style="flex:1;min-width:90px;padding:6px;border:1px solid #ccc;border-radius:6px"/>
+      <input type="text" id="pc" placeholder="Concepto (ej: descuento sueldo)" style="flex:2;min-width:140px;padding:6px;border:1px solid #ccc;border-radius:6px"/>
+      <button id="bpr" style="background:#1D9E75;color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-weight:600">Registrar</button>
+    </div></div>
+    <script>
+    document.getElementById('bpr').addEventListener('click',function(){
+      var m=parseFloat(document.getElementById('pm').value)||0;
+      var con=document.getElementById('pc').value||'Pago';
+      if(!m){alert('Ingresá un monto');return;}
+      this.textContent='Guardando...';this.disabled=true;
+      var btn=this;
+      var cmd={type:'cc-pago',clienteId:'${cid}',clienteNombre:'${cnom}',monto:m,concepto:con,ts:Date.now()};
+      localStorage.setItem('crm-cc-pago',JSON.stringify(cmd));
+      setTimeout(function(){localStorage.removeItem('crm-cc-pago');window.location.reload();},1800);
+    });
+    <\/script></body></html>`;
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
+    window.open(url,'_cc_'+clienteId);
+    setTimeout(()=>URL.revokeObjectURL(url),10000);
+  }catch(e){toast('Error: '+e.message,'error');}
+};
+
+// ── FONDO ANTERIOR EN CIERRE DE CAJA ────────────────────────────────────
+async function cargarFondoAnteriorEnCierre(efVentas){
+  try{
+    const snap=await getDocs(collection(db,'users',STORE,'cierres'));
+    const cierres=snap.docs.map(d=>d.data()).sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+    const anterior=cierres[0];
+    const wrap=document.getElementById('cierre-fondo-anterior-wrap');if(!wrap)return;
+    const fondoAnt=anterior?.fondoCambio||anterior?.efectivoDisponible||0;
+    const retirosCaja=(_cajaChica||[]).filter(g=>g.fecha===today()&&g.esEgreso&&(g.tipo==='retiro'||g.tipo==='retiro_caja')).reduce((a,g)=>a+Math.abs(g.monto||g.montoAbs||0),0);
+    const efEsperado=fondoAnt+efVentas-retirosCaja;
+    const elFondo=document.getElementById('cierre-fondo-valor');if(elFondo)elFondo.textContent='$'+Math.round(fondoAnt).toLocaleString('es-AR');
+    const elVentas=document.getElementById('cierre-ef-ventas');if(elVentas)elVentas.textContent='$'+Math.round(efVentas).toLocaleString('es-AR');
+    if(retirosCaja>0){const rr=document.getElementById('cierre-retiros-row');if(rr)rr.style.display='flex';const rv=document.getElementById('cierre-retiros-valor');if(rv)rv.textContent='-$'+Math.round(retirosCaja).toLocaleString('es-AR');}
+    const elEsp=document.getElementById('cierre-ef-esperado');if(elEsp)elEsp.textContent='$'+Math.round(efEsperado).toLocaleString('es-AR');
+    wrap.style.display='block';
+    const efInput=document.getElementById('cc-ef-real');
+    if(efInput&&!efInput.value){efInput.value=efEsperado;}
+    calcDiferencias();
+  }catch(e){console.warn('cargarFondoAnterior',e);}
+}
+
 function renderCaja(){
   renderCajaChica();
   const hv=_ventas.filter(v=>v.tipo!=='online'&&v.fecha===today());
@@ -5913,6 +6083,22 @@ window.showCierreCaja=async function(){
       <div class="mc"><div class="mc-l">A acreditar neto</div><div class="mc-v" style="color:var(--success)">${fmt(totalAcreditado)}</div></div>
       ${costo>0?`<div class="mc"><div class="mc-l">Ganancia bruta</div><div class="mc-v" style="color:var(--success)">${fmt(ganancia)}</div></div>`:''}
     </div>`:''}
+    <div id="cc-fondo-anterior-info" style="display:none;background:rgba(29,158,117,0.08);border:1px solid rgba(29,158,117,0.3);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px">
+      <div style="font-weight:700;margin-bottom:8px;color:#1D9E75">📊 Efectivo esperado en caja</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Fondo día anterior:</span><span id="cc-fondo-ant-monto" style="font-weight:600">$0</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>Ventas en efectivo hoy:</span><span id="cc-fondo-ant-ventas" style="font-weight:600">$0</span></div>
+      <div id="cc-fondo-ant-retiros-row" style="display:none;justify-content:space-between;margin-bottom:4px"><span>Retiros de caja:</span><span id="cc-fondo-ant-retiros" style="font-weight:600;color:#e74c3c">-$0</span></div>
+      <div style="border-top:1px solid rgba(29,158,117,0.3);margin-top:6px;padding-top:6px;display:flex;justify-content:space-between"><span style="font-weight:700">Total esperado:</span><span id="cc-fondo-ant-esperado" style="font-weight:700;color:#1D9E75;font-size:14px">$0</span></div>
+    </div>
+    <div id="cierre-fondo-anterior-wrap" style="display:none;margin-bottom:12px">
+      <div style="background:rgba(55,138,221,0.08);border-radius:10px;padding:12px;font-size:13px">
+        <div style="font-weight:700;margin-bottom:6px">💵 Efectivo esperado en caja hoy</div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:#888">Fondo día anterior:</span><span id="cierre-fondo-valor" style="font-weight:600">$0</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:#888">Ventas efectivo hoy:</span><span id="cierre-ef-ventas" style="font-weight:600">$0</span></div>
+        <div id="cierre-retiros-row" style="display:none;justify-content:space-between;margin-bottom:3px"><span style="color:#888">Retiros de caja:</span><span id="cierre-retiros-valor" style="font-weight:600;color:var(--danger)">$0</span></div>
+        <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;margin-top:4px"><span style="font-weight:700">Total esperado:</span><span id="cierre-ef-esperado" style="font-weight:700;font-size:15px;color:var(--primary)">$0</span></div>
+      </div>
+    </div>
     <div style="margin-bottom:16px">
       <h3 style="margin-bottom:10px">Verificación de cobros</h3>
       <table style="width:100%">
@@ -5958,6 +6144,38 @@ window.showCierreCaja=async function(){
   wrap.style.display='block';
   wrap.scrollIntoView({behavior:'smooth'});
   calcDiferencias();
+  // Load previous cierre to show fondo anterior
+  (async()=>{
+    try{
+      const snap=await getDocs(collection(db,'users',STORE,'cierres'));
+      const cierresOrdenados=snap.docs.map(d=>d.data()).sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+      // Last cierre before today
+      const anterior=cierresOrdenados.filter(ci=>ci.fecha<today()).pop();
+      const panel=document.getElementById('cc-fondo-anterior-info');
+      if(anterior&&panel){
+        const fondoAnt=anterior.fondoCambio||anterior.efectivoDisponible||0;
+        const ventasEf=ef; // ef is in scope from renderCaja
+        // retiros de hoy
+        const ccHoyRet=(_cajaChica||[]).filter(x=>x.fecha===today()&&x.esEgreso&&(x.tipo==='retiro'||(!x.tipo?.includes('cuenta')&&!x.descripcion?.toLowerCase().includes('transferencia'))));
+        const retiros=ccHoyRet.reduce((a,x)=>a+Math.abs(x.montoAbs||0),0);
+        const esperado=fondoAnt+ventasEf-retiros;
+        document.getElementById('cc-fondo-ant-monto').textContent='$'+Math.round(fondoAnt).toLocaleString('es-AR');
+        document.getElementById('cc-fondo-ant-ventas').textContent='$'+Math.round(ventasEf).toLocaleString('es-AR');
+        document.getElementById('cc-fondo-ant-esperado').textContent='$'+Math.round(esperado).toLocaleString('es-AR');
+        if(retiros>0){
+          const retRow=document.getElementById('cc-fondo-ant-retiros-row');
+          if(retRow)retRow.style.display='flex';
+          const retEl=document.getElementById('cc-fondo-ant-retiros');
+          if(retEl)retEl.textContent='-$'+Math.round(retiros).toLocaleString('es-AR');
+        }
+        panel.style.display='block';
+        // Also set the cc-ef-real data-esperado attribute for calcDiferencias
+        const efInput=document.getElementById('cc-ef-real');
+        if(efInput)efInput.dataset.esperado=esperado;
+        calcDiferencias();
+      }
+    }catch(e){console.warn('fondo anterior error',e);}
+  })();
 };
 
 window.calcDiferencias=function(){
@@ -7500,7 +7718,7 @@ window.printCierre=async function(id){
     const ciIdx=allCierres.findIndex(d=>d.id===id);
     const ciPrev=ciIdx>0?allCierres[ciIdx-1]:null;
     // Caja chica del día
-    const ccDia=(_cajachica||[]).filter(g=>g.fecha===ci.fecha);
+    const ccDia=(_cajaChica||[]).filter(g=>g.fecha===ci.fecha);
     const gastosCajaChica=ccDia.filter(g=>g.esEgreso).reduce((a,g)=>a+(g.monto||g.montoAbs||0),0);
     const retirosCaja=ccDia.filter(g=>g.esEgreso&&(g.tipo==='retiro'||g.tipo==='retiro_caja')).reduce((a,g)=>a+Math.abs(g.monto||g.montoAbs||0),0);
     // Descuentos desglosados - rebuild from ventas
@@ -7653,7 +7871,7 @@ window.generarResumenMensual=async function(){
   }catch(e){}
 
   // Caja chica
-  const cajachica=(_cajachica||[]).filter(g=>g.fecha&&g.fecha.startsWith(mes));
+  const cajachica=(_cajaChica||[]).filter(g=>g.fecha&&g.fecha.startsWith(mes));
   const totalCajaChica=cajachica.reduce((a,g)=>a+(g.monto||0),0);
 
   // Sueldos pagados
@@ -8589,6 +8807,19 @@ window.editarEntradaStock=async function(docId, prodNombre, nuevaCant, nuevoCost
 
 // ── LISTENER: recibir ediciones desde ficha (localStorage) ───────────────
 window.addEventListener('storage', async function(e){
+  if(e.key==='crm-cc-pago'&&e.newValue){
+    try{
+      const cmd=JSON.parse(e.newValue);
+      if(cmd.type==='cc-pago'&&cmd.clienteId){
+        await addDoc(collection(db,'users',STORE,'cuenta-corriente'),{
+          clienteId:cmd.clienteId,clienteNombre:cmd.clienteNombre,
+          monto:cmd.monto,tipo:'pago',concepto:cmd.concepto,fecha:today(),ts:Date.now()
+        });
+        toast('Pago CC registrado: $'+Math.round(cmd.monto).toLocaleString('es-AR'));
+      }
+    }catch(err){console.warn('cc-pago',err);}
+    return;
+  }
   // Tramos edit from ficha
   if(e.key==='crm-tramos-edit'&&e.newValue){
     try{
