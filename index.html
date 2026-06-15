@@ -3183,7 +3183,7 @@ window.renderVentasDia=function(){
       <td>${v.pago}</td>
       ${isAdmin?`<td style="font-weight:600;color:var(--success)">${fmt(v.total)}</td>`:''}
       <td>${v.tipo==='online'?`<span class="badge ${statusClass(v.estado)}">${statusLabel(v.estado)}</span>`:'<span class="badge bg">OK</span>'}</td>
-      <td style="display:flex;gap:4px"><button class="btn bs bsm" onclick="reprintTicket('${v.id}')">🖨</button>${isAdmin?`<button class="btn bd bsm" onclick="deleteVenta('${v.id}')">✕</button>`:''}</td>
+      <td style="display:flex;gap:4px"><button class="btn bs bsm" onclick="reprintTicket('${v.id}')">🖨</button>${isAdmin?`<button class="btn bs bsm" onclick="startEdit('${v.id}')">✏</button><button class="btn bd bsm" onclick="deleteVenta('${v.id}')">✕</button>`:''}</td>
     </tr>`).join('')+
     `</tbody></table></div>`;
 }
