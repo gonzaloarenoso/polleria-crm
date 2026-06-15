@@ -3796,11 +3796,24 @@ window.renderTotales=function renderTotales(){
   // Redondeo a múltiplo de $50 para efectivo
   const pagoSel=document.getElementById('v-pago')?.value||'';
   // Only round for exact "Efectivo" match (case-insensitive), not for Posnet, Transferencia, etc.
+  // Apply payment method adjustment (discount or surcharge)
+  const metodoPago=(_metodosPago||[]).find(m=>m.nombre===pagoSel);
+  const ajustePct=metodoPago?.ajuste||0;
+  let finalConAjuste=final;
+  if(ajustePct!==0&&final>0){
+    const ajusteMonto=Math.round(final*ajustePct/100);
+    finalConAjuste=final+ajusteMonto;
+    const ajusteColor=ajustePct<0?'var(--success)':'var(--danger)';
+    const ajusteLabel=ajustePct<0?`Descuento ${pagoSel} ${ajustePct}%`:`Recargo ${pagoSel} +${ajustePct}%`;
+    html+=`<div style="display:flex;justify-content:space-between;font-size:12px;color:${ajusteColor};margin-top:2px"><span>${ajusteLabel}</span><span>${ajustePct<0?'-':'+'}${fmt(Math.abs(ajusteMonto))}</span></div>`;
+    html+=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:16px;margin-top:4px"><span>Total</span><span>${fmt(finalConAjuste)}</span></div>`;
+  }
+  // Rounding only for Efectivo, AFTER all adjustments
   const esEfectivo=pagoSel.toLowerCase()==='efectivo';
-  if(esEfectivo&&final>0){
-    const finalRedondeado=Math.floor(final/50)*50;
-    if(finalRedondeado!==final){
-      html+=`<div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-top:2px"><span>↳ Redondeo efectivo</span><span>-${fmt(final-finalRedondeado)}</span></div>`;
+  if(esEfectivo&&finalConAjuste>0){
+    const finalRedondeado=Math.floor(finalConAjuste/50)*50;
+    if(finalRedondeado!==finalConAjuste){
+      html+=`<div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-top:2px"><span>↳ Redondeo efectivo</span><span>-${fmt(finalConAjuste-finalRedondeado)}</span></div>`;
       html+=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:16px;margin-top:4px;color:var(--primary)"><span>Total efectivo</span><span id="v-total-ef">${fmt(finalRedondeado)}</span></div>`;
     }
   }
@@ -3981,8 +3994,12 @@ window.confirmar=async function(){
   const descMonto=(ventaDescuento?Math.round(itemTotal*ventaDescuento.porcentaje/100):0)+cuponDescuento;
   const finalTotal=itemTotal-descMonto;
   const pagoSelGuardar=document.getElementById('v-pago')?.value||'';
-  const totalGuardar=pagoSelGuardar.toLowerCase()==='efectivo'&&finalTotal>0
-    ?Math.floor(finalTotal/50)*50:finalTotal;
+  // Apply method adjustment to total
+  const metodoPagoGuardar=(_metodosPago||[]).find(m=>m.nombre===pagoSelGuardar);
+  const ajustePctGuardar=metodoPagoGuardar?.ajuste||0;
+  const totalConAjuste=ajustePctGuardar!==0?Math.round(finalTotal*(1+ajustePctGuardar/100)):finalTotal;
+  const totalGuardar=pagoSelGuardar.toLowerCase()==='efectivo'&&totalConAjuste>0
+    ?Math.floor(totalConAjuste/50)*50:totalConAjuste;
   const venta={
     ts:now.getTime(),fecha:today(),hora:ftime(),
     canal:window._ventaSinCliente?'Mostrador':'Mostrador',
@@ -5662,12 +5679,34 @@ window.toggleMetodoPago=async function(nombre,activo){
   }catch(e){alert('Error: '+e.message);}
 };
 
+window.guardarAjustePago=async function(nombre,ajuste){
+  try{
+    const snap=await getDoc(doc(db,'config',STORE));
+    const ex=snap.exists()?snap.data():{};
+    await setDoc(doc(db,'config',STORE),{...ex,metodosPago:_metodosPago.map(m=>m.nombre===nombre?{...m,ajuste}:m)});
+    toast(nombre+': ajuste '+( ajuste>0?'+':'')+ajuste+'% guardado');
+  }catch(e){alert('Error: '+e.message);}
+};
+
 function renderCfgPagos(){
   const el=document.getElementById('cfg-pagos-lista');if(!el)return;
   if(!_metodosPago.length){el.innerHTML='<div class="empty">Sin métodos</div>';return;}
   el.innerHTML=_metodosPago.map(function(m){
     var chk=m.activo?'checked':'';
-    return '<div class="pr"><span>'+m.nombre+'</span><label style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer"><input type="checkbox" '+chk+' onchange="toggleMetodoPago(this.dataset.nom,this.checked)" data-nom="'+m.nombre+'" style="width:16px"/> Activo</label></div>';
+    var ajuste=m.ajuste||0;
+    return '<div class="pr" style="gap:8px;flex-wrap:wrap">'+
+      '<span style="flex:1;min-width:120px;font-weight:600">'+m.nombre+'</span>'+
+      '<div style="display:flex;align-items:center;gap:4px;font-size:12px">'+
+        '<span style="color:#888">Ajuste %</span>'+
+        '<input type="number" value="'+ajuste+'" step="0.1" style="width:65px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);font-size:12px;text-align:right" '+
+        'onchange="guardarAjustePago(\'' + m.nombre + '\',parseFloat(this.value)||0)" '+
+        'title="Negativo = descuento · Positivo = recargo"/>'+
+        '<span style="color:#888">%</span>'+
+      '</div>'+
+      '<label style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;font-size:12px">'+
+        '<input type="checkbox" '+chk+' onchange="toggleMetodoPago(this.dataset.nom,this.checked)" data-nom="'+m.nombre+'" style="width:14px"/> Activo'+
+      '</label>'+
+    '</div>';
   }).join('');
 }
 
@@ -6339,8 +6378,15 @@ window.startEdit=function(id){
   const evObs=document.getElementById('ev-obs');if(evObs)evObs.value=v.obs||'';
   renderEditItems();
   renderEditProdSelect();
+  // Populate ev-pago with current payment methods
+  const evPagoSel=document.getElementById('ev-pago');
+  if(evPagoSel&&_metodosPago.length){
+    const cur=evPagoSel.value||v.pago;
+    evPagoSel.innerHTML=_metodosPago.filter(m=>m.activo).map(m=>`<option${m.nombre===v.pago?' selected':''}>${m.nombre}</option>`).join('');
+  }
+  if(evPagoSel&&v.pago)evPagoSel.value=v.pago;
   const ew=document.getElementById('edit-wrap');if(ew)ew.style.display='block';
-  document.getElementById('edit-wrap').scrollIntoView({behavior:'smooth'});
+  if(ew)ew.scrollIntoView({behavior:'smooth'});
 };
 function renderEditItems(){
   const el=document.getElementById('ev-items');
