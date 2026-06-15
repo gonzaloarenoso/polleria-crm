@@ -384,6 +384,32 @@ tr:hover td{background:#fafaf8}
         <h3>Historial de ventas</h3>
         <div id="vd-lista"><div class="empty">Cargando...</div></div>
       </div>
+
+      <!-- EDIT VENTA MODAL -->
+      <div id="edit-wrap" style="display:none" class="card">
+        <h3>Editar venta</h3>
+        <div class="g2" style="gap:10px;margin-bottom:10px">
+          <div><label>Cliente</label><input type="text" id="ev-cli" placeholder="Nombre del cliente"/></div>
+          <div><label>Canal</label>
+            <select id="ev-canal">
+              <option>Mostrador</option><option>WhatsApp</option><option>Delivery propio</option>
+            </select>
+          </div>
+          <div><label>Medio de pago</label><select id="ev-pago"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta débito</option><option>Tarjeta crédito</option></select></div>
+          <div><label>Observaciones</label><input type="text" id="ev-obs" placeholder="Sin sal, bien cocido..."/></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:flex-end">
+          <div style="flex:2"><label>Producto</label><select id="ev-prod"></select></div>
+          <div style="width:80px"><label>Cant.</label><input type="number" id="ev-cant" value="1" min="1" step="0.01"/></div>
+          <button class="btn bs bsm" onclick="addEditItem()">+ Agregar</button>
+        </div>
+        <div id="ev-items" style="margin-bottom:10px"></div>
+        <div style="font-weight:700;font-size:16px;margin-bottom:12px">Total: <span id="ev-total">$0</span></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn bp" id="ev-save-btn" onclick="saveEditVenta()">Guardar cambios</button>
+          <button class="btn bs" onclick="cancelEdit()">Cancelar</button>
+        </div>
+      </div>
     </div>
 
     <!-- NUEVA VENTA con toggle Venta/Presupuesto -->
@@ -3750,7 +3776,7 @@ window.applyDiscount=function(){
   recalcDescuentos();
 };
 
-function renderTotales(){
+window.renderTotales=function renderTotales(){
   const el=document.getElementById('v-totales');
   if(!el)return;
   const descMonto=ventaDescuento&&itemTotal>0?Math.round(itemTotal*ventaDescuento.porcentaje/100):0;
@@ -4125,7 +4151,7 @@ function generateTicketContent(v,tipo){}
 
 
 // ── CLIENTES (updated with portal access) ────────────────────────────────────
-function renderClientes(){
+window.renderClientes=function renderClientes(){
   const f=(document.getElementById('c-busca')?.value||'').toLowerCase();
   const el=document.getElementById('c-lista');
   document.getElementById('c-count').textContent=_clientes.length;
@@ -6312,11 +6338,13 @@ window.startEdit=function(id){
   const evPago=document.getElementById('ev-pago');if(evPago)evPago.value=v.pago;
   const evObs=document.getElementById('ev-obs');if(evObs)evObs.value=v.obs||'';
   renderEditItems();
+  renderEditProdSelect();
   const ew=document.getElementById('edit-wrap');if(ew)ew.style.display='block';
   document.getElementById('edit-wrap').scrollIntoView({behavior:'smooth'});
 };
 function renderEditItems(){
   const el=document.getElementById('ev-items');
+  if(!el)return;
   if(!editItems.length){el.innerHTML='<div class="empty">Sin productos</div>';document.getElementById('ev-total').textContent='$0';return;}
   el.innerHTML=editItems.map((it,i)=>`<div class="pr"><span>${it.cant}x ${it.nom}</span><div style="display:flex;gap:6px;align-items:center"><span style="font-weight:600">${fmt(it.precio*it.cant)}</span><button class="btn bs bsm" onclick="rmEditItem(${i})">✕</button></div></div>`).join('');
   editTotal=editItems.reduce((a,it)=>a+it.precio*it.cant,0);
