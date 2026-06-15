@@ -3989,6 +3989,8 @@ window.confirmar=async function(){
     descuentoMotivo:ventaDescuento?ventaDescuento.motivo:null,
     descuentoPct:ventaDescuento?ventaDescuento.porcentaje:0,
     descuentoMonto:descMonto,
+    ajustePagoPct:ajustePctGuardar,
+    ajustePagoMonto:ajustePctGuardar!==0?Math.round(finalTotal*ajustePctGuardar/100):0,
     total:totalGuardar,
     tipo:'presencial'
   };
@@ -4099,7 +4101,16 @@ window.printTicket=function(v,tipo){
   lines.push(divider('-'));
   if(v.descuentoMonto&&v.descuentoMonto>0){
     lines.push(pad('Subtotal',fmt(v.subtotal||v.total+v.descuentoMonto)));
-    lines.push(pad('Desc '+( v.descuentoPct||'')+'%','-'+fmt(v.descuentoMonto)));
+    lines.push(pad('Desc '+(v.descuentoPct||'')+'%','-'+fmt(v.descuentoMonto)));
+  }
+  if(v.ajustePagoPct&&v.ajustePagoPct!==0){
+    const subtotalParaAjuste=(v.descuentoMonto>0?(v.subtotal-v.descuentoMonto):v.subtotal)||0;
+    if(!v.descuentoMonto||v.descuentoMonto===0){
+      lines.push(pad('Subtotal',fmt(v.subtotal||0)));
+    }
+    const ajusteLabel=v.ajustePagoPct>0?'Recargo '+v.pago+' +'+v.ajustePagoPct+'%':'Dto. '+v.pago+' '+v.ajustePagoPct+'%';
+    const ajusteMonto=v.ajustePagoMonto||Math.round(subtotalParaAjuste*v.ajustePagoPct/100);
+    lines.push(pad(ajusteLabel,(v.ajustePagoPct>0?'+':'')+fmt(Math.abs(ajusteMonto))));
   }
   lines.push(divider('='));
   lines.push(pad('TOTAL',fmt(v.total)));
