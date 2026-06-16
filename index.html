@@ -3751,6 +3751,25 @@ window.applyDiscount=function(){
   recalcDescuentos();
 };
 
+
+window.quitarDescuento=function(){
+  ventaDescuento=null;
+  _acumDesc=false;
+  _descManual={pct:0,motivo:''};
+  const sel=document.getElementById('v-desc');if(sel){sel.value='';sel.disabled=false;}
+  const box=document.getElementById('v-desc-box');if(box)box.style.display='none';
+  const pct=document.getElementById('v-desc-manual-pct');if(pct)pct.value='';
+  const mot=document.getElementById('v-desc-manual-mot');if(mot)mot.value='';
+  const tog=document.getElementById('v-acum-toggle');if(tog)tog.checked=false;
+  renderTotales();
+};
+
+window.quitarCupon=function(){
+  _cuponAplicado=null;
+  const inp=document.getElementById('v-cupon');if(inp)inp.value='';
+  renderTotales();
+};
+
 window.renderTotales=function renderTotales(){
   const el=document.getElementById('v-totales');
   if(!el)return;
@@ -3762,8 +3781,8 @@ window.renderTotales=function renderTotales(){
   let html='';
   if(descMonto>0||cuponMonto>0){
     html+=`<div style="display:flex;justify-content:space-between;font-size:13px;color:#888"><span>Subtotal</span><span>${fmt(itemTotal)}</span></div>`;
-    if(descMonto>0)html+=`<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--danger)"><span>Descuento -${ventaDescuento.porcentaje}% (${ventaDescuento.motivo})</span><span>-${fmt(descMonto)}</span></div>`;
-    if(cuponMonto>0)html+=`<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--danger)"><span>Cupón GLA-${_cuponAplicado.codigo} -${_cuponAplicado.descPct}%</span><span>-${fmt(cuponMonto)}</span></div>`;
+    if(descMonto>0)html+=`<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--danger)"><span>Descuento -${ventaDescuento.porcentaje}% (${ventaDescuento.motivo})</span><div style="display:flex;align-items:center;gap:6px"><span>-${fmt(descMonto)}</span><button onclick="quitarDescuento()" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;padding:0;line-height:1" title="Quitar descuento">✕</button></div></div>`;
+    if(cuponMonto>0)html+=`<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--danger)"><span>Cupón ${_cuponAplicado.codigo} -${_cuponAplicado.descPct}%</span><div style="display:flex;align-items:center;gap:6px"><span>-${fmt(cuponMonto)}</span><button onclick="quitarCupon()" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;padding:0;line-height:1" title="Quitar cupón">✕</button></div></div>`;
     html+=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;margin-top:4px"><span>Total</span><span id="v-total">${fmt(final)}</span></div>`;
   } else {
     html=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px"><span>Total</span><span id="v-total">${fmt(itemTotal)}</span></div>`;
