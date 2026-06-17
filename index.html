@@ -7032,18 +7032,19 @@ window.addEmp=async function(){
   if(pass&&pass.length<4){alert('La contraseña debe tener al menos 4 caracteres');return;}
   setBtn('e-btn',true,'Guardar empleado');setSyncDot('syncing');
   try{
+    const rolSel=document.getElementById('e-rol')?.value||'';
+    const sysRole=rolSel==='Producción'?'produccion':'vendedor';
     if(usuario){
       const ex=await getDoc(doc(db,'users',usuario));
       if(ex.exists()){
-        // If it belongs to this store, overwrite (orphaned user)
-        if(ex.data().parentAdmin===STORE||ex.data().role==='vendedor'){
-          await setDoc(doc(db,'users',usuario),{username:usuario,passHash:hash(pass),role:'vendedor',parentAdmin:STORE,nombre:nom,createdAt:today()});
+        if(ex.data().parentAdmin===STORE||ex.data().role==='vendedor'||ex.data().role==='produccion'){
+          await setDoc(doc(db,'users',usuario),{username:usuario,passHash:hash(pass),role:sysRole,parentAdmin:STORE,nombre:nom,createdAt:today()});
         } else {
           alert('Ese usuario ya existe y pertenece a otro sistema. Elegí otro nombre o modificá el apellido.');
           setBtn('e-btn',false,'Guardar empleado');return;
         }
       } else {
-        await setDoc(doc(db,'users',usuario),{username:usuario,passHash:hash(pass),role:'vendedor',parentAdmin:STORE,nombre:nom,createdAt:today()});
+        await setDoc(doc(db,'users',usuario),{username:usuario,passHash:hash(pass),role:sysRole,parentAdmin:STORE,nombre:nom,createdAt:today()});
       }
     }
     await addDoc(collection(db,'users',STORE,'empleados'),{nombre:nom,rol:document.getElementById('e-rol').value,tel:document.getElementById('e-tel').value,usuario:usuario||null,createdAt:today()});
@@ -7441,7 +7442,9 @@ window.saveEditEmp=async function(){
     if(newUser&&newUser!==emp.usuario&&newPass&&newPass.length>=4){
       const ex=await getDoc(doc(db,'users',newUser));
       if(!ex.exists()){
-        await setDoc(doc(db,'users',newUser),{username:newUser,passHash:hash(newPass),role:'vendedor',parentAdmin:STORE,nombre:nom,createdAt:today()});
+        const rolSelEd=document.getElementById('e-rol')?.value||'';
+        const sysRoleEd=rolSelEd==='Producción'?'produccion':'vendedor';
+        await setDoc(doc(db,'users',newUser),{username:newUser,passHash:hash(newPass),role:sysRoleEd,parentAdmin:STORE,nombre:nom,createdAt:today()});
         await updateDoc(doc(db,'users',STORE,'empleados',editingEmpId),{usuario:newUser});
         toast('Usuario CRM actualizado: '+newUser);
       } else {alert('Ese usuario ya existe. Elegí otro.');}
@@ -8530,57 +8533,39 @@ window.generarResumenMensual=async function(){
 window.generarInforme=async function(){
   const desde=document.getElementById('inf-desde').value;const hasta=document.getElementById('inf-hasta').value;
   if(!desde||!hasta){alert('Seleccioná un período');return;}
-  const vf=_ventas.filter(v=>v.fecha>=desde&&v.fecha<=hasta&&(v.tipo!=='online'||['confirmado','en_preparacion','en_camino','entregado'].includes(v.estado)));
   const el=document.getElementById('inf-resultado');
+  el.innerHTML='<div style="text-align:center;padding:20px;color:#888">⏳ Calculando...</div>';
+  // ── Pre-fetch all gastos data in parallel ──
+  const ccGastos=(_cajaChica||[]).filter(g=>g.fecha>=desde&&g.fecha<=hasta&&g.esEgreso&&g.tipo!=='retiro'&&g.tipo!=='retiro_caja'&&g.tipo!=='retiro_cuenta');
+  const totalCCGastos=ccGastos.reduce((a,g)=>a+Math.abs(g.montoAbs||g.monto||0),0);
+  const gastosHistorico=_gastos.filter(g=>g.fecha>=desde&&g.fecha<=hasta);
+  const totalGastosHistorico=gastosHistorico.reduce((a,g)=>a+Math.abs(g.monto||0),0);
+  let totalPagosProveedores=0,totalSueldosPeriodo=0,totalGastosEmp=0,totalCajaGrande=0,totalRetiroSocios=0;
+  try{
+    const [snapPP,snapPE,snapGE,snapCG]=await Promise.all([
+      getDocs(collection(db,'users',STORE,'pagos-proveedores')),
+      getDocs(collection(db,'users',STORE,'pagos-empleados')),
+      getDocs(collection(db,'users',STORE,'gastos-empleados')),
+      getDocs(collection(db,'users',STORE,'caja-grande'))
+    ]);
+    totalPagosProveedores=snapPP.docs.map(d=>d.data()).filter(p=>p.fecha>=desde&&p.fecha<=hasta).reduce((a,p)=>a+(p.monto||0),0);
+    totalSueldosPeriodo=snapPE.docs.map(d=>d.data()).filter(p=>p.fecha>=desde&&p.fecha<=hasta).reduce((a,p)=>a+parseInt(p.monto||0),0);
+    totalGastosEmp=snapGE.docs.map(d=>d.data()).filter(p=>p.fecha>=desde&&p.fecha<=hasta).reduce((a,p)=>a+(p.monto||0),0);
+    const cgMovs=snapCG.docs.map(d=>d.data()).filter(m=>m.fecha>=desde&&m.fecha<=hasta);
+    totalCajaGrande=cgMovs.filter(m=>!['ingreso','pase-caja-chica','retiro-socios'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
+    totalRetiroSocios=cgMovs.filter(m=>m.tipo==='retiro-socios').reduce((a,m)=>a+(m.monto||0),0);
+  }catch(e){console.warn('gastos fetch error',e);}
+  const totalGastos=totalCCGastos+totalPagosProveedores+totalSueldosPeriodo+totalGastosEmp+totalCajaGrande+totalGastosHistorico;
+  // ── Now run sync render ──
+  const vf=_ventas.filter(v=>v.fecha>=desde&&v.fecha<=hasta&&(v.tipo!=='online'||['confirmado','en_preparacion','en_camino','entregado'].includes(v.estado)));
   if(!vf.length){el.innerHTML='<div class="card"><div class="empty">Sin ventas confirmadas en ese período</div></div>';return;}
   const total=vf.reduce((a,v)=>a+v.total,0);const nped=vf.length;
   const descuentosTotal=vf.reduce((a,v)=>a+(v.descuentoMonto||0),0);
   const costoTotal=vf.reduce((a,v)=>a+(v.costoFIFO||0),0);
-  // ── Gastos del período — todas las fuentes ──
-  // 1. Caja chica (gastos operativos, no retiros)
-  const ccGastos=(_cajaChica||[]).filter(g=>g.fecha>=desde&&g.fecha<=hasta&&g.esEgreso&&g.tipo!=='retiro'&&g.tipo!=='retiro_caja'&&g.tipo!=='retiro_cuenta');
-  const totalCCGastos=ccGastos.reduce((a,g)=>a+Math.abs(g.montoAbs||g.monto||0),0);
-  // 2. Pagos a proveedores
-  let totalPagosProveedores=0;
-  try{
-    const snapPP=await getDocs(collection(db,'users',STORE,'pagos-proveedores'));
-    totalPagosProveedores=snapPP.docs.map(d=>d.data()).filter(p=>p.fecha>=desde&&p.fecha<=hasta).reduce((a,p)=>a+(p.monto||0),0);
-  }catch(e){}
-  // 3. Sueldos confirmados
-  let totalSueldosPeriodo=0,sueldosDetalle=[];
-  try{
-    const snapPE=await getDocs(collection(db,'users',STORE,'pagos-empleados'));
-    const pagEmp=snapPE.docs.map(d=>d.data()).filter(p=>p.fecha>=desde&&p.fecha<=hasta);
-    totalSueldosPeriodo=pagEmp.reduce((a,p)=>a+parseInt(p.monto||0),0);
-    sueldosDetalle=pagEmp;
-  }catch(e){}
-  // 4. Gastos de empleados (cargas sociales, adelantos)
-  let totalGastosEmp=0;
-  try{
-    const snapGE=await getDocs(collection(db,'users',STORE,'gastos-empleados'));
-    totalGastosEmp=snapGE.docs.map(d=>d.data()).filter(p=>p.fecha>=desde&&p.fecha<=hasta).reduce((a,p)=>a+(p.monto||0),0);
-  }catch(e){}
-  // 5. Caja grande egresos (excluye retiro-socios, ingreso, pase-caja-chica)
-  let totalCajaGrande=0,totalRetiroSocios=0;
-  try{
-    const snapCG=await getDocs(collection(db,'users',STORE,'caja-grande'));
-    const cgMovs=snapCG.docs.map(d=>d.data()).filter(m=>m.fecha>=desde&&m.fecha<=hasta);
-    totalCajaGrande=cgMovs.filter(m=>!['ingreso','pase-caja-chica','retiro-socios'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
-    totalRetiroSocios=cgMovs.filter(m=>m.tipo==='retiro-socios').reduce((a,m)=>a+(m.monto||0),0);
-  }catch(e){}
-  // 6. Old gastos collection
-  const gastosHistorico=_gastos.filter(g=>g.fecha>=desde&&g.fecha<=hasta);
-  const totalGastosHistorico=gastosHistorico.reduce((a,g)=>a+Math.abs(g.monto||0),0);
-  // Total gastos operativos (excluye retiro-socios)
-  const totalGastos=totalCCGastos+totalPagosProveedores+totalSueldosPeriodo+totalGastosEmp+totalCajaGrande+totalGastosHistorico;
-  // Retiros de caja chica del período (para info)
   const retirosPeriodo=(_cajaChica||[]).filter(x=>x.fecha>=desde&&x.fecha<=hasta&&x.esEgreso&&(x.tipo==='retiro'||x.tipo==='retiro_caja'||x.tipo==='retiro_cuenta'));
   const totalRetiros=retirosPeriodo.reduce((a,x)=>a+Math.abs(x.montoAbs||0),0);
-  // Ganancia bruta = Facturado - Costo FIFO
   const gananciaNeta=total-costoTotal;
-  // Ganancia operativa = Bruta - Gastos
   const gananciaNtaReal=gananciaNeta-totalGastos;
-  // Lo que queda = Operativa - Retiros socios
   const gananciaDistribuible=gananciaNtaReal-totalRetiroSocios;
   const hayFIFO=true; // Always show cost/profit metrics
   let ef=0,tr=0,ta=0;
