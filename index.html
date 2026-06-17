@@ -938,25 +938,20 @@ tr:hover td{background:#fafaf8}
     <div style="max-width:1200px;margin:0 auto;padding:16px">
       <h2 style="margin-bottom:16px">💰 Gastos</h2>
       <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-        <button class="inv-tab-btn active" id="gastos-tab-caja-chica" onclick="switchGastosTab('caja-chica',this)">Caja chica</button>
-        <button class="inv-tab-btn" id="gastos-tab-caja-grande" onclick="switchGastosTab('caja-grande',this)">Caja grande</button>
+        <button class="inv-tab-btn active" id="gastos-tab-caja-grande" onclick="switchGastosTab('caja-grande',this)">Caja grande</button>
         <button class="inv-tab-btn" id="gastos-tab-proveedores" onclick="switchGastosTab('proveedores-gastos',this)">Proveedores</button>
         <button class="inv-tab-btn" id="gastos-tab-sueldos" onclick="switchGastosTab('sueldos-gastos',this)">Sueldos</button>
       </div>
 
-      <!-- CAJA CHICA -->
-      <div id="gastos-sec-caja-chica">
-        <div id="caja-chica-content"><div class="empty">Cargando...</div></div>
-      </div>
-
       <!-- CAJA GRANDE -->
-      <div id="gastos-sec-caja-grande" style="display:none">
+      <div id="gastos-sec-caja-grande">
         <div class="g2" style="gap:16px">
           <div class="card">
             <h3 style="margin-bottom:12px">Registrar movimiento</h3>
             <label>Tipo</label>
             <select id="cg-tipo">
-              <option value="ingreso">Ingreso (desde caja chica / banco)</option>
+              <option value="ingreso">➕ Ingreso / Agregar fondos</option>
+              <option value="pase-caja-chica">↑ Pase desde caja chica</option>
               <option value="pago-proveedor">Pago proveedor</option>
               <option value="sueldo">Sueldo empleado</option>
               <option value="retiro">Retiro / Utilidades</option>
@@ -1018,13 +1013,34 @@ tr:hover td{background:#fafaf8}
 
       <!-- SUELDOS -->
       <div id="gastos-sec-sueldos-gastos" style="display:none">
-        <div class="card">
-          <h3 style="margin-bottom:12px">Sueldos pagados</h3>
-          <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
-            <select id="gs-mes-sel" onchange="renderSueldosGastos()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)"></select>
+        <div class="g2" style="gap:16px">
+          <div class="card">
+            <h3 style="margin-bottom:12px">Registrar pago a empleado</h3>
+            <label>Empleado</label>
+            <select id="gs-empleado"></select>
+            <label>Tipo</label>
+            <select id="gs-tipo">
+              <option value="sueldo">Sueldo</option>
+              <option value="adelanto">Adelanto</option>
+              <option value="cargas-sociales">Cargas sociales</option>
+              <option value="otro">Otro gasto de empleado</option>
+            </select>
+            <label>Monto ($)</label>
+            <input type="number" id="gs-monto" placeholder="Ej: 750000"/>
+            <label>Fecha</label>
+            <input type="date" id="gs-fecha"/>
+            <label>Concepto</label>
+            <input type="text" id="gs-concepto" placeholder="Ej: Sueldo junio, cargas sociales..."/>
+            <button class="btn bp" style="margin-top:10px" onclick="registrarGastoEmpleado()">Registrar</button>
           </div>
-          <div id="gs-lista"><div class="empty">Sin sueldos confirmados</div></div>
-          <div id="gs-total" style="font-weight:700;margin-top:10px;padding-top:10px;border-top:2px solid var(--border)"></div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <h3 style="margin:0">Gastos de personal del mes</h3>
+              <select id="gs-mes-sel" onchange="renderSueldosGastos()" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)"></select>
+            </div>
+            <div id="gs-lista"><div class="empty">Sin registros</div></div>
+            <div id="gs-total" style="font-weight:700;margin-top:10px;padding-top:10px;border-top:2px solid var(--border)"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1064,7 +1080,7 @@ tr:hover td{background:#fafaf8}
             <div>
               <label>Nombre completo</label><input type="text" id="ee-nom" placeholder="Nombre y apellido"/>
               <label>Rol</label>
-              <select id="ee-rol"><option>Atención al cliente</option><option>Cocina</option><option>Delivery</option><option>Caja</option></select>
+              <select id="ee-rol"><option>Atención al cliente</option><option>Cocina</option><option>Delivery</option><option>Caja</option><option>Producción</option></select>
               <label>Teléfono</label><input type="text" id="ee-tel" placeholder="11-5555-1234"/>
             </div>
             <div>
@@ -1090,7 +1106,7 @@ tr:hover td{background:#fafaf8}
           <label>Nombre</label><input type="text" id="e-nombre" placeholder="Ej: María" oninput="updateAutoUser('e-nombre','e-apellido','e-user')"/>
           <label>Apellido</label><input type="text" id="e-apellido" placeholder="Ej: González" oninput="updateAutoUser('e-nombre','e-apellido','e-user')"/>
           <label>Rol</label>
-          <select id="e-rol"><option>Atención al cliente</option><option>Cocina</option><option>Delivery</option><option>Caja</option></select>
+          <select id="e-rol"><option>Atención al cliente</option><option>Cocina</option><option>Delivery</option><option>Caja</option><option>Producción</option></select>
           <label>Teléfono</label><input type="text" id="e-tel" placeholder="11-5555-1234"/>
           <div class="access-box">
             <div class="access-box-title">Acceso al sistema (vendedor)</div>
@@ -2363,9 +2379,10 @@ function statusClass(s){
 // ── NAV ───────────────────────────────────────────────────────────────────────
 const ADMIN_TABS=[['dashboard','Panel'],['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['ventas-dia','Ventas'],['caja','Caja'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['gastos','💰 Gastos'],['configuracion','⚙ Configuración']];
 const VEND_TABS=[['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['caja','Caja'],['calendario','📅 Calendario']];
+const PROD_TABS=[['produccion-inv','Inventario'],['produccion-ordenes','Elaborar']];
 
 function buildNav(role){
-  const tabs=role==='admin'?ADMIN_TABS:VEND_TABS;
+  const tabs=role==='admin'?ADMIN_TABS:role==='produccion'?PROD_TABS:VEND_TABS;
   document.getElementById('nav').innerHTML=tabs.map(([id,label],i)=>{
     if(id==='pedidos-online'){
       return`<button ${i===0?'class="active"':''} onclick="showSec('${id}',this)" id="nav-btn-${id}">${label}<span class="notif-badge" id="nb-${id}" style="background:var(--danger)"></span><span class="notif-badge" id="nb-pedidos-curso" style="background:var(--warn);right:auto;left:-5px"></span><span class="notif-badge" id="nb-pedidos-camino" style="background:var(--success);right:auto;left:8px"></span></button>`;
@@ -2397,11 +2414,11 @@ window.showSec=function(id,btn){
       if(activos.length)vp.innerHTML=activos.map(m=>'<option value="'+m.nombre+'"'+(m.nombre===cur?' selected':'')+'>'+m.nombre+'</option>').join('');
     }
   }
+  if(id==='produccion-inv')renderProdInv();
+  if(id==='produccion-ordenes')renderOrdenesProduccion();
   if(id==='gastos'){
-    const ccContent=document.getElementById('caja-chica-content');
-    if(ccContent){renderCajaChica();}
     initMesSel('cg-mes-sel');initMesSel('cb-mes-sel');initMesSel('gp-mes-sel');initMesSel('gs-mes-sel');
-    renderProvSel();
+    renderCajaGrande();renderCuentaBancaria();renderProvSel();
   }
   if(id==='caja'){renderCaja();setTimeout(checkRecepcionTurno,500);}
   if(id==='clientes'){renderClientes();renderTiposClienteSel('c-tipo','tradicional');}
@@ -6182,7 +6199,7 @@ window.switchGastosTab=function(tab,btn){
   document.querySelectorAll('#sec-gastos .inv-tab-btn').forEach(b=>b.classList.remove('active'));
   const el=document.getElementById('gastos-sec-'+tab);if(el)el.style.display='block';
   if(btn)btn.classList.add('active');
-  if(tab==='caja-chica'){const cc=document.getElementById('caja-chica-content');if(cc)renderCajaChica();}
+
   if(tab==='caja-grande'){initMesSel('cg-mes-sel');initMesSel('cb-mes-sel');renderCajaGrande();renderCuentaBancaria();}
   if(tab==='proveedores-gastos'){initMesSel('gp-mes-sel');renderPagosProveedores();renderProvSel();}
   if(tab==='sueldos-gastos'){initMesSel('gs-mes-sel');renderSueldosGastos();}
@@ -6339,21 +6356,205 @@ window.eliminarPagoProveedor=async function(id){
 };
 
 // ── SUELDOS EN GASTOS ────────────────────────────────────────────────────
+function renderGastoEmpleadoSel(){
+  const sel=document.getElementById('gs-empleado');if(!sel)return;
+  sel.innerHTML=(_empleados||[]).map(e=>`<option value="${e.id}|${e.nombre}">${e.nombre}</option>`).join('');
+}
+
+window.registrarGastoEmpleado=async function(){
+  const empVal=document.getElementById('gs-empleado')?.value;
+  const tipo=document.getElementById('gs-tipo')?.value||'sueldo';
+  const monto=parseFloat(document.getElementById('gs-monto')?.value)||0;
+  const fecha=document.getElementById('gs-fecha')?.value||today();
+  const concepto=document.getElementById('gs-concepto')?.value||'';
+  if(!monto||!empVal){alert('Completá empleado y monto');return;}
+  const [empId,empNombre]=empVal.split('|');
+  const tipoLabel={sueldo:'Sueldo',adelanto:'Adelanto',
+    'cargas-sociales':'Cargas sociales','otro':'Gasto empleado'};
+  try{
+    await addDoc(collection(db,'users',STORE,'gastos-empleados'),{
+      empleadoId:empId,empleadoNombre:empNombre,tipo,
+      monto,fecha,concepto:concepto||tipoLabel[tipo],ts:Date.now()
+    });
+    document.getElementById('gs-monto').value='';
+    document.getElementById('gs-concepto').value='';
+    toast('Registrado');
+    renderSueldosGastos();
+  }catch(e){alert('Error: '+e.message);}
+};
+
 async function renderSueldosGastos(){
   const mes=document.getElementById('gs-mes-sel')?.value;
   const el=document.getElementById('gs-lista');const totEl=document.getElementById('gs-total');
   if(!el)return;
+  renderGastoEmpleadoSel();
   try{
-    const snap=await getDocs(collection(db,'users',STORE,'pagos-empleados'));
-    const pagos=snap.docs.map(d=>({id:d.id,...d.data()}))
-      .filter(p=>p.mes===mes||(!mes&&p.fecha?.startsWith(today().substring(0,7))))
-      .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-    if(!pagos.length){el.innerHTML='<div class="empty">Sin sueldos confirmados en este mes</div>';if(totEl)totEl.textContent='';return;}
-    el.innerHTML=pagos.map(p=>`<div class="pr"><div><div style="font-weight:600">${p.empleadoNombre||'—'}</div><div style="font-size:11px;color:#888">${p.fecha||'—'}${p.obs?' · '+p.obs:''}</div></div><span style="font-weight:700;color:var(--danger)">$${parseInt(p.monto||0).toLocaleString('es-AR')}</span></div>`).join('');
-    const total=pagos.reduce((a,p)=>a+parseInt(p.monto||0),0);
-    if(totEl)totEl.innerHTML=`Total sueldos: <span style="color:var(--danger)">$${total.toLocaleString('es-AR')}</span>`;
+    // Load from both pagos-empleados and gastos-empleados
+    const [snapP,snapG]=await Promise.all([
+      getDocs(collection(db,'users',STORE,'pagos-empleados')),
+      getDocs(collection(db,'users',STORE,'gastos-empleados'))
+    ]);
+    const mesFilter=mes||today().substring(0,7);
+    const sueldos=snapP.docs.map(d=>({id:d.id,...d.data(),origen:'sueldo-confirmado'}))
+      .filter(p=>(p.mes||p.fecha?.substring(0,7))===mesFilter);
+    const gastos=snapG.docs.map(d=>({id:d.id,...d.data(),origen:'gasto'}))
+      .filter(p=>p.fecha?.startsWith(mesFilter));
+    const todos=[...sueldos,...gastos].sort((a,b)=>(b.fecha||b.ts||0)>(a.fecha||a.ts||0)?1:-1);
+    if(!todos.length){el.innerHTML='<div class="empty">Sin registros en este mes</div>';if(totEl)totEl.textContent='';return;}
+    const tipoLabel={sueldo:'Sueldo',adelanto:'Adelanto','cargas-sociales':'Cargas sociales','otro':'Gasto','sueldo-confirmado':'Sueldo confirmado'};
+    const tipoColor={'cargas-sociales':'#e74c3c',adelanto:'#e67e22',sueldo:'var(--danger)','sueldo-confirmado':'var(--danger)',otro:'#7f8c8d'};
+    el.innerHTML=todos.map(p=>`<div class="pr">
+      <div><div style="font-weight:600">${p.empleadoNombre||'—'}</div>
+      <div style="font-size:11px;color:#888">${p.fecha||'—'} · <span style="color:${tipoColor[p.tipo]||tipoColor[p.origen]||'#888'}">${tipoLabel[p.tipo]||tipoLabel[p.origen]||p.tipo}</span>${p.concepto||p.obs?' — '+(p.concepto||p.obs):''}</div></div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-weight:700;color:var(--danger)">$${parseInt(p.monto||0).toLocaleString('es-AR')}</span>
+        ${p.origen==='gasto'?`<button onclick="eliminarGastoEmpleado('${p.id}')" style="background:none;border:none;color:#aaa;cursor:pointer">✕</button>`:''}
+      </div></div>`).join('');
+    const total=todos.reduce((a,p)=>a+parseInt(p.monto||0),0);
+    if(totEl)totEl.innerHTML=`Total personal: <span style="color:var(--danger)">$${total.toLocaleString('es-AR')}</span>`;
   }catch(e){el.innerHTML='<div class="empty">Error al cargar</div>';}
 }
+
+window.eliminarGastoEmpleado=async function(id){
+  if(!confirm('¿Eliminar?'))return;
+  try{await deleteDoc(doc(db,'users',STORE,'gastos-empleados',id));renderSueldosGastos();toast('Eliminado');}
+  catch(e){alert('Error: '+e.message);}
+};
+
+
+// ── PRODUCCIÓN ────────────────────────────────────────────────────────────
+
+window.toggleElaboracion=async function(id,val){
+  const nuevosProds=_productos.map(p=>p.id===id?{...p,requiereElaboracion:val}:p);
+  await setDoc(doc(db,'productos',STORE),{lista:nuevosProds});
+  toast(val?'Marcado para producción':'Removido de producción');
+};
+
+window.renderProdInv=function(){
+  const el=document.getElementById('prod-inv-lista');if(!el)return;
+  const prods=(_productos||[]).filter(p=>p.requiereElaboracion&&p.activo!==false);
+  if(!prods.length){el.innerHTML='<div class="empty">No hay productos marcados para producción. El admin los configura desde Inventario → Productos.</div>';return;}
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse">
+    <thead><tr style="background:var(--bg)"><th style="padding:10px;text-align:left">Producto</th><th style="padding:10px;text-align:left">Código</th><th style="padding:10px;text-align:right">Stock actual</th><th style="padding:10px;text-align:right">Alerta mínima</th><th style="padding:10px;text-align:center">Estado</th></tr></thead>
+    <tbody>${prods.map(p=>{
+      const stock=Math.round((_inv[p.nombre]?.stock||0)*1000)/1000;
+      const alerta=_inv[p.nombre]?.alerta||5;
+      const ok=stock>alerta;
+      return`<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:10px;font-weight:600">${p.nombre}</td>
+        <td style="padding:10px;color:#888">${p.codigo||'—'}</td>
+        <td style="padding:10px;text-align:right">${stock} ${p.unidad||'unid.'}</td>
+        <td style="padding:10px;text-align:right">${alerta} ${p.unidad||'unid.'}</td>
+        <td style="padding:10px;text-align:center"><span style="padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;background:${ok?'rgba(29,158,117,0.1)':'rgba(232,68,34,0.1)'};color:${ok?'#1D9E75':'#e74c3c'}">${ok?'OK':'⚠ BAJO'}</span></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+};
+
+// ── ÓRDENES DE TRABAJO ────────────────────────────────────────────────────
+window.renderOrdenesProduccion=async function(){
+  const el=document.getElementById('prod-ordenes-lista');if(!el)return;
+  el.innerHTML='<div style="text-align:center;padding:20px;color:#888">⏳ Generando órdenes...</div>';
+
+  // Products that require elaboration and are below alert
+  const prods=(_productos||[]).filter(p=>p.requiereElaboracion&&p.activo!==false);
+  const prodsBajos=prods.filter(p=>{
+    const stock=_inv[p.nombre]?.stock||0;
+    const alerta=_inv[p.nombre]?.alerta||5;
+    return stock<=alerta;
+  });
+
+  // Load existing open orders
+  let existingOrders=[];
+  try{
+    const snap=await getDocs(collection(db,'users',STORE,'ordenes-trabajo'));
+    existingOrders=snap.docs.map(d=>({id:d.id,...d.data()})).filter(o=>o.estado==='abierta');
+  }catch(e){}
+
+  // Generate orders for products below alert that don't have one yet
+  const usedNums=existingOrders.map(o=>o.numero).filter(Boolean);
+  
+  const getNextNum=()=>{
+    let n=1;
+    while(usedNums.includes(n))n++;
+    usedNums.push(n);
+    return n;
+  };
+
+  for(const p of prodsBajos){
+    const alreadyHas=existingOrders.find(o=>o.productoId===p.id&&o.estado==='abierta');
+    if(!alreadyHas){
+      const num=getNextNum();
+      try{
+        const ref=await addDoc(collection(db,'users',STORE,'ordenes-trabajo'),{
+          numero:num,
+          productoId:p.id,
+          productoNombre:p.nombre,
+          unidad:p.unidad||'unidad',
+          stockActual:Math.round((_inv[p.nombre]?.stock||0)*1000)/1000,
+          alerta:_inv[p.nombre]?.alerta||5,
+          cantidadPedida:p.cantidadElaborar||1,
+          estado:'abierta',
+          fechaCreacion:today(),
+          ts:Date.now()
+        });
+        existingOrders.push({id:ref.id,numero:num,productoId:p.id,productoNombre:p.nombre,
+          unidad:p.unidad||'unidad',cantidadPedida:p.cantidadElaborar||1,estado:'abierta'});
+      }catch(e){}
+    }
+  }
+
+  // Render orders
+  const ordenes=existingOrders.sort((a,b)=>(a.numero||0)-(b.numero||0));
+  if(!ordenes.length){
+    el.innerHTML='<div class="empty">✅ No hay órdenes pendientes. Todo el stock está dentro de los límites.</div>';return;
+  }
+
+  el.innerHTML=ordenes.map(o=>`
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="background:var(--primary);color:#fff;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700">OT #${o.numero}</span>
+            <span style="font-size:15px;font-weight:700">${o.productoNombre}</span>
+          </div>
+          <div style="font-size:12px;color:#888">Stock actual: <strong>${o.stockActual} ${o.unidad}</strong> · Alerta: ${o.alerta} ${o.unidad}</div>
+          <div style="font-size:13px;margin-top:6px">Elaborar: <strong style="color:var(--primary)">${o.cantidadPedida} ${o.unidad}</strong></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-direction:column">
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="number" id="ot-cant-${o.id}" placeholder="${o.cantidadPedida}" min="0" step="0.01" style="width:90px;padding:6px 8px;border-radius:8px;border:2px solid var(--primary);text-align:center;font-weight:700"/>
+            <span style="font-size:12px;color:#888">${o.unidad}</span>
+          </div>
+          <button onclick="confirmarOrden('${o.id}','${o.productoNombre}','${o.unidad}',${o.numero})" style="background:var(--success);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:700;font-size:13px">✓ Confirmar elaboración</button>
+        </div>
+      </div>
+    </div>`).join('');
+};
+
+window.confirmarOrden=async function(ordenId,prodNombre,unidad,numero){
+  const cant=parseFloat(document.getElementById('ot-cant-'+ordenId)?.value)||0;
+  if(!cant){alert('Ingresá la cantidad que elaboraste');return;}
+  if(!confirm(`¿Confirmar ${cant} ${unidad} de ${prodNombre}?`))return;
+  try{
+    // Add to stock
+    const newInv={..._inv};
+    if(!newInv[prodNombre])newInv[prodNombre]={stock:0,alerta:5};
+    newInv[prodNombre].stock=Math.round((newInv[prodNombre].stock+cant)*1000)/1000;
+    await setDoc(doc(db,'inventario',STORE),newInv);
+    // Save to stock-historial
+    await addDoc(collection(db,'users',STORE,'stock-historial'),{
+      producto:prodNombre,cantidad:cant,tipo:'elaboracion',
+      obs:'OT #'+numero+' — Producción interna',fecha:today(),ts:Date.now()
+    });
+    // Close order
+    await updateDoc(doc(db,'users',STORE,'ordenes-trabajo',ordenId),{
+      estado:'completada',cantidadRealizada:cant,fechaCompletada:today()
+    });
+    toast('OT #'+numero+' completada: +'+cant+' '+unidad+' de '+prodNombre);
+    renderOrdenesProduccion();
+  }catch(e){alert('Error: '+e.message);}
+};
 
 function renderCaja(){
   renderCajaChica();
@@ -9253,36 +9454,31 @@ window.verFichaProveedor=async function(id){
     '</div>'+
     '<div id="ficha-prov-compras"><div style="text-align:center;padding:20px;color:#888">⏳ Cargando historial...</div></div>'+
     '</div>';
-  // Load stock history for this provider
+  // Load pagos-proveedores for this provider
   try{
-    const snap=await getDocs(collection(db,'users',STORE,'stock-historial'));
-    const compras=snap.docs.map(d=>({id:d.id,...d.data()}))
-      .filter(s=>s.proveedor===p.nombre||s.proveedorId===id)
-      .sort((a,b)=>b.fecha?.localeCompare(a.fecha)||0);
+    const snap=await getDocs(collection(db,'users',STORE,'pagos-proveedores'));
+    const pagos=snap.docs.map(d=>({id:d.id,...d.data()}))
+      .filter(s=>s.proveedor===p.nombre)
+      .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
     const el=document.getElementById('ficha-prov-compras');if(!el)return;
-    const totalCompras=compras.reduce((a,s)=>a+(s.totalCosto||0),0);
-    const totalUnidades=compras.reduce((a,s)=>a+(s.cantidad||0),0);
-    const ultimaCompra=compras.length?compras[0].fecha:'—';
+    const totalPagado=pagos.reduce((a,s)=>a+(s.monto||0),0);
+    const mesActual=today().substring(0,7);
+    const pagosMes=pagos.filter(s=>s.fecha?.startsWith(mesActual));
+    const totalMes=pagosMes.reduce((a,s)=>a+(s.monto||0),0);
+    const ultimoPago=pagos.length?pagos[0].fecha:'—';
     el.innerHTML=
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">'+
-      '<div style="background:var(--bg);border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:700">'+compras.length+'</div><div style="font-size:11px;color:#888">Compras totales</div></div>'+
-      '<div style="background:var(--bg);border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:700">$'+Math.round(totalCompras/1000)+'k</div><div style="font-size:11px;color:#888">Total gastado</div></div>'+
-      '<div style="background:var(--bg);border-radius:10px;padding:12px;text-align:center"><div style="font-size:14px;font-weight:700">'+(ultimaCompra!=='—'?fdate(ultimaCompra):'—')+'</div><div style="font-size:11px;color:#888">Última compra</div></div>'+
+      '<div style="background:var(--bg);border-radius:10px;padding:12px;text-align:center"><div style="font-size:20px;font-weight:700">'+pagos.length+'</div><div style="font-size:11px;color:#888">Pagos registrados</div></div>'+
+      '<div style="background:var(--bg);border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--primary)">$'+Math.round(totalPagado).toLocaleString("es-AR")+'</div><div style="font-size:11px;color:#888">Total histórico</div></div>'+
+      '<div style="background:var(--bg);border-radius:10px;padding:12px;text-align:center"><div style="font-size:15px;font-weight:700;color:var(--danger)">$'+Math.round(totalMes).toLocaleString("es-AR")+'</div><div style="font-size:11px;color:#888">Este mes</div></div>'+
       '</div>'+
-      '<div style="font-weight:700;margin-bottom:8px">Historial de compras</div>'+
-      (compras.length?'<div style="overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Costo unit.</th><th>Total</th><th>Nota</th></tr></thead><tbody>'+
-      compras.map(s=>'<tr>'+
-        '<td>'+fdate(s.fecha||'')+'</td>'+
-        '<td>'+( s.producto||'—')+'</td>'+
-        '<td>'+(s.cantidad||0)+' '+(s.unidad||'')+'</td>'+
-        '<td>'+(s.costoUnitario?'$'+s.costoUnitario.toLocaleString("es-AR"):'—')+'</td>'+
-        '<td>'+(s.totalCosto?'$'+s.totalCosto.toLocaleString("es-AR"):'—')+'</td>'+
-        '<td style="font-size:11px;color:#888">'+(s.nota||'')+'</td>'+
-        '</tr>').join('')+
-      '</tbody></table></div>':'<div class="empty">Sin historial de compras registrado</div>');
+      '<div style="font-weight:700;margin-bottom:8px">Historial de pagos</div>'+
+      (pagos.length?'<div style="overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Monto</th></tr></thead><tbody>'+
+      pagos.map(s=>'<tr><td>'+fdate(s.fecha||'')+'</td><td>'+(s.concepto||'—')+'</td><td style="font-weight:700;color:var(--danger)">$'+Math.round(s.monto||0).toLocaleString("es-AR")+'</td></tr>').join('')+
+      '</tbody></table></div>':'<div class="empty">Sin pagos registrados. Cargalos desde Gastos → Proveedores.</div>');
   }catch(e){
     const el=document.getElementById('ficha-prov-compras');
-    if(el)el.innerHTML='<div class="empty">Error al cargar historial</div>';
+    if(el)el.innerHTML='<div class="empty">Error al cargar</div>';
   }
 };
 
@@ -10101,7 +10297,14 @@ window.addCajaChica=async function(){
       montoAbs:Math.abs(monto),esEgreso,
       detalle,fecha:today(),hora:ftime(),creadoPor:CU,ts:Date.now()
     });
-    // Update local array immediately (don't wait for listener)
+    // If retiro, auto-create entry in Caja grande
+    if(tipo==='retiro'){
+      await addDoc(collection(db,'users',STORE,'caja-grande'),{
+        tipo:'ingreso',monto:Math.abs(monto),
+        concepto:'Pase desde caja chica'+(detalle?' — '+detalle:''),
+        fecha:today(),ts:Date.now(),registradoPor:CU,origen:'caja-chica'
+      });
+    }
     _cajaChica.unshift({id:docRef.id,tipo,monto:esEgreso?-Math.abs(monto):Math.abs(monto),montoAbs:Math.abs(monto),esEgreso,detalle,fecha:today(),hora:ftime(),creadoPor:CU,ts:Date.now()});
     document.getElementById('cc-monto').value='';
     document.getElementById('cc-detalle').value='';
@@ -11062,6 +11265,23 @@ async function gdRun(action){
   }
 }
 </script>
+
+  <!-- PRODUCCION SECTIONS -->
+  <div id="sec-produccion-inv" class="sec">
+    <div style="max-width:900px;margin:0 auto;padding:16px">
+      <h2 style="margin-bottom:16px">🔧 Inventario de producción</h2>
+      <div id="prod-inv-lista"><div class="empty">Cargando...</div></div>
+    </div>
+  </div>
+  <div id="sec-produccion-ordenes" class="sec">
+    <div style="max-width:900px;margin:0 auto;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h2 style="margin:0">📋 Órdenes de trabajo</h2>
+        <button class="btn bs bsm" onclick="renderOrdenesProduccion()">🔄 Actualizar</button>
+      </div>
+      <div id="prod-ordenes-lista"><div class="empty">Cargando...</div></div>
+    </div>
+  </div>
 
   <!-- EDIT VENTA MODAL OVERLAY -->
   <div id="edit-wrap" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;padding:16px">
