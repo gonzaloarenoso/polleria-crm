@@ -954,6 +954,7 @@ tr:hover td{background:#fafaf8}
               <option value="pase-caja-chica">↑ Pase desde caja chica</option>
               <option value="pago-proveedor">Pago proveedor</option>
               <option value="sueldo">Sueldo empleado</option>
+              <option value="retiro-socios">💼 Retiro de socios</option>
               <option value="retiro">Retiro / Utilidades</option>
               <option value="gasto">Gasto grande</option>
             </select>
@@ -6224,27 +6225,39 @@ window.registrarCajaGrande=async function(){
 };
 
 async function renderCajaGrande(){
-  const mes=document.getElementById('cg-mes-sel')?.value;
+  const mes=document.getElementById('cg-mes-sel')?.value||today().substring(0,7);
   const el=document.getElementById('cg-lista');const totEl=document.getElementById('cg-total');
   if(!el)return;
   try{
-    const snap=await getDocs(collection(db,'users',STORE,'caja-grande'));
-    const movs=snap.docs.map(d=>({id:d.id,...d.data()}))
-      .filter(m=>m.fecha&&m.fecha.startsWith(mes||today().substring(0,7)))
+    const [snapCG,snapG]=await Promise.all([
+      getDocs(collection(db,'users',STORE,'caja-grande')),
+      getDocs(collection(db,'users',STORE,'gastos'))
+    ]);
+    const movsCG=snapCG.docs.map(d=>({id:d.id,...d.data(),origen:'caja-grande'}));
+    const movsG=snapG.docs.map(d=>({id:d.id,...d.data(),tipo:'gasto',
+      monto:Math.abs(d.data().monto||0),
+      concepto:(d.data().descripcion||d.data().categoria||'Gasto operativo'),origen:'historico'}));
+    const todos=[...movsCG,...movsG]
+      .filter(m=>m.fecha&&m.fecha.startsWith(mes))
       .sort((a,b)=>b.fecha.localeCompare(a.fecha));
-    if(!movs.length){el.innerHTML='<div class="empty">Sin movimientos en este mes</div>';if(totEl)totEl.textContent='';return;}
-    const typeLabel={ingreso:'↑ Ingreso','pago-proveedor':'Pago proveedor',sueldo:'Sueldo',retiro:'Retiro',gasto:'Gasto'};
-    const typeColor={ingreso:'var(--success)','pago-proveedor':'var(--danger)',sueldo:'var(--danger)',retiro:'var(--danger)',gasto:'var(--danger)'};
-    el.innerHTML=movs.map(m=>`<div class="pr">
-      <div><div style="font-weight:600">${m.concepto||typeLabel[m.tipo]||m.tipo}</div>
-      <div style="font-size:11px;color:#888">${m.fecha} · ${typeLabel[m.tipo]||m.tipo}</div></div>
+    if(!todos.length){el.innerHTML='<div class="empty">Sin movimientos en este mes</div>';if(totEl)totEl.textContent='';return;}
+    const typeLabel={ingreso:'↑ Ingreso','pase-caja-chica':'↑ Desde caja chica',
+      'pago-proveedor':'Pago proveedor',sueldo:'Sueldo',
+      'retiro-socios':'💼 Retiro socios',retiro:'Retiro',gasto:'Gasto'};
+    const typeColor={ingreso:'var(--success)','pase-caja-chica':'var(--success)',
+      'pago-proveedor':'var(--danger)',sueldo:'var(--danger)',
+      'retiro-socios':'#7f8c8d',retiro:'var(--danger)',gasto:'var(--danger)'};
+    el.innerHTML=todos.map(m=>`<div class="pr">
+      <div><div style="font-weight:600">${m.concepto||typeLabel[m.tipo]||m.tipo}${m.origen==='historico'?' <span style="font-size:10px;color:#aaa">(histórico)</span>':''}</div>
+      <div style="font-size:11px;color:#888">${m.fecha} · <span style="color:${typeColor[m.tipo]||'#888'}">${typeLabel[m.tipo]||m.tipo}</span></div></div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-weight:700;color:${typeColor[m.tipo]||'var(--text)'}">$${Math.round(m.monto).toLocaleString('es-AR')}</span>
-        <button onclick="eliminarCajaGrande('${m.id}')" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:13px">✕</button>
+        ${m.origen==='caja-grande'?`<button onclick="eliminarCajaGrande('${m.id}')" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:13px">✕</button>`:''}
       </div></div>`).join('');
-    const totalEgresos=movs.filter(m=>m.tipo!=='ingreso').reduce((a,m)=>a+m.monto,0);
-    const totalIngresos=movs.filter(m=>m.tipo==='ingreso').reduce((a,m)=>a+m.monto,0);
-    if(totEl)totEl.innerHTML=`Ingresos: <span style="color:var(--success)">$${Math.round(totalIngresos).toLocaleString('es-AR')}</span> &nbsp;·&nbsp; Egresos: <span style="color:var(--danger)">$${Math.round(totalEgresos).toLocaleString('es-AR')}</span>`;
+    const totalEgresos=todos.filter(m=>!['ingreso','pase-caja-chica','retiro-socios'].includes(m.tipo)).reduce((a,m)=>a+m.monto,0);
+    const totalIngresos=todos.filter(m=>['ingreso','pase-caja-chica'].includes(m.tipo)).reduce((a,m)=>a+m.monto,0);
+    const totalSocios=todos.filter(m=>m.tipo==='retiro-socios').reduce((a,m)=>a+m.monto,0);
+    if(totEl)totEl.innerHTML=`Ingresos: <span style="color:var(--success)">$${Math.round(totalIngresos).toLocaleString('es-AR')}</span> · Egresos: <span style="color:var(--danger)">$${Math.round(totalEgresos).toLocaleString('es-AR')}</span>${totalSocios>0?` · Retiros socios: <span style="color:#7f8c8d">$${Math.round(totalSocios).toLocaleString('es-AR')}</span>`:''}`;
   }catch(e){el.innerHTML='<div class="empty">Error al cargar</div>';}
 }
 
@@ -8514,7 +8527,7 @@ window.generarResumenMensual=async function(){
   </div>`;
 };
 
-window.generarInforme=function(){
+window.generarInforme=async function(){
   const desde=document.getElementById('inf-desde').value;const hasta=document.getElementById('inf-hasta').value;
   if(!desde||!hasta){alert('Seleccioná un período');return;}
   const vf=_ventas.filter(v=>v.fecha>=desde&&v.fecha<=hasta&&(v.tipo!=='online'||['confirmado','en_preparacion','en_camino','entregado'].includes(v.estado)));
@@ -8523,15 +8536,52 @@ window.generarInforme=function(){
   const total=vf.reduce((a,v)=>a+v.total,0);const nped=vf.length;
   const descuentosTotal=vf.reduce((a,v)=>a+(v.descuentoMonto||0),0);
   const costoTotal=vf.reduce((a,v)=>a+(v.costoFIFO||0),0);
-  // Gastos del período
-  const gastosPeriodo=_gastos.filter(g=>g.fecha>=desde&&g.fecha<=hasta);
-  const totalGastos=gastosPeriodo.reduce((a,g)=>a+Math.abs(g.monto||0),0);
-  // Retiros de caja chica del período
-  const retirosPeriodo=(_cajaChica||[]).filter(x=>x.fecha>=desde&&x.fecha<=hasta&&x.esEgreso&&(x.tipo==='retiro'||x.tipo==='retiro_cuenta'));
+  // ── Gastos del período — todas las fuentes ──
+  // 1. Caja chica (gastos operativos, no retiros)
+  const ccGastos=(_cajaChica||[]).filter(g=>g.fecha>=desde&&g.fecha<=hasta&&g.esEgreso&&g.tipo!=='retiro'&&g.tipo!=='retiro_caja'&&g.tipo!=='retiro_cuenta');
+  const totalCCGastos=ccGastos.reduce((a,g)=>a+Math.abs(g.montoAbs||g.monto||0),0);
+  // 2. Pagos a proveedores
+  let totalPagosProveedores=0;
+  try{
+    const snapPP=await getDocs(collection(db,'users',STORE,'pagos-proveedores'));
+    totalPagosProveedores=snapPP.docs.map(d=>d.data()).filter(p=>p.fecha>=desde&&p.fecha<=hasta).reduce((a,p)=>a+(p.monto||0),0);
+  }catch(e){}
+  // 3. Sueldos confirmados
+  let totalSueldosPeriodo=0,sueldosDetalle=[];
+  try{
+    const snapPE=await getDocs(collection(db,'users',STORE,'pagos-empleados'));
+    const pagEmp=snapPE.docs.map(d=>d.data()).filter(p=>p.fecha>=desde&&p.fecha<=hasta);
+    totalSueldosPeriodo=pagEmp.reduce((a,p)=>a+parseInt(p.monto||0),0);
+    sueldosDetalle=pagEmp;
+  }catch(e){}
+  // 4. Gastos de empleados (cargas sociales, adelantos)
+  let totalGastosEmp=0;
+  try{
+    const snapGE=await getDocs(collection(db,'users',STORE,'gastos-empleados'));
+    totalGastosEmp=snapGE.docs.map(d=>d.data()).filter(p=>p.fecha>=desde&&p.fecha<=hasta).reduce((a,p)=>a+(p.monto||0),0);
+  }catch(e){}
+  // 5. Caja grande egresos (excluye retiro-socios, ingreso, pase-caja-chica)
+  let totalCajaGrande=0,totalRetiroSocios=0;
+  try{
+    const snapCG=await getDocs(collection(db,'users',STORE,'caja-grande'));
+    const cgMovs=snapCG.docs.map(d=>d.data()).filter(m=>m.fecha>=desde&&m.fecha<=hasta);
+    totalCajaGrande=cgMovs.filter(m=>!['ingreso','pase-caja-chica','retiro-socios'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
+    totalRetiroSocios=cgMovs.filter(m=>m.tipo==='retiro-socios').reduce((a,m)=>a+(m.monto||0),0);
+  }catch(e){}
+  // 6. Old gastos collection
+  const gastosHistorico=_gastos.filter(g=>g.fecha>=desde&&g.fecha<=hasta);
+  const totalGastosHistorico=gastosHistorico.reduce((a,g)=>a+Math.abs(g.monto||0),0);
+  // Total gastos operativos (excluye retiro-socios)
+  const totalGastos=totalCCGastos+totalPagosProveedores+totalSueldosPeriodo+totalGastosEmp+totalCajaGrande+totalGastosHistorico;
+  // Retiros de caja chica del período (para info)
+  const retirosPeriodo=(_cajaChica||[]).filter(x=>x.fecha>=desde&&x.fecha<=hasta&&x.esEgreso&&(x.tipo==='retiro'||x.tipo==='retiro_caja'||x.tipo==='retiro_cuenta'));
   const totalRetiros=retirosPeriodo.reduce((a,x)=>a+Math.abs(x.montoAbs||0),0);
-  // Ganancia neta real = Facturación - Costo FIFO - Gastos
+  // Ganancia bruta = Facturado - Costo FIFO
   const gananciaNeta=total-costoTotal;
-  const gananciaNtaReal=total-costoTotal-totalGastos;
+  // Ganancia operativa = Bruta - Gastos
+  const gananciaNtaReal=gananciaNeta-totalGastos;
+  // Lo que queda = Operativa - Retiros socios
+  const gananciaDistribuible=gananciaNtaReal-totalRetiroSocios;
   const hayFIFO=true; // Always show cost/profit metrics
   let ef=0,tr=0,ta=0;
   vf.forEach(v=>{if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;else ta+=v.total;});
@@ -8595,8 +8645,16 @@ window.generarInforme=function(){
           <tr><td style="color:var(--danger)">Descuentos</td><td style="text-align:right;color:var(--danger)">-${fmt(descuentosTotal)}</td><td></td></tr>
           ${hayFIFO?`<tr><td style="color:var(--warn)">Costo (FIFO)</td><td style="text-align:right;color:var(--warn)">-${fmt(costoTotal)}</td><td></td></tr>
           <tr style="border-top:2px solid var(--border)"><td style="font-weight:700;color:var(--success)">Ganancia bruta</td><td style="text-align:right;font-weight:700;color:var(--success)">${fmt(gananciaNeta)}</td><td style="text-align:right;color:var(--success)">${total>0?Math.round(gananciaNeta/total*100):0}%</td></tr>
-          ${totalGastos>0?'<tr><td style="color:var(--danger)">Gastos del período</td><td style="text-align:right;color:var(--danger)">-'+fmt(totalGastos)+'</td><td></td></tr>':''}
-          ${totalGastos>0?'<tr style="border-top:2px solid var(--border)"><td style="font-weight:700;color:var(--success)">Ganancia neta real</td><td style="text-align:right;font-weight:700;color:var(--success)">'+fmt(gananciaNtaReal)+'</td><td style="text-align:right;color:var(--success)">'+(total>0?Math.round(gananciaNtaReal/total*100):0)+'%</td></tr>':''}`:''}
+          ${totalCCGastos>0?`<tr><td style="color:#888;padding-left:10px;font-size:12px">↳ Caja chica</td><td style="text-align:right;color:#888;font-size:12px">-${fmt(totalCCGastos)}</td><td></td></tr>`:''}
+          ${totalPagosProveedores>0?`<tr><td style="color:#888;padding-left:10px;font-size:12px">↳ Pagos proveedores</td><td style="text-align:right;color:#888;font-size:12px">-${fmt(totalPagosProveedores)}</td><td></td></tr>`:''}
+          ${totalSueldosPeriodo>0?`<tr><td style="color:#888;padding-left:10px;font-size:12px">↳ Sueldos</td><td style="text-align:right;color:#888;font-size:12px">-${fmt(totalSueldosPeriodo)}</td><td></td></tr>`:''}
+          ${totalGastosEmp>0?`<tr><td style="color:#888;padding-left:10px;font-size:12px">↳ Cargas sociales / Emp.</td><td style="text-align:right;color:#888;font-size:12px">-${fmt(totalGastosEmp)}</td><td></td></tr>`:''}
+          ${totalCajaGrande>0?`<tr><td style="color:#888;padding-left:10px;font-size:12px">↳ Caja grande</td><td style="text-align:right;color:#888;font-size:12px">-${fmt(totalCajaGrande)}</td><td></td></tr>`:''}
+          ${totalGastosHistorico>0?`<tr><td style="color:#888;padding-left:10px;font-size:12px">↳ Gastos históricos</td><td style="text-align:right;color:#888;font-size:12px">-${fmt(totalGastosHistorico)}</td><td></td></tr>`:''}
+          ${totalGastos>0?`<tr><td style="color:var(--danger)">Gastos operativos</td><td style="text-align:right;color:var(--danger)">-${fmt(totalGastos)}</td><td></td></tr>`:''}
+          ${totalGastos>0?`<tr style="border-top:2px solid var(--border)"><td style="font-weight:700;color:var(--success)">Ganancia operativa</td><td style="text-align:right;font-weight:700;color:var(--success)">${fmt(gananciaNtaReal)}</td><td style="text-align:right;color:var(--success)">${total>0?Math.round(gananciaNtaReal/total*100):0}%</td></tr>`:''}
+          ${totalRetiroSocios>0?`<tr><td style="color:#7f8c8d">💼 Retiros de socios</td><td style="text-align:right;color:#7f8c8d">-${fmt(totalRetiroSocios)}</td><td></td></tr>`:''}
+          ${totalRetiroSocios>0?`<tr style="border-top:2px solid var(--border)"><td style="font-weight:700;color:var(--success)">Resultado neto</td><td style="text-align:right;font-weight:700;color:var(--success)">${fmt(gananciaDistribuible)}</td><td style="text-align:right;color:var(--success)">${total>0?Math.round(gananciaDistribuible/total*100):0}%</td></tr>`:''}`:''}
         </tbody></table>
       </div>
     </div>`;
