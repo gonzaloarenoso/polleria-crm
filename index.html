@@ -616,7 +616,6 @@ tr:hover td{background:#fafaf8}
       <div class="stitle">Inventario</div>
       <div class="tab-row" style="margin-bottom:16px;max-width:460px">
         <button class="tab-btn active" id="inv-tab-prods" onclick="switchInvTab('prods',this)">Productos</button>
-        <button class="tab-btn" id="inv-tab-stock" onclick="switchInvTab('stock',this)">Stock</button>
         <button class="tab-btn" id="inv-tab-promos" onclick="switchInvTab('promos',this)">Promociones</button>
         <button class="tab-btn" id="inv-tab-proveedores" onclick="switchInvTab('proveedores',this)" style="display:none">Proveedores</button>
       </div>
@@ -5008,7 +5007,7 @@ window.renderProductos=function renderProductos(){
     if(!_productos.length){el.innerHTML='<div class="empty">Sin productos</div>';return;}
     const UNITS=['unidad','kg','g','lts','ml','porcion','docena','pack'];
     const prodsFiltrados=busq?_productos.filter(p=>p.nombre.toLowerCase().includes(busq)||(p.categoria||'').toLowerCase().includes(busq)||(p.proveedor||'').toLowerCase().includes(busq)||(p.codigo||'').toLowerCase().includes(busq)):_productos;
-    el.innerHTML=prodsFiltrados.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">${p.codigo?`<span style="background:var(--bg);border-radius:4px;padding:1px 5px;font-weight:600;margin-right:4px">${p.codigo}</span>`:''}Stock: ${_inv[p.nombre]?.stock||0} &nbsp;·&nbsp; Unidad: <strong>${p.unidad||'unidad'}</strong>${p.tramos?.length?` &nbsp;·&nbsp; <span style="color:#378ADD">🏷 ${p.tramos.length} tramo${p.tramos.length>1?'s':''}</span>`:''}</div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><span style="width:86px;font-size:12px;padding:5px 8px;background:var(--bg);border-radius:6px;display:inline-block;text-align:right;color:#888" title="Modificar precio desde Stock">${fmt(p.precio||0)}</span><button class="btn ${p.activo===false?'bd':'bs'} bsm" onclick="toggleActivoProducto('${p.id}',${p.activo!==false})">${p.activo===false?'🔴':'🟢'}</button><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bs bsm" onclick="iniciarRenombrar('${p.id}','${p.nombre.replace(/'/g,"\\\\'")}')" title="Renombrar producto">✏️ Renombrar</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button>
+    el.innerHTML=prodsFiltrados.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">${p.codigo?`<span style="background:var(--bg);border-radius:4px;padding:1px 5px;font-weight:600;margin-right:4px">${p.codigo}</span>`:''}Unidad: <strong>${p.unidad||'unidad'}</strong>${p.tramos?.length?` &nbsp;·&nbsp; <span style="color:#378ADD">🏷 ${p.tramos.length} tramo${p.tramos.length>1?'s':''}</span>`:''}</div></div><div style="display:flex;align-items:center;gap:6px;margin-top:4px">${(()=>{const stk=Math.round((_inv[p.nombre]?.stock||0)*1000)/1000;const alt=_inv[p.nombre]?.alerta||5;const ok=stk>alt;return `<span style="font-size:11px">Stock: <strong>${stk} ${p.unidad||'u.'}</strong></span><span style="padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:${ok?'rgba(29,158,117,0.1)':'rgba(232,68,34,0.1)'};color:${ok?'#1D9E75':'#e74c3c'}">${ok?'OK':'⚠ BAJO'}</span><button class="btn bs" style="font-size:10px;padding:2px 8px" data-action="open-quick-stock" data-prod-id="${p.id}" data-prod-nom="${p.nombre}" data-prod-uni="${p.unidad||'u.'}">📦 Stock</button>`;})()}</div><div id="qs-${p.id}" style="display:none;margin-top:6px;padding:8px;background:var(--bg);border-radius:8px;grid-column:1/-1"><div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap"><input type="text" inputmode="decimal" class="qs-cant" placeholder="Cantidad" style="width:80px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px"/><select class="qs-modo" style="padding:4px 6px;border-radius:6px;border:1px solid var(--border);font-size:11px"><option value="agregar">➕ Agregar</option><option value="ajustar">➖ Ajuste</option></select><button class="btn bp bsm" data-action="save-quick-stock" data-prod-id="${p.id}" data-prod-nom="${p.nombre}">✓ Guardar</button><button class="btn bs bsm" data-action="close-quick-stock" data-prod-id="${p.id}">✕</button></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><span style="width:86px;font-size:12px;padding:5px 8px;background:var(--bg);border-radius:6px;display:inline-block;text-align:right;color:#888" title="Modificar precio desde Stock">${fmt(p.precio||0)}</span><button class="btn ${p.activo===false?'bd':'bs'} bsm" onclick="toggleActivoProducto('${p.id}',${p.activo!==false})">${p.activo===false?'🔴':'🟢'}</button><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bs bsm" onclick="iniciarRenombrar('${p.id}','${p.nombre.replace(/'/g,"\\\\'")}')" title="Renombrar producto">✏️ Renombrar</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button>
 <input type="text" value="${p.codigo||''}" placeholder="Código" data-action="edit-codigo" data-prod-id="${p.id}" title="Código de producto" style="width:70px;font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)" onblur="guardarCodigoProducto(this.dataset.prodId,this.value)"/>
 <label title="Requiere elaboración (producción)" style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;padding:4px 6px;background:${p.requiereElaboracion?'rgba(239,159,39,0.15)':'var(--bg)'};border-radius:6px;border:1px solid ${p.requiereElaboracion?'#EF9F27':'var(--border)'}">
 <input type="checkbox" ${p.requiereElaboracion?'checked':''} data-action="toggle-elaboracion" data-prod-id="${p.id}" style="margin:0"/>🔧</label>
@@ -6503,6 +6502,53 @@ document.addEventListener('change',function(e){
   if(e.target.dataset&&e.target.dataset.action==='toggle-elaboracion'){
     const id=e.target.dataset.prodId;
     if(id&&window.toggleElaboracion)window.toggleElaboracion(id,e.target.checked);
+  }
+});
+
+
+// ── QUICK STOCK from product list ────────────────────────────────────────
+document.addEventListener('click',function(e){
+  const btn=e.target.closest('button[data-action]');
+  if(!btn)return;
+  const act=btn.dataset.action;
+  const prodId=btn.dataset.prodId;
+  const prodNom=btn.dataset.prodNom;
+
+  if(act==='open-quick-stock'){
+    // Close all others first
+    document.querySelectorAll('[id^="qs-"]').forEach(el=>el.style.display='none');
+    const wrap=document.getElementById('qs-'+prodId);
+    if(wrap){wrap.style.display='block';wrap.querySelector('.qs-cant')?.focus();}
+    return;
+  }
+  if(act==='close-quick-stock'){
+    const wrap=document.getElementById('qs-'+prodId);
+    if(wrap)wrap.style.display='none';
+    return;
+  }
+  if(act==='save-quick-stock'){
+    const wrap=document.getElementById('qs-'+prodId);
+    const cantInput=wrap?.querySelector('.qs-cant');
+    const modoSel=wrap?.querySelector('.qs-modo');
+    const cant=parseDecimal(cantInput?.value);
+    const modo=modoSel?.value||'agregar';
+    if(!cant||!prodNom){alert('Ingresá una cantidad');return;}
+    btn.textContent='...';btn.disabled=true;
+    const newInv={..._inv};
+    if(!newInv[prodNom])newInv[prodNom]={stock:0,alerta:5};
+    const stockAct=newInv[prodNom].stock||0;
+    newInv[prodNom].stock=modo==='ajustar'
+      ?Math.max(0,Math.round((stockAct-cant)*1000)/1000)
+      :Math.round((stockAct+cant)*1000)/1000;
+    setDoc(doc(db,'inventario',STORE),newInv).then(()=>{
+      if(modo==='ajustar')
+        addDoc(collection(db,'users',STORE,'stock-historial'),{producto:prodNom,cantidad:-cant,tipo:'ajuste',fecha:today(),ts:Date.now()});
+      toast(prodNom+': '+(modo==='ajustar'?'-':'+')+''+cant+' '+(modo==='ajustar'?'ajustado':'agregado'));
+      if(wrap)wrap.style.display='none';
+      if(cantInput)cantInput.value='';
+      btn.textContent='✓ Guardar';btn.disabled=false;
+    }).catch(e=>{alert('Error: '+e.message);btn.textContent='✓ Guardar';btn.disabled=false;});
+    return;
   }
 });
 
@@ -9306,7 +9352,7 @@ ${topClientes.length?`<div class="card">
       </div>
       <div style="background:var(--bg);border-radius:8px;padding:10px;font-size:12px;color:#888">
         Alerta actual: <strong>${_inv[nom]?.alerta||5} ${uni}</strong><br>
-        Cuando el stock llegue a ese valor, se generará automáticamente una OT de <strong>${prod.cantidadElaborar||1} ${uni}</strong>.
+        Cuando el stock llegue a ese valor, se generará automáticamente una OT de <strong id="ficha-ot-cant">${prod.cantidadElaborar||1} ${uni}</strong>.
       </div>
     </div>
   </div>
@@ -9536,7 +9582,14 @@ document.addEventListener('DOMContentLoaded',function(){
     if(btn.id==='btn-save-cant-elaborar'){
       e.preventDefault();
       const cant=parseFloat(document.getElementById('ficha-cant-elaborar')?.value)||1;
-      if(window.opener&&!window.opener.closed){window.opener.guardarCantElaborar('${id}',cant);btn.textContent='✓ Guardado';setTimeout(()=>btn.textContent='Guardar',1500);}
+      if(window.opener&&!window.opener.closed){
+        window.opener.guardarCantElaborar('${id}',cant);
+        btn.textContent='✓ Guardado';
+        setTimeout(()=>btn.textContent='Guardar',1500);
+        // Update description live
+        const otDesc=document.getElementById('ficha-ot-cant');
+        if(otDesc)otDesc.textContent=cant+' ${uni}';
+      }
       return;
     }
     if(btn.dataset.action==='del-tramo'){
