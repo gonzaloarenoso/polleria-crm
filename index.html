@@ -505,7 +505,7 @@ tr:hover td{background:#fafaf8}
           </div>
           <div id="v-cc-indicator" style="display:none;margin-bottom:6px"></div>
           <label style="margin-top:14px">Medio de pago</label>
-          <select id="v-pago" onchange="checkAndApplyAutoDiscount();renderTotales();"><option>Efectivo</option></select>
+          <select id="v-pago" onchange="checkAndApplyAutoDiscount();renderTotales();"><option value="" disabled selected style="color:#aaa">— Seleccioná método de pago —</option></select>
           <div style="margin-top:10px">
             <label>Cupón de descuento (opcional)</label>
             <div style="display:flex;gap:6px">
@@ -2412,7 +2412,10 @@ window.showSec=function(id,btn){
     if(vp&&_metodosPago.length){
       const cur=vp.value;
       const activos=_metodosPago.filter(m=>m.activo);
-      if(activos.length)vp.innerHTML=activos.map(m=>'<option value="'+m.nombre+'"'+(m.nombre===cur?' selected':'')+'>'+m.nombre+'</option>').join('');
+      if(activos.length){
+        const ph='<option value="" disabled'+(cur?'':' selected')+' style="color:#aaa">— Seleccioná método de pago —</option>';
+        vp.innerHTML=ph+activos.map(m=>'<option value="'+m.nombre+'"'+(m.nombre===cur?' selected':'')+'>'+m.nombre+'</option>').join('');
+      }
     }
   }
   if(id==='produccion-inv')renderProdInv();
@@ -3107,7 +3110,8 @@ function startClienteListeners(){
         const activos=_metodosPago.filter(m=>m.activo);
         if(activos.length){
           const curVal=ventaPagoSel.value;
-          ventaPagoSel.innerHTML=activos.map(m=>'<option value="'+m.nombre+'"'+(m.nombre===curVal?' selected':'')+'>'+m.nombre+'</option>').join('');
+          const ph2='<option value="" disabled'+(curVal?'':' selected')+' style="color:#aaa">— Seleccioná método de pago —</option>';
+        ventaPagoSel.innerHTML=ph2+activos.map(m=>'<option value="'+m.nombre+'"'+(m.nombre===curVal?' selected':'')+'>'+m.nombre+'</option>').join('');
         }
       }
       // Re-render info local if active
@@ -3807,10 +3811,12 @@ window.applyManualDiscount=function(){
   const mot=document.getElementById('v-desc-manual-mot')?.value?.trim()||'';
   _descManual={pct,motivo:mot};
   if(pct>0){
-    // Manual discount replaces everything
+    // Manual discount replaces EVERYTHING including tipo cliente, cupon, auto discount
     ventaDescuento={motivo:mot||'Descuento manual',porcentaje:pct,fijo:false,manual:true};
     _cuponAplicado=null;
+    _acumDesc=false;
     const sel=document.getElementById('v-desc');if(sel){sel.value='';sel.disabled=true;}
+    const tog=document.getElementById('v-acum-toggle');if(tog)tog.checked=false;
   } else {
     // If cleared, restore normal flow
     ventaDescuento=null;
@@ -3920,9 +3926,9 @@ window.renderTotales=function renderTotales(){
   // Redondeo a múltiplo de $50 para efectivo
   const pagoSel=document.getElementById('v-pago')?.value||'';
   // Only round for exact "Efectivo" match (case-insensitive), not for Posnet, Transferencia, etc.
-  // Apply payment method adjustment (discount or surcharge)
+  // Apply payment method adjustment (skip if manual discount is active)
   const metodoPago=(_metodosPago||[]).find(m=>m.nombre===pagoSel);
-  const ajustePct=metodoPago?.ajuste||0;
+  const ajustePct=(_descManual?.pct>0)?0:(metodoPago?.ajuste||0);
   let finalConAjuste=final;
   if(ajustePct!==0&&final>0){
     const ajusteMonto=Math.round(final*ajustePct/100);
@@ -4087,6 +4093,12 @@ window.confirmar=async function(){
     return;
   }
   if(!items.length){alert('Agregá al menos un producto');return;}
+  const pagoCheck=document.getElementById('v-pago')?.value;
+  if(!pagoCheck){
+    alert('⚠ Seleccioná un método de pago antes de confirmar');
+    document.getElementById('v-pago')?.focus();
+    return;
+  }
   // MOD 2: Save as presupuesto if in presup mode
   if(_tipoVenta==='presupuesto'){
     const validoHasta=document.getElementById('presup-fecha')?.value||'';
@@ -6163,24 +6175,29 @@ window.verCuentaCorriente=async function(clienteId,clienteNombre){
 async function cargarFondoAnteriorEnCierre(efVentas){
   try{
     const snap=await getDocs(collection(db,'users',STORE,'cierres'));
+    // ⚠ Obtenemos referencias AL DOM DESPUÉS del await para evitar stale refs
     const cierres=snap.docs.map(d=>d.data()).sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));
     const anterior=cierres[0];
-    const wrap=document.getElementById('cierre-fondo-anterior-wrap');if(!wrap)return;
     const fondoAnt=anterior?.fondoCambio||anterior?.efectivoDisponible||0;
     const retirosCaja=(_cajaChica||[]).filter(g=>g.fecha===today()&&g.esEgreso&&(g.tipo==='retiro'||g.tipo==='retiro_caja')).reduce((a,g)=>a+Math.abs(g.monto||g.montoAbs||0),0);
-    const efEsperado=fondoAnt+efVentas-retirosCaja;
+    const efEsperado=Math.round(fondoAnt+efVentas-retirosCaja);
+    // Update panel (get fresh refs after await)
+    const wrap=document.getElementById('cierre-fondo-anterior-wrap');if(wrap)wrap.style.display='block';
     const elFondo=document.getElementById('cierre-fondo-valor');if(elFondo)elFondo.textContent='$'+Math.round(fondoAnt).toLocaleString('es-AR');
     const elVentas=document.getElementById('cierre-ef-ventas');if(elVentas)elVentas.textContent='$'+Math.round(efVentas).toLocaleString('es-AR');
-    if(retirosCaja>0){const rr=document.getElementById('cierre-retiros-row');if(rr)rr.style.display='flex';const rv=document.getElementById('cierre-retiros-valor');if(rv)rv.textContent='-$'+Math.round(retirosCaja).toLocaleString('es-AR');}
-    const elEsp=document.getElementById('cierre-ef-esperado');if(elEsp)elEsp.textContent='$'+Math.round(efEsperado).toLocaleString('es-AR');
-    wrap.style.display='block';
+    const elEsp=document.getElementById('cierre-ef-esperado');if(elEsp)elEsp.textContent='$'+efEsperado.toLocaleString('es-AR');
+    if(retirosCaja>0){
+      const rr=document.getElementById('cierre-retiros-row');if(rr)rr.style.display='flex';
+      const rv=document.getElementById('cierre-retiros-valor');if(rv)rv.textContent='-$'+Math.round(retirosCaja).toLocaleString('es-AR');
+    }
+    // Pre-fill cc-ef-real with total esperado (get fresh ref after await)
     const efInput=document.getElementById('cc-ef-real');
     if(efInput){
-      efInput.value=Math.round(efEsperado);
-      efInput.defaultValue=Math.round(efEsperado); // so calcDiferencias compares correctly
-      efInput.dataset.esperado=Math.round(efEsperado);
+      efInput.value=efEsperado;
+      efInput.setAttribute('value',efEsperado); // updates defaultValue
+      efInput.dataset.esperado=efEsperado;
+      calcDiferencias();
     }
-    calcDiferencias();
   }catch(e){console.warn('cargarFondoAnterior',e);}
 }
 
