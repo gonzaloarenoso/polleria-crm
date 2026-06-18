@@ -621,6 +621,25 @@ tr:hover td{background:#fafaf8}
       </div>
       <!-- SUB-TAB: PRODUCTOS -->
       <div id="inv-prods">
+        <!-- CAPITAL EN MERCADERÍA -->
+        <div id="p-admin-capital" style="display:none">
+          <div class="card" style="background:linear-gradient(135deg,#1a1a1a 0%,#2d2d2d 100%);border:none;margin-bottom:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+              <div>
+                <div style="font-size:12px;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Capital en mercadería</div>
+                <div style="font-size:28px;font-weight:700;color:#fff" id="stock-valor-total">$0</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:11px;color:#aaa;margin-bottom:2px">Productos con costo cargado</div>
+                <div style="font-size:18px;font-weight:600;color:#EF9F27" id="stock-prod-con-costo">0</div>
+              </div>
+            </div>
+            <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;display:flex;justify-content:flex-end">
+              <button onclick="toggleCapitalDetalle()" id="btn-capital-toggle" style="background:rgba(255,255,255,0.1);color:#fff;border:none;border-radius:20px;padding:4px 14px;font-size:11px;cursor:pointer;font-weight:600">▼ Ver detalle</button>
+            </div>
+            <div id="stock-detalle-costos" style="display:none;margin-top:8px"></div>
+          </div>
+        </div>
         <div class="g2" id="p-admin-form">
           <div class="card">
             <h3>Agregar producto</h3>
@@ -677,22 +696,7 @@ tr:hover td{background:#fafaf8}
       <!-- SUB-TAB: STOCK -->
       <div id="inv-stock" style="display:none">
         <div id="stock-valor-admin" style="display:none;margin-bottom:16px">
-          <div class="card" style="background:linear-gradient(135deg,#1a1a1a 0%,#2d2d2d 100%);border:none">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
-              <div>
-                <div style="font-size:12px;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Capital en mercadería (solo admin)</div>
-                <div style="font-size:28px;font-weight:700;color:#fff" id="stock-valor-total">$0</div>
-              </div>
-              <div style="text-align:right">
-                <div style="font-size:11px;color:#aaa;margin-bottom:2px">Productos con costo cargado</div>
-                <div style="font-size:18px;font-weight:600;color:#EF9F27" id="stock-prod-con-costo">0</div>
-              </div>
-            </div>
-            <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;display:flex;justify-content:flex-end">
-              <button onclick="toggleCapitalDetalle()" id="btn-capital-toggle" style="background:rgba(255,255,255,0.1);color:#fff;border:none;border-radius:20px;padding:4px 14px;font-size:11px;cursor:pointer;font-weight:600">▼ Ver detalle</button>
-            </div>
-            <div id="stock-detalle-costos" style="display:none;margin-top:8px"></div>
-          </div>
+<!-- capital moved to inv-prods -->
         </div>
         <div class="g2">
           <div class="card">
@@ -2878,7 +2882,7 @@ async function loginSuccess(u,userData){
   } else {
     document.getElementById('main-screen').style.display='block';
     document.getElementById('top-local').textContent=localName;
-    if(USER_ROLE!=='admin')setTimeout(()=>checkPresenciaHoy(u),1000);
+    if(USER_ROLE!=='admin'&&USER_ROLE!=='produccion')setTimeout(()=>checkPresenciaHoy(u),1000);
     document.getElementById('user-pill').textContent=u+' · cerrar sesión';
     const rb=document.getElementById('rbadge');
     rb.textContent=USER_ROLE==='admin'?'Admin':'Vendedor';
@@ -4986,6 +4990,8 @@ window.confirmarRenombrar=async function(id, nombreViejo){
   }
 };
 window.renderProductos=function renderProductos(){
+  const capEl=document.getElementById('p-admin-capital');
+  if(capEl)capEl.style.display=USER_ROLE==='admin'?'block':'none';
   // Populate category selector in product form
   const catSel=document.getElementById('p-categoria');
   if(catSel&&_categorias?.length){
