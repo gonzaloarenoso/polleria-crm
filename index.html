@@ -3529,6 +3529,7 @@ window.addItem=function(){
   const val=document.getElementById('v-prod').value;if(!val||val==='')return;
   // Clear search input after adding
   const si=document.getElementById('v-prod-search');if(si)si.value='';
+  const vpReset=document.getElementById('v-pago');if(vpReset)vpReset.value='';
   document.getElementById('v-prod').value='';
   const parts=val.split('|');const[type,refId,nom,pr]=parts;const unidad=parts[4]||'unidad';
   const cant=parseDecimal(document.getElementById('v-cant').value)||1;
@@ -3769,7 +3770,8 @@ function renderItems(){
 window.rmItem=function(i){itemTotal-=items[i].precio*parseFloat(items[i].cant);items.splice(i,1);renderItems();applyDiscount();};
 
 window.checkAndApplyAutoDiscount=function(){
-  if(ventaDescuento?.fijo)return; // client fixed discount takes precedence logic handled separately
+  if(ventaDescuento?.fijo)return; // client fixed discount
+  if(_descManual?.pct>0)return; // manual discount takes full precedence
   const pago=document.getElementById('v-pago')?.value;
   const auto=checkAutoDiscount(pago);
   const sel=document.getElementById('v-desc');
