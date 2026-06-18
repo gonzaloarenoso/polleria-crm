@@ -641,6 +641,13 @@ tr:hover td{background:#fafaf8}
             <label>Alerta de stock mínimo</label><input type="number" id="p-alerta" placeholder="Ej: 5" value="5"/>
             <label>Fecha de vencimiento del lote actual (opcional)</label>
             <input type="date" id="p-vencimiento"/>
+            <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="p-requiere-elab" onchange="document.getElementById('p-cant-elab-wrap').style.display=this.checked?'flex':'none'"/> Requiere elaboración</label>
+              <div id="p-cant-elab-wrap" style="display:none;align-items:center;gap:6px">
+                <input type="number" id="p-cant-elaborar" placeholder="Cant. a elaborar" min="0.01" step="0.01" style="width:130px"/>
+                <span style="font-size:12px;color:#888">unid. por OT</span>
+              </div>
+            </div>
 
             <!-- TRAMOS DE PRECIO -->
             <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
@@ -5157,12 +5164,17 @@ window.addProducto=async function(){
     const vencimiento=document.getElementById('p-vencimiento')?.value||'';
     const tramos=leerTramos();
     const codigo=(document.getElementById('p-codigo')?.value||'').trim();
-    const newList=[..._productos,{id:'p'+Date.now(),nombre:nom,precio:0,unidad,categoria,proveedor,vencimiento,tramos,codigo}];
+    const requiereElaboracion=document.getElementById('p-requiere-elab')?.checked||false;
+    const cantidadElaborar=parseFloat(document.getElementById('p-cant-elaborar')?.value)||1;
+    const newList=[..._productos,{id:'p'+Date.now(),nombre:nom,precio:0,unidad,categoria,proveedor,vencimiento,tramos,codigo,requiereElaboracion,cantidadElaborar}];
     await setDoc(doc(db,'productos',STORE),{lista:newList});
     const newInv={..._inv,[nom]:{stock:0,alerta}};
     await setDoc(doc(db,'inventario',STORE),newInv);
     document.getElementById('p-nom').value='';document.getElementById('p-alerta').value='5';document.getElementById('p-unidad').value='unidad';const ps=document.getElementById('p-proveedor');if(ps)ps.value='';const tw=document.getElementById('p-tramos-wrap');if(tw)tw.innerHTML='';
     const pc=document.getElementById('p-codigo');if(pc)pc.value='';
+    const pe=document.getElementById('p-requiere-elab');if(pe)pe.checked=false;
+    const pcew=document.getElementById('p-cant-elab-wrap');if(pcew)pcew.style.display='none';
+    const pce=document.getElementById('p-cant-elaborar');if(pce)pce.value='';
     toast('Producto agregado');
     logAuditoria('agregó','producto','Producto: '+nom,'','');
   }catch(e){alert('Error: '+e.message);}
@@ -6503,6 +6515,22 @@ window.guardarCodigoProducto=async function(id,codigo){
   }catch(e){console.warn('guardarCodigo',e);}
 };
 
+
+window.guardarCantElaborar=async function(prodId,cant){
+  const nuevos=_productos.map(p=>p.id===prodId?{...p,cantidadElaborar:cant}:p);
+  try{
+    await setDoc(doc(db,'productos',STORE),{lista:nuevos});
+    toast('Cantidad a elaborar: '+cant+' guardado');
+  }catch(e){alert('Error: '+e.message);}
+};
+
+window.guardarRequiereElaboracion=async function(prodId,val){
+  const nuevos=_productos.map(p=>p.id===prodId?{...p,requiereElaboracion:val}:p);
+  try{
+    await setDoc(doc(db,'productos',STORE),{lista:nuevos});
+    toast(val?'Marcado para producción':'Removido de producción');
+  }catch(e){alert('Error: '+e.message);}
+};
 window.toggleElaboracion=async function(id,val){
   const nuevosProds=_productos.map(p=>p.id===id?{...p,requiereElaboracion:val}:p);
   await setDoc(doc(db,'productos',STORE),{lista:nuevosProds});
@@ -6689,7 +6717,7 @@ function renderCaja(){
       <td>${v.hora}</td><td>${v.cliente}</td>
       <td>${v.tipo==='online'?'Online':v.canal}</td>
       <td>${v.pago}</td>
-      ${isAdmin?`<td>${v.descuentoMonto?`<span style="color:var(--danger);font-size:11px">-${fmt(v.descuentoMonto)} (${v.descuentoPct}%)</span>`:'-'}</td><td style="font-weight:600;color:var(--success)">${fmt(v.total)}</td>`:''}
+      ${isAdmin?`<td>${(()=>{const rd=v.descuentoMonto||0;const ad=v.ajustePagoMonto||0;if(rd>0&&ad<0){const tot=rd+Math.abs(ad);const pct=v.subtotal>0?Math.round(tot/v.subtotal*100):0;return`<span style="color:var(--danger);font-size:11px">-${fmt(tot)} (${pct}%)</span>`;}else if(rd>0){return`<span style="color:var(--danger);font-size:11px">-${fmt(rd)} (${v.descuentoPct}%)</span>`;}else if(ad<0){const pct=v.subtotal>0?Math.round(Math.abs(ad)/v.subtotal*100):0;return`<span style="color:var(--danger);font-size:11px">-${fmt(Math.abs(ad))} (${pct}% ${v.pago})</span>`;}else if(ad>0){return`<span style="color:var(--warn);font-size:11px">+${fmt(ad)} (${v.pago})</span>`;}return'-';})()}</td><td style="font-weight:600;color:var(--success)">${fmt(v.total)}</td>`:''}
       <td>${v.tipo==='online'?`<span class="badge ${statusClass(v.estado)}">${statusLabel(v.estado)}</span>`:`<span class="badge bg">Completada</span>`}</td>
       <td><button class="btn bs bsm" onclick="showCajaDetalle('${v.id}')">Ver</button></td>
       ${isAdmin?`<td><div style="display:flex;gap:3px"><button class="btn bs bsm" onclick="startEdit('${v.id}')">Editar</button><button class="btn bd bsm" onclick="deleteVenta('${v.id}')">Borrar</button></div></td>`:''}
@@ -6972,6 +7000,10 @@ window.startEdit=function(id){
   const evObs=document.getElementById('ev-obs');if(evObs)evObs.value=v.obs||'';
   renderEditItems();
   renderEditProdSelect();
+  // Load existing discount
+  const evPct=document.getElementById('ev-desc-pct');if(evPct)evPct.value=v.descuentoPct||0;
+  const evMot=document.getElementById('ev-desc-mot');if(evMot)evMot.value=v.descuentoMotivo||'';
+  recalcEditTotal();
   // Populate ev-pago with current payment methods
   const evPagoSel=document.getElementById('ev-pago');
   if(evPagoSel&&_metodosPago.length){
@@ -6989,7 +7021,22 @@ function renderEditItems(){
   editTotal=editItems.reduce((a,it)=>a+it.precio*it.cant,0);
   document.getElementById('ev-total').textContent=fmt(editTotal);
 }
-window.addEditItem=function(){const val=document.getElementById('ev-prod').value;if(!val||!val.includes('|'))return;const[,,nom,pr]=val.split('|');const cant=parseInt(document.getElementById('ev-cant').value)||1;editItems.push({nom,precio:parseInt(pr),cant});renderEditItems();};
+window.addEditItem=function(){const val=document.getElementById('ev-prod').value;if(!val||!val.includes('|'))return;const[,,nom,pr]=val.split('|');const cant=parseInt(document.getElementById('ev-cant').value)||1;editItems.push({nom,precio:parseInt(pr),cant});renderEditItems();recalcEditTotal();};
+
+window.recalcEditTotal=function(){
+  const pct=parseFloat(document.getElementById('ev-desc-pct')?.value)||0;
+  const subtotal=editItems.reduce((a,i)=>a+(i.precio*(i.cant||1)),0);
+  const desc=pct>0?Math.round(subtotal*pct/100):0;
+  editTotal=subtotal-desc;
+  const tot=document.getElementById('ev-total');
+  if(tot){
+    if(desc>0){
+      tot.innerHTML=`<span style="font-size:12px;color:#888;text-decoration:line-through">$${Math.round(subtotal).toLocaleString('es-AR')}</span> <span style="color:var(--danger);font-size:12px">-$${Math.round(desc).toLocaleString('es-AR')}</span> <strong>$${Math.round(editTotal).toLocaleString('es-AR')}</strong>`;
+    } else {
+      tot.textContent='$'+Math.round(editTotal).toLocaleString('es-AR');
+    }
+  }
+};
 window.rmEditItem=function(i){editItems.splice(i,1);renderEditItems();};
 window.saveEditVenta=async function(){
   if(!editVentaId)return;setBtn('ev-save-btn',true,'Guardar cambios');setSyncDot('syncing');
@@ -7009,7 +7056,12 @@ window.saveEditVenta=async function(){
       else{if(newInv[it.nom]){newInv[it.nom]={...newInv[it.nom],stock:Math.max(0,(newInv[it.nom].stock||0)-parseFloat(it.cant))};changed=true;}}
     }
     if(changed)await setDoc(doc(db,'inventario',STORE),newInv);
-    await updateDoc(doc(db,'users',STORE,'ventas',editVentaId),{cliente:document.getElementById('ev-cli').value,canal:document.getElementById('ev-canal').value,pago:document.getElementById('ev-pago').value,obs:document.getElementById('ev-obs').value,items:editItems,total:editTotal,subtotal:editTotal});
+    const evDescPct=parseFloat(document.getElementById('ev-desc-pct')?.value)||0;
+    const evDescMot=document.getElementById('ev-desc-mot')?.value||'';
+    const evSubtotal=editItems.reduce((a,i)=>a+(i.precio*(i.cant||1)),0);
+    const evDescMonto=evDescPct>0?Math.round(evSubtotal*evDescPct/100):0;
+    const evTotal=evSubtotal-evDescMonto;
+    await updateDoc(doc(db,'users',STORE,'ventas',editVentaId),{cliente:document.getElementById('ev-cli').value,canal:document.getElementById('ev-canal').value,pago:document.getElementById('ev-pago').value,obs:document.getElementById('ev-obs').value,items:editItems,total:evTotal,subtotal:evSubtotal,descuentoPct:evDescPct,descuentoMotivo:evDescMot,descuentoMonto:evDescMonto});
     cancelEdit();toast('Venta actualizada');
   }catch(e){alert('Error: '+e.message);}
   setBtn('ev-save-btn',false,'Guardar cambios');
@@ -9234,6 +9286,32 @@ ${topClientes.length?`<div class="card">
   </div>
 </div>
 
+<div class="card">
+  <h3 style="margin-bottom:12px">🔧 Producción</h3>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+      <input type="checkbox" id="ficha-requiere-elab" ${prod.requiereElaboracion?'checked':''} data-action="toggle-ficha-elaboracion"/>
+      Requiere elaboración
+    </label>
+  </div>
+  <div id="ficha-elab-config" style="display:${prod.requiereElaboracion?'block':'none'}">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:11px;color:#888;margin-bottom:3px">Cantidad a elaborar al llegar a alerta</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="number" id="ficha-cant-elaborar" value="${prod.cantidadElaborar||1}" min="0.01" step="0.01" style="width:100px;padding:6px 10px;border-radius:8px;border:2px solid var(--primary);font-size:14px;font-weight:700"/>
+          <span style="font-size:13px;color:#888">${uni}</span>
+          <button class="btn-save" id="btn-save-cant-elaborar">Guardar</button>
+        </div>
+      </div>
+      <div style="background:var(--bg);border-radius:8px;padding:10px;font-size:12px;color:#888">
+        Alerta actual: <strong>${_inv[nom]?.alerta||5} ${uni}</strong><br>
+        Cuando el stock llegue a ese valor, se generará automáticamente una OT de <strong>${prod.cantidadElaborar||1} ${uni}</strong>.
+      </div>
+    </div>
+  </div>
+</div>
+
 ${histPrecios.length?`<div class="card">
   <h3>💲 Historial de precios de venta</h3>
   <table><thead><tr><th>Fecha</th><th>Precio anterior</th><th>Precio nuevo</th><th>Modificado por</th></tr></thead><tbody>
@@ -9256,6 +9334,17 @@ let _editDocId=null;
 
 // ── TRAMOS EDITING ─────────────────────────────────────────────────────
 var _tramosData=${JSON.stringify(prod.tramos||[])};
+
+// Handle elaboracion toggle in ficha
+document.addEventListener('change',function(e){
+  if(e.target.id==='ficha-requiere-elab'){
+    const w=document.getElementById('ficha-elab-config');
+    if(w)w.style.display=e.target.checked?'block':'none';
+    if(window.opener&&!window.opener.closed){
+      window.opener.guardarRequiereElaboracion(''+id+'',e.target.checked);
+    }
+  }
+});
 
 function toggleEditTramos(){
   const view=document.getElementById('tramos-view');
@@ -9442,6 +9531,12 @@ document.addEventListener('DOMContentLoaded',function(){
     if(btn.id==='btn-cancel-tramos'){
       e.preventDefault();
       toggleEditTramos();
+      return;
+    }
+    if(btn.id==='btn-save-cant-elaborar'){
+      e.preventDefault();
+      const cant=parseFloat(document.getElementById('ficha-cant-elaborar')?.value)||1;
+      if(window.opener&&!window.opener.closed){window.opener.guardarCantElaborar('${id}',cant);btn.textContent='✓ Guardado';setTimeout(()=>btn.textContent='Guardar',1500);}
       return;
     }
     if(btn.dataset.action==='del-tramo'){
@@ -11413,6 +11508,10 @@ async function gdRun(action){
         <div style="flex:2"><label>Producto</label><select id="ev-prod"></select></div>
         <div style="width:80px"><label>Cant.</label><input type="number" id="ev-cant" value="1" min="1" step="0.01"/></div>
         <button class="btn bs bsm" onclick="addEditItem()">+ Agregar</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-end">
+        <div style="width:90px"><label style="font-size:12px">Desc. %</label><input type="number" id="ev-desc-pct" placeholder="0" min="0" max="100" oninput="recalcEditTotal()" style="font-size:12px"/></div>
+        <div style="flex:1"><label style="font-size:12px">Motivo</label><input type="text" id="ev-desc-mot" placeholder="Ej: cliente especial" oninput="recalcEditTotal()" style="font-size:12px"/></div>
       </div>
       <div id="ev-items" style="margin-bottom:10px"></div>
       <div style="font-weight:700;font-size:16px;margin-bottom:14px">Total: <span id="ev-total">$0</span></div>
