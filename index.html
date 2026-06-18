@@ -516,7 +516,7 @@ tr:hover td{background:#fafaf8}
           </div>
           <div class="row" style="margin-top:14px">
             <button class="btn bp" style="flex:1" id="v-btn" onclick="confirmar()">Confirmar venta</button>
-            <button class="btn bs" onclick="limpiar()">Limpiar</button>
+            <button class="btn bs" onclick="limpiar()" title="Borra cliente, productos y descuentos">🗑 Borrar todo</button>
           </div>
         </div>
       </div>
@@ -3529,7 +3529,6 @@ window.addItem=function(){
   const val=document.getElementById('v-prod').value;if(!val||val==='')return;
   // Clear search input after adding
   const si=document.getElementById('v-prod-search');if(si)si.value='';
-  const vpReset=document.getElementById('v-pago');if(vpReset)vpReset.value='';
   document.getElementById('v-prod').value='';
   const parts=val.split('|');const[type,refId,nom,pr]=parts;const unidad=parts[4]||'unidad';
   const cant=parseDecimal(document.getElementById('v-cant').value)||1;
@@ -3908,6 +3907,17 @@ window.quitarCupon=function(){
   renderTotales();
 };
 
+
+window.desactivarAjustePagoTemp=function(){
+  // Temporarily zero out the payment method adjustment for this sale only
+  const pago=document.getElementById('v-pago')?.value;
+  if(!pago)return;
+  // Store temporarily disabled methods
+  if(!window._ajustesPausados)window._ajustesPausados=new Set();
+  window._ajustesPausados.add(pago);
+  renderTotales();
+  toast('Descuento de '+pago+' desactivado para esta venta');
+};
 window.renderTotales=function renderTotales(){
   const el=document.getElementById('v-totales');
   if(!el)return;
@@ -3930,14 +3940,15 @@ window.renderTotales=function renderTotales(){
   // Only round for exact "Efectivo" match (case-insensitive), not for Posnet, Transferencia, etc.
   // Apply payment method adjustment (skip if manual discount is active)
   const metodoPago=(_metodosPago||[]).find(m=>m.nombre===pagoSel);
-  const ajustePct=(_descManual?.pct>0)?0:(metodoPago?.ajuste||0);
+  const _pausado=window._ajustesPausados?.has(pagoSel);
+  const ajustePct=(_descManual?.pct>0||_pausado)?0:(metodoPago?.ajuste||0);
   let finalConAjuste=final;
   if(ajustePct!==0&&final>0){
     const ajusteMonto=Math.round(final*ajustePct/100);
     finalConAjuste=final+ajusteMonto;
     const ajusteColor=ajustePct<0?'var(--success)':'var(--danger)';
     const ajusteLabel=ajustePct<0?`Descuento ${pagoSel} ${ajustePct}%`:`Recargo ${pagoSel} +${ajustePct}%`;
-    html+=`<div style="display:flex;justify-content:space-between;font-size:12px;color:${ajusteColor};margin-top:2px"><span>${ajusteLabel}</span><span>${ajustePct<0?'-':'+'}${fmt(Math.abs(ajusteMonto))}</span></div>`;
+    html+=`<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:${ajusteColor};margin-top:2px"><span>${ajusteLabel}</span><div style="display:flex;align-items:center;gap:6px"><span>${ajustePct<0?'-':'+'}${fmt(Math.abs(ajusteMonto))}</span><button onclick="desactivarAjustePagoTemp()" style="background:none;border:none;color:${ajusteColor};cursor:pointer;font-size:13px;padding:0;line-height:1" title="Quitar este descuento para esta venta">✕</button></div></div>`;
     html+=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:16px;margin-top:4px"><span>Total</span><span>${fmt(finalConAjuste)}</span></div>`;
   }
   // Rounding only for Efectivo, AFTER all adjustments
@@ -4010,15 +4021,25 @@ window.eliminarPresupuesto=async function(id){
 
 window.limpiar=function(){
   items=[];itemTotal=0;ventaDescuento=null;selectedClienteId=null;
+  _descManual={pct:0,motivo:''};_acumDesc=false;_cuponAplicado=null;
   ['v-cli','v-dir','v-teli','v-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const ds=document.getElementById('v-desc');if(ds){ds.value='';ds.disabled=false;}
   const db2=document.getElementById('v-desc-box');if(db2)db2.style.display='none';
-  _cuponAplicado=null;
+  const dmp=document.getElementById('v-desc-manual-pct');if(dmp)dmp.value='';
+  const dmm=document.getElementById('v-desc-manual-mot');if(dmm)dmm.value='';
+  const dat=document.getElementById('v-acum-toggle');if(dat)dat.checked=false;
   const cuponInput=document.getElementById('v-cupon');if(cuponInput)cuponInput.value='';
   const cuponMsg=document.getElementById('v-cupon-msg');if(cuponMsg)cuponMsg.style.display='none';
   const okBox=document.getElementById('v-cli-ok');if(okBox)okBox.style.display='none';
   const notFound=document.getElementById('v-cli-notfound');if(notFound)notFound.style.display='none';
-  const cliInput=document.getElementById('v-cli');if(cliInput)cliInput.style.display='block';
+  const cliInput=document.getElementById('v-cli');if(cliInput){cliInput.style.display='block';cliInput.value='';}
+  const sinCli=document.getElementById('v-sin-cliente');if(sinCli)sinCli.checked=false;
+  const sinCliInd=document.getElementById('v-sin-cli-ind');if(sinCliInd)sinCliInd.remove();
+  window._ventaSinCliente=false;
+  const ccInd=document.getElementById('v-cc-indicator');if(ccInd)ccInd.style.display='none';
+  // Reset pago to empty (keeps placeholder)
+  const vp=document.getElementById('v-pago');if(vp)vp.value='';
+  window._ajustesPausados=new Set();
   hideQuickReg();
   renderItems();
 };
@@ -4211,7 +4232,8 @@ window.confirmar=async function(){
     // Check fidelización
     const cliSel=_clientes.find(x=>x.id===selectedClienteId);
     if(cliSel)await checkFidelizacion(cliSel.usuario||selectedClienteId,cliSel.nombre,finalTotal);
-    limpiar();toast('Venta registrada');
+    limpiar();
+    toast('Venta registrada');
     logAuditoria('confirmó','venta','Venta presencial · $'+finalTotal,'','$'+finalTotal);
   }catch(e){alert('Error: '+e.message);}
   setBtn('v-btn',false,'Confirmar venta');
