@@ -1297,15 +1297,6 @@ tr:hover td{background:#fafaf8}
 
       <!-- NEGOCIO -->
       <div id="cfg-negocio">
-        <div class="card" style="margin-bottom:16px">
-          <h3 style="margin-top:4px">🏢 Locales</h3>
-          <div style="font-size:12px;color:#888;margin-bottom:8px">Gestioná las sucursales del negocio. Cada local tiene su propio stock, ventas y caja chica.</div>
-          <div id="cfg-locales-lista" style="margin-bottom:10px"></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <input type="text" id="cfg-local-nombre" placeholder="Ej: Morón - Mitre 481" style="flex:1;min-width:160px"/>
-            <button class="btn bp bsm" onclick="addLocalDesdeConfig()">+ Agregar local</button>
-          </div>
-        </div>
         <div class="g2">
           <div class="card">
             <h3>Datos del negocio</h3>
@@ -1475,7 +1466,15 @@ tr:hover td{background:#fafaf8}
         <!-- Categories + Payment methods row -->
         <div class="g2" style="margin-top:0">
           <div class="card">
-            <h3 style="margin-top:4px">Tipos de cliente</h3>
+            <h3 style="margin-top:4px">🏢 Locales</h3>
+          <div style="font-size:12px;color:#888;margin-bottom:8px">Gestioná las sucursales del negocio. Cada local tiene su propio stock, ventas y caja chica.</div>
+          <div id="cfg-locales-lista" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input type="text" id="cfg-local-nombre" placeholder="Ej: Morón - Mitre 481" style="flex:1;min-width:160px"/>
+            <button class="btn bp bsm" onclick="addLocalDesdeConfig()">+ Agregar local</button>
+          </div>
+          <hr style="margin:14px 0 8px"/>
+          <h3 style="margin-top:4px">Tipos de cliente</h3>
           <div style="font-size:12px;color:#888;margin-bottom:8px">Configurá tipos con descuento automático y cuenta corriente.</div>
           <div id="cfg-tipos-cliente-lista" style="margin-bottom:10px"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -2360,12 +2359,12 @@ let _locales=[];          // [{id,nombre,direccion}]
 
 function LCOL(name){
   return ACTIVE_LOCALE
-    ? collection(db,'users',STORE,'locales',ACTIVE_LOCALE,name)
+    ? collection(db,'users',STORE,'loc_'+ACTIVE_LOCALE,name)
     : collection(db,'users',STORE,name);
 }
 function LDOC(name,id){
   return ACTIVE_LOCALE
-    ? doc(db,'users',STORE,'locales',ACTIVE_LOCALE,name,id)
+    ? doc(db,'users',STORE,'loc_'+ACTIVE_LOCALE,name,id)
     : doc(db,'users',STORE,name,id);
 }
 function INV_ID(){
@@ -2376,50 +2375,6 @@ function nombreLocal(id){
   return l?l.nombre:(id||'General');
 }
 
-// ── MIGRACIÓN: copia los datos "sueltos" (sin local) a un local específico ──
-async function migrarColeccion(nombreColeccion,localeId){
-  const snap=await getDocs(collection(db,'users',STORE,nombreColeccion));
-  const docs=snap.docs;
-  for(let i=0;i<docs.length;i+=400){
-    const chunk=docs.slice(i,i+400);
-    const batch=writeBatch(db);
-    chunk.forEach(d=>{
-      batch.set(doc(db,'users',STORE,'locales',localeId,nombreColeccion,d.id),d.data());
-    });
-    await batch.commit();
-  }
-  return docs.length;
-}
-
-window.migrarDatosALocal=async function(localeId){
-  toast('Migrando datos a '+nombreLocal(localeId)+'... no cierres esta pantalla');
-  try{
-    const nV=await migrarColeccion('ventas',localeId);
-    const nC=await migrarColeccion('clientes',localeId);
-    const nCC=await migrarColeccion('caja-chica',localeId);
-    const nCI=await migrarColeccion('cierres',localeId);
-    const nOT=await migrarColeccion('ordenes-trabajo',localeId);
-    // Inventario (doc único, no es colección)
-    let nInv=0;
-    try{
-      const invSnap=await getDoc(doc(db,'inventario',STORE));
-      if(invSnap.exists()){
-        await setDoc(doc(db,'inventario',STORE+'_loc_'+localeId),invSnap.data());
-        nInv=Object.keys(invSnap.data()).length;
-      }
-    }catch(e){}
-    toast('✅ Migración completa');
-    alert('Migración completada a "'+nombreLocal(localeId)+'":\n\n'+
-      '• Ventas: '+nV+'\n'+
-      '• Clientes: '+nC+'\n'+
-      '• Movimientos de caja chica: '+nCC+'\n'+
-      '• Cierres: '+nCI+'\n'+
-      '• Órdenes de trabajo: '+nOT+'\n'+
-      '• Productos con stock: '+nInv+'\n\n'+
-      'Los datos originales no se borraron (quedan como respaldo). Seleccioná "'+nombreLocal(localeId)+'" en el menú para verlos.');
-  }catch(e){alert('Error durante la migración: '+e.message);}
-};
-
 function renderLocaleSelector(){
   const sel=document.getElementById('locale-selector');
   if(!sel)return;
@@ -2428,7 +2383,10 @@ function renderLocaleSelector(){
     sel.style.display='none';
     return;
   }
-  // Admin siempre ve el selector, aunque no haya locales creados todavía
+  if(!_locales.length){
+    sel.style.display='none';
+    return;
+  }
   sel.style.display='inline-block';
   const cur=ACTIVE_LOCALE||'';
   sel.innerHTML='<option value="">🏢 Todos los locales</option>'+
@@ -2440,7 +2398,6 @@ window.cambiarLocal=async function(val){
   if(val==='__nuevo__'){
     const nombre=prompt('Nombre del nuevo local (ej: Morón - Mitre 481):');
     if(!nombre||!nombre.trim()){renderLocaleSelector();return;}
-    const esElPrimero=_locales.length===0;
     const id='loc'+Date.now();
     const nuevoLocal={id,nombre:nombre.trim()};
     const nuevos=[..._locales,nuevoLocal];
@@ -2449,9 +2406,6 @@ window.cambiarLocal=async function(val){
       await setDoc(doc(db,'config',STORE),{...(ex.exists()?ex.data():{}),locales:nuevos});
       _locales=nuevos;
       toast('Local "'+nombre.trim()+'" creado');
-      if(esElPrimero&&confirm('¿Migrar todos los datos actuales (ventas, clientes, caja chica, cierres, órdenes de trabajo y stock) al local "'+nombre.trim()+'"?')){
-        await migrarDatosALocal(id);
-      }
       await aplicarCambioLocal(id);
     }catch(e){alert('Error al crear local: '+e.message);}
     return;
@@ -2469,8 +2423,14 @@ async function aplicarCambioLocal(localeId){
   _ventas=[];_clientes=[];_cajaChica=[];_inv={};
   startListeners();
   toast(ACTIVE_LOCALE?('Viendo: '+nombreLocal(ACTIVE_LOCALE)):'Viendo: Todos los locales');
-  // Rebuild nav (cambia el set de solapas visibles según haya o no local elegido)
-  buildNav(USER_ROLE);
+  // Refresh whatever section is active
+  setTimeout(()=>{
+    const activeSec=document.querySelector('.sec.active');
+    if(activeSec){
+      const id=activeSec.id.replace('sec-','');
+      if(typeof switchTab==='function')switchTab(id);
+    }
+  },300);
 }
 let _gastos=[];
 let _cfgNegocio={};
@@ -2535,14 +2495,11 @@ function statusClass(s){
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
 const ADMIN_TABS=[['dashboard','Panel'],['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['ventas-dia','Ventas'],['caja','Caja'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['gastos','💰 Gastos'],['configuracion','⚙ Configuración']];
-const ADMIN_TABS_GLOBAL=[['dashboard','Panel'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['gastos','💰 Gastos'],['configuracion','⚙ Configuración']];
 const VEND_TABS=[['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['caja','Caja'],['calendario','📅 Calendario']];
 const PROD_TABS=[['produccion-inv','Inventario'],['produccion-ordenes','Elaborar']];
 
 function buildNav(role){
-  const tabs=role==='admin'
-    ?(!ACTIVE_LOCALE&&_locales.length>0?ADMIN_TABS_GLOBAL:ADMIN_TABS)
-    :role==='produccion'?PROD_TABS:VEND_TABS;
+  const tabs=role==='admin'?ADMIN_TABS:role==='produccion'?PROD_TABS:VEND_TABS;
   document.getElementById('nav').innerHTML=tabs.map(([id,label],i)=>{
     if(id==='pedidos-online'){
       return`<button ${i===0?'class="active"':''} onclick="showSec('${id}',this)" id="nav-btn-${id}">${label}<span class="notif-badge" id="nb-${id}" style="background:var(--danger)"></span><span class="notif-badge" id="nb-pedidos-curso" style="background:var(--warn);right:auto;left:-5px"></span><span class="notif-badge" id="nb-pedidos-camino" style="background:var(--success);right:auto;left:8px"></span></button>`;
@@ -2561,7 +2518,7 @@ window.showSec=function(id,btn){
   // ── MULTI-LOCAL: bloquear pestañas operativas si admin no eligió un local ──
   const OPERATIVAS=['ventas','caja','inventario','produccion-inv','produccion-ordenes'];
   let bloqueoDiv=document.getElementById('locale-required-block');
-  if(USER_ROLE==='admin'&&!ACTIVE_LOCALE&&_locales.length>0&&OPERATIVAS.includes(id)){
+  if(USER_ROLE==='admin'&&!ACTIVE_LOCALE&&OPERATIVAS.includes(id)){
     btn.classList.add('active');
     if(!bloqueoDiv){
       bloqueoDiv=document.createElement('div');
@@ -6023,7 +5980,7 @@ window.switchCfgTab=function(tab,btn){
   if(tab==='gastos')renderGastos();
   if(tab==='pedidos'){renderFranjas();renderCfgPedidosActual();renderCfgCategorias();renderCfgPagos();}
   if(tab==='fidelizacion'){renderDescuentos();renderDescuentosAuto();renderCfgMensajesFid();renderCfgAvanzado();loadCuponesAdmin();renderCfgNiveles();}
-  if(tab==='negocio'){renderCfgNegocioActual();renderCfgLocales();setTimeout(renderQR,300);}
+  if(tab==='negocio'){renderCfgNegocioActual();setTimeout(renderQR,300);}
 };
 
 window.saveCfgNegocio=async function(){
@@ -6401,12 +6358,11 @@ function renderTiposClienteSel(elId,selectedId){
 function renderCfgLocales(){
   const el=document.getElementById('cfg-locales-lista');if(!el)return;
   if(!_locales.length){el.innerHTML='<div class="empty" style="font-size:12px">Sin locales creados. El negocio opera como uno solo.</div>';return;}
-  el.innerHTML=_locales.map((l,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bg);border-radius:8px;margin-bottom:4px;font-size:13px"><span>📍 <strong>${l.nombre}</strong></span><div style="display:flex;gap:6px"><button class="btn bs bsm" onclick="if(confirm('¿Copiar todos los datos sueltos (ventas, clientes, caja chica, cierres, OTs, stock) a '+'${l.nombre}'+'?'))migrarDatosALocal('${l.id}')" title="Copiar datos actuales sin local a este local">📦 Migrar datos</button><button class="btn bd bsm" onclick="deleteLocalDesdeConfig(${i})">Eliminar</button></div></div>`).join('');
+  el.innerHTML=_locales.map((l,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bg);border-radius:8px;margin-bottom:4px;font-size:13px"><span>📍 <strong>${l.nombre}</strong></span><button class="btn bd bsm" onclick="deleteLocalDesdeConfig(${i})">Eliminar</button></div>`).join('');
 }
 window.addLocalDesdeConfig=async function(){
   const nom=document.getElementById('cfg-local-nombre')?.value.trim();
   if(!nom){alert('Ingresá un nombre');return;}
-  const esElPrimero=_locales.length===0;
   const nuevo={id:'loc'+Date.now(),nombre:nom};
   const nuevos=[..._locales,nuevo];
   try{
@@ -6415,9 +6371,6 @@ window.addLocalDesdeConfig=async function(){
     _locales=nuevos;renderCfgLocales();renderLocaleSelector();
     document.getElementById('cfg-local-nombre').value='';
     toast('Local "'+nom+'" creado');
-    if(esElPrimero&&confirm('¿Migrar todos los datos actuales (ventas, clientes, caja chica, cierres, órdenes de trabajo y stock) al local "'+nom+'"?')){
-      await migrarDatosALocal(nuevo.id);
-    }
   }catch(e){alert('Error: '+e.message);}
 };
 window.deleteLocalDesdeConfig=async function(idx){
@@ -9436,7 +9389,7 @@ async function generarInformeGeneral(desde,hasta){
   el.innerHTML='<div style="text-align:center;padding:20px;color:#888">⏳ Calculando informe de todos los locales...</div>';
 
   // Helper to query a SPECIFIC locale's collection regardless of ACTIVE_LOCALE
-  const collLoc=(localeId,name)=>collection(db,'users',STORE,'locales',localeId,name);
+  const collLoc=(localeId,name)=>collection(db,'users',STORE,'loc_'+localeId,name);
 
   // Fetch global (no-locale) expenses once
   let pagosProvAll=[],pagosEmpAll=[],gastosEmpAll=[],cajaGrandeAll=[];
