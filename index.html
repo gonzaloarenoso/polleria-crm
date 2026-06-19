@@ -669,9 +669,10 @@ tr:hover td{background:#fafaf8}
             <label>Fecha de vencimiento del lote actual (opcional)</label>
             <input type="date" id="p-vencimiento"/>
             <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="p-requiere-elab" onchange="document.getElementById('p-cant-elab-wrap').style.display=this.checked?'flex':'none'"/> Requiere elaboración</label>
-              <div id="p-cant-elab-wrap" style="display:none;align-items:center;gap:6px">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="p-requiere-elab" onchange="toggleNuevoProdElaboracion(this)"/> Requiere elaboración</label>
+              <div id="p-cant-elab-wrap" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;width:100%">
                 <input type="number" id="p-cant-elaborar" placeholder="Cant. a elaborar" min="0.01" step="0.01" style="width:130px"/>
+                <textarea id="p-receta" placeholder="Receta: ingredientes, cantidades y pasos..." style="width:100%;min-height:70px;margin-top:6px;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:13px"></textarea>
                 <span style="font-size:12px;color:#888">unid. por OT</span>
               </div>
             </div>
@@ -880,7 +881,11 @@ tr:hover td{background:#fafaf8}
           <div class="mc"><div class="mc-l">Efectivo</div><div class="mc-v" id="cj-ef">$0</div></div>
           <div class="mc"><div class="mc-l">Transferencia</div><div class="mc-v" id="cj-tr">$0</div></div>
           <div class="mc"><div class="mc-l">Tarjeta</div><div class="mc-v" id="cj-ta">$0</div></div>
-          <div class="mc"><div class="mc-l">Total del día</div><div class="mc-v" id="cj-tot" style="color:var(--success)">$0</div></div>
+          <div class="mc"><div class="mc-l">Total cobrado</div><div class="mc-v" id="cj-tot" style="color:var(--success)">$0</div></div>
+        </div>
+        <div class="mc" id="cj-cc-wrap" style="margin-bottom:10px;text-align:left;padding:10px 16px;background:rgba(55,138,221,0.08);display:none">
+          <span style="font-size:12px;color:#378ADD">💳 Ventas a cuenta corriente (pendiente de cobro): </span>
+          <span id="cj-cc" style="font-weight:700;color:#378ADD">$0</span>
         </div>
         <div class="mc" style="margin-bottom:16px;text-align:left;padding:10px 16px">
           <span style="font-size:12px;color:#888">Descuentos aplicados hoy: </span>
@@ -2942,12 +2947,16 @@ function startListeners(){
     _inv=snap.exists()?snap.data():{};
     renderDash();
     if(document.getElementById('sec-inventario')?.classList.contains('active'))renderInv();
+    if(document.getElementById('sec-produccion-inv')?.classList.contains('active'))renderProdInv();
+    if(document.getElementById('sec-produccion-ordenes')?.classList.contains('active'))renderOrdenesProduccion();
     setSyncDot('ok');
   }));
   _unsubs.push(onSnapshot(doc(db,'productos',STORE),snap=>{
     _productos=snap.exists()?(snap.data().lista||[]):[];
     renderProdSelect();renderEditProdSelect();renderStockSel();renderPromoSel();
     if(document.getElementById('sec-inventario')?.classList.contains('active'))renderProductos();
+    if(document.getElementById('sec-produccion-inv')?.classList.contains('active'))renderProdInv();
+    if(document.getElementById('sec-produccion-ordenes')?.classList.contains('active'))renderOrdenesProduccion();
     setSyncDot('ok');
   }));
   _unsubs.push(onSnapshot(doc(db,'promociones',STORE),snap=>{
@@ -3379,6 +3388,13 @@ window.toggleVentaSinCliente=function(checked){
     const dmm=document.getElementById('v-desc-manual-mot');if(dmm)dmm.value='';
     const dat=document.getElementById('v-acum-toggle');if(dat)dat.checked=false;
     _descManual={pct:0,motivo:''};_acumDesc=false;
+    // Remove CC option since Mostrador has no cuenta corriente
+    const ccInd=document.getElementById('v-cc-indicator');if(ccInd)ccInd.style.display='none';
+    const vp=document.getElementById('v-pago');
+    if(vp){
+      const ccOpt=Array.from(vp.options).find(o=>o.value==='Cuenta corriente');
+      if(ccOpt){if(vp.value==='Cuenta corriente')vp.value='';ccOpt.remove();}
+    }
     renderTotales();
   } else {
     selectedClienteId=null;window._selectedClienteUsuario=null;window._ventaSinCliente=false;
@@ -3548,17 +3564,27 @@ window.selectCli=function(id){
   const ccInd=document.getElementById('v-cc-indicator');
   if(ccInd){
     const hasCC=c.cuentaCorriente||tipoC?.cuentaCorriente;
+    const vp=document.getElementById('v-pago');
     if(hasCC){
       ccInd.style.display='block';
       ccInd.innerHTML='<span style="background:rgba(55,138,221,0.12);color:#378ADD;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600">💳 '+c.nombre+' — Cuenta corriente habilitada</span>';
-      const vp=document.getElementById('v-pago');
       if(vp&&!Array.from(vp.options).some(o=>o.value==='Cuenta corriente')){
         const opt=document.createElement('option');opt.value='Cuenta corriente';opt.textContent='Cuenta corriente';vp.appendChild(opt);
       }
       mostrarSaldoCC(id).then(saldo=>{
         if(saldo>0&&ccInd)ccInd.innerHTML+='<span style="margin-left:8px;color:var(--danger);font-size:12px"> · Saldo: $'+Math.round(saldo).toLocaleString("es-AR")+'</span>';
       });
-    } else { ccInd.style.display='none'; }
+    } else {
+      ccInd.style.display='none';
+      // Remove "Cuenta corriente" option if present
+      if(vp){
+        const ccOpt=Array.from(vp.options).find(o=>o.value==='Cuenta corriente');
+        if(ccOpt){
+          if(vp.value==='Cuenta corriente')vp.value='';
+          ccOpt.remove();
+        }
+      }
+    }
   }
   if(descToApply>0){
     ventaDescuento={motivo:'Descuento cliente ('+c.nombre+')',porcentaje:descToApply,fijo:true};
@@ -5219,6 +5245,11 @@ function parseDecimal(val){
   return isNaN(n)?0:n;
 }
 
+window.toggleNuevoProdElaboracion=function(chk){
+  const wrap=document.getElementById('p-cant-elab-wrap');
+  if(wrap)wrap.style.display=chk.checked?'flex':'none';
+};
+
 window.addProducto=async function(){
   // Populate category selector dynamically
   const catSel=document.getElementById('p-categoria');
@@ -5235,7 +5266,9 @@ window.addProducto=async function(){
     const codigo=(document.getElementById('p-codigo')?.value||'').trim();
     const requiereElaboracion=document.getElementById('p-requiere-elab')?.checked||false;
     const cantidadElaborar=parseFloat(document.getElementById('p-cant-elaborar')?.value)||1;
-    const newList=[..._productos,{id:'p'+Date.now(),nombre:nom,precio:0,unidad,categoria,proveedor,vencimiento,tramos,codigo,requiereElaboracion,cantidadElaborar}];
+    const receta=document.getElementById('p-receta')?.value.trim()||'';
+    if(requiereElaboracion&&!receta){alert('Para marcar "Requiere elaboración" necesitás ingresar la receta.');return;}
+    const newList=[..._productos,{id:'p'+Date.now(),nombre:nom,precio:0,unidad,categoria,proveedor,vencimiento,tramos,codigo,requiereElaboracion,cantidadElaborar,receta}];
     await setDoc(doc(db,'productos',STORE),{lista:newList});
     const newInv={..._inv,[nom]:{stock:0,alerta}};
     await setDoc(doc(db,'inventario',STORE),newInv);
@@ -5244,6 +5277,7 @@ window.addProducto=async function(){
     const pe=document.getElementById('p-requiere-elab');if(pe)pe.checked=false;
     const pcew=document.getElementById('p-cant-elab-wrap');if(pcew)pcew.style.display='none';
     const pce=document.getElementById('p-cant-elaborar');if(pce)pce.value='';
+    const pr=document.getElementById('p-receta');if(pr)pr.value='';
     toast('Producto agregado');
     logAuditoria('agregó','producto','Producto: '+nom,'','');
   }catch(e){alert('Error: '+e.message);}
@@ -6254,17 +6288,25 @@ window.verCuentaCorriente=async function(clienteId,clienteNombre){
     <div style="margin-top:16px;padding:12px;background:#f5f4f0;border-radius:8px"><strong>Registrar pago:</strong>
     <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
       <input type="number" id="pm" placeholder="Monto $" style="flex:1;min-width:90px;padding:6px;border:1px solid #ccc;border-radius:6px"/>
+      <select id="pmedio" style="flex:1;min-width:120px;padding:6px;border:1px solid #ccc;border-radius:6px">
+        <option value="efectivo">💵 Efectivo (a caja chica)</option>
+        <option value="caja-grande">🏦 Transferencia/Otro (a caja grande)</option>
+        <option value="descuento-sueldo">💼 Descuento de sueldo (no afecta caja)</option>
+      </select>
       <input type="text" id="pc" placeholder="Concepto (ej: descuento sueldo)" style="flex:2;min-width:140px;padding:6px;border:1px solid #ccc;border-radius:6px"/>
       <button id="bpr" style="background:#1D9E75;color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-weight:600">Registrar</button>
-    </div></div>
+    </div>
+    <div style="font-size:11px;color:#888;margin-top:6px">Elegí cómo te lo pagó para que se refleje correctamente en la caja del día.</div>
+    </div>
     <script>
     document.getElementById('bpr').addEventListener('click',function(){
       var m=parseFloat(document.getElementById('pm').value)||0;
       var con=document.getElementById('pc').value||'Pago';
+      var medio=document.getElementById('pmedio').value;
       if(!m){alert('Ingresá un monto');return;}
       this.textContent='Guardando...';this.disabled=true;
       var btn=this;
-      var cmd={type:'cc-pago',clienteId:'${cid}',clienteNombre:'${cnom}',monto:m,concepto:con,ts:Date.now()};
+      var cmd={type:'cc-pago',clienteId:'${cid}',clienteNombre:'${cnom}',monto:m,concepto:con,medio:medio,ts:Date.now()};
       localStorage.setItem('crm-cc-pago',JSON.stringify(cmd));
       setTimeout(function(){localStorage.removeItem('crm-cc-pago');window.location.reload();},1800);
     });
@@ -6686,6 +6728,14 @@ window.guardarCodigoProducto=async function(id,codigo){
 };
 
 
+window.guardarRecetaProducto=async function(prodId,receta){
+  const nuevos=_productos.map(p=>p.id===prodId?{...p,receta}:p);
+  try{
+    await setDoc(doc(db,'productos',STORE),{lista:nuevos});
+    toast('Receta guardada');
+  }catch(e){alert('Error: '+e.message);}
+};
+
 window.guardarCantElaborar=async function(prodId,cant){
   const nuevos=_productos.map(p=>p.id===prodId?{...p,cantidadElaborar:cant}:p);
   try{
@@ -6807,6 +6857,7 @@ window.renderOrdenesProduccion=async function(){
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
             <span style="background:var(--primary);color:#fff;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700">OT #${o.numero}</span>
             <span style="font-size:15px;font-weight:700">${o.productoNombre}</span>
+            ${prod?.receta?`<button onclick="verRecetaOT('${(prod.receta||'').replace(/'/g,"\\'").replace(/\n/g,'\\n')}','${o.productoNombre.replace(/'/g,"\\'")}')" style="background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;color:var(--text)">📖 Receta</button>`:''}
           </div>
           <div style="font-size:12px;color:#888">Stock actual: <strong style="color:var(--danger)">${stockActual} ${o.unidad}</strong> · Alerta: ${alertaActual} ${o.unidad}</div>
           <div style="font-size:13px;margin-top:6px">Elaborar: <strong style="color:var(--primary)">${cantPedida} ${o.unidad}</strong></div>
@@ -6819,8 +6870,29 @@ window.renderOrdenesProduccion=async function(){
           <button onclick="confirmarOrden('${o.id}','${o.productoNombre}','${o.unidad}',${o.numero})" style="background:var(--success);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:700;font-size:13px">✓ Confirmar elaboración</button>
         </div>
       </div>
+      <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+        <div style="font-size:11px;color:#888;margin-bottom:4px">💬 Comentarios (turno anterior / observaciones)</div>
+        <div style="display:flex;gap:6px;align-items:flex-end">
+          <textarea id="ot-comment-${o.id}" placeholder="Ej: Falta terminar el rebozado, quedan 3kg sin freír..." style="flex:1;min-height:50px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;resize:vertical">${o.comentarios||''}</textarea>
+          <button onclick="guardarComentarioOT('${o.id}')" style="background:var(--bs-bg,var(--bg));border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;white-space:nowrap" id="ot-comment-btn-${o.id}">Guardar</button>
+        </div>
+      </div>
     </div>`;
   }).join('');
+};
+
+window.verRecetaOT=function(receta,prodNombre){
+  alert('📖 Receta — '+prodNombre+'\n\n'+receta);
+};
+
+window.guardarComentarioOT=async function(otId){
+  const txt=document.getElementById('ot-comment-'+otId)?.value||'';
+  const btn=document.getElementById('ot-comment-btn-'+otId);
+  if(btn){btn.textContent='...';btn.disabled=true;}
+  try{
+    await updateDoc(doc(db,'users',STORE,'ordenes-trabajo',otId),{comentarios:txt});
+    if(btn){btn.textContent='✓ Guardado';setTimeout(()=>{btn.textContent='Guardar';btn.disabled=false;},1500);}
+  }catch(e){alert('Error: '+e.message);if(btn){btn.textContent='Guardar';btn.disabled=false;}}
 };
 
 window.confirmarOrden=async function(ordenId,prodNombre,unidad,numero){
@@ -6852,9 +6924,9 @@ function renderCaja(){
   const hv=_ventas.filter(v=>v.tipo!=='online'&&v.fecha===today());
   const onlineAll=_ventas.filter(v=>v.tipo==='online');
   const allMov=[...hv,...onlineAll].sort((a,b)=>b.ts-a.ts);
-  let ef=0,tr=0,ta=0,descTotal=0;
+  let ef=0,tr=0,ta=0,cc_=0,descTotal=0;
   hv.forEach(v=>{
-    if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;else ta+=v.total;
+    if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;else if(v.pago!=='Cuenta corriente')ta+=v.total;else cc_+=v.total;
     if(v.descuentoMonto)descTotal+=v.descuentoMonto;
   });
   const onlineConf=onlineAll.filter(v=>['confirmado','en_preparacion','en_camino','entregado'].includes(v.estado));
@@ -6877,6 +6949,9 @@ function renderCaja(){
     document.getElementById('cj-tot').textContent=fmt(efReal+trReal+ta);
     document.getElementById('cj-desc').textContent=fmt(descTotal);
     document.getElementById('cj-online').textContent=onlineAll.length;
+    const ccWrap=document.getElementById('cj-cc-wrap');
+    if(cc_>0){if(ccWrap)ccWrap.style.display='block';const ccEl=document.getElementById('cj-cc');if(ccEl)ccEl.textContent=fmt(cc_);}
+    else if(ccWrap)ccWrap.style.display='none';
     const cajaSummary=document.getElementById('caja-summary-row');
     if(cajaSummary)cajaSummary.style.display='';
   } else {
@@ -6921,10 +6996,10 @@ window.showCierreCaja=async function(){
   }
   const hv=_ventas.filter(v=>v.fecha===today());
   const online=_ventas.filter(v=>v.tipo==='online'&&v.fecha===today());
-  let ef=0,tr=0,ta=0,desc=0,costo=0;
+  let ef=0,tr=0,ta=0,cc_=0,desc=0,costo=0;
   hv.forEach(v=>{
     if(v.tipo!=='online'||['confirmado','en_preparacion','en_camino','entregado'].includes(v.estado)){
-      if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;else ta+=v.total;
+      if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;else if(v.pago!=='Cuenta corriente')ta+=v.total;else cc_+=v.total;
       if(v.descuentoMonto)desc+=v.descuentoMonto;
       if(v.costoFIFO)costo+=v.costoFIFO;
     }
@@ -6970,6 +7045,10 @@ window.showCierreCaja=async function(){
         <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;margin-top:4px"><span style="font-weight:700">Total esperado:</span><span id="cierre-ef-esperado" style="font-weight:700;font-size:15px;color:var(--primary)">$0</span></div>
       </div>
     </div>
+    ${cc_>0?`<div style="background:rgba(55,138,221,0.08);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px">
+      <span style="color:#378ADD">💳 Ventas a cuenta corriente hoy (no incluidas en el total a acreditar): </span>
+      <strong style="color:#378ADD">${fmt(cc_)}</strong>
+    </div>`:''}
     <div style="margin-bottom:16px">
       <h3 style="margin-bottom:10px">Verificación de cobros</h3>
       <table style="width:100%">
@@ -7081,8 +7160,8 @@ window.confirmarCierreCaja=async function(){
   const btn=document.getElementById('cierre-confirm-btn');
   btn.innerHTML='<span class="spin"></span> Guardando...';btn.disabled=true;
   const hv=_ventas.filter(v=>v.fecha===today());
-  let ef=0,tr=0,ta=0,desc=0,costo=0;
-  hv.forEach(v=>{if(v.tipo!=='online'||['confirmado','en_preparacion','en_camino','entregado'].includes(v.estado)){if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;else ta+=v.total;if(v.descuentoMonto)desc+=v.descuentoMonto;if(v.costoFIFO)costo+=v.costoFIFO;}});
+  let ef=0,tr=0,ta=0,cc_=0,desc=0,costo=0;
+  hv.forEach(v=>{if(v.tipo!=='online'||['confirmado','en_preparacion','en_camino','entregado'].includes(v.estado)){if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;else if(v.pago!=='Cuenta corriente')ta+=v.total;else cc_+=v.total;if(v.descuentoMonto)desc+=v.descuentoMonto;if(v.costoFIFO)costo+=v.costoFIFO;}});
   const total=ef+tr+ta;
   // Get real counted amounts
   const efReal=parseFloat(document.getElementById('cc-ef-real')?.value)||ef;
@@ -7415,6 +7494,18 @@ window.verFichaEmp=async function(id){
   const descuentoAusencias=valorDia*diasAusentes;
   const sueldoAPagar=Math.max(0,sueldo-descuentoAusencias);
   const mesNombreDisplay=new Date().toLocaleDateString('es-AR',{month:'long',year:'numeric'});
+
+  // ── Cuenta corriente vinculada ──
+  let saldoCC=0,clienteVinculadoId=emp.clienteVinculadoId||null,clienteVinculadoNombre=emp.clienteVinculadoNombre||null;
+  if(clienteVinculadoId){
+    try{
+      const snapCC=await getDocs(collection(db,'users',STORE,'cuenta-corriente'));
+      const movs=snapCC.docs.map(d=>d.data()).filter(m=>m.clienteId===clienteVinculadoId);
+      saldoCC=movs.reduce((a,m)=>a+(m.tipo==='cargo'?m.monto:-(m.monto)),0);
+    }catch(e){}
+  }
+  const netoAPagar=Math.max(0,sueldoAPagar-saldoCC);
+
   const diasSemanaActuales=emp.diasSemana||['Lun','Mar','Mié','Jue','Vie'];
   const todosLosDias=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 
@@ -7494,16 +7585,36 @@ telRow+userRow+altaRow+
 '<div class="stat"><div class="stat-n">'+(sueldo>0?'$'+sueldoAPagar.toLocaleString("es-AR"):totalEst)+'</div><div class="stat-l">'+(sueldo>0?'A pagar':'Total estimado')+'</div></div>'+
 '</div>'+asistenciaTable+
 '</div>'+
+'<div class="card">'+
+'<h2>💳 Cuenta corriente vinculada</h2>'+
+(clienteVinculadoId?
+  '<div style="background:'+(saldoCC>0?'#fde8e8':'#e8fdf1')+';border-radius:10px;padding:12px;margin-bottom:10px">'+
+  '<div style="font-size:13px">Cliente vinculado: <strong>'+clienteVinculadoNombre+'</strong></div>'+
+  '<div style="display:flex;justify-content:space-between;margin-top:6px"><span style="font-size:13px">Deuda actual:</span><span style="font-weight:700;color:'+(saldoCC>0?'#e74c3c':'#1D9E75')+'">$'+Math.round(saldoCC).toLocaleString('es-AR')+'</span></div>'+
+  '</div>'+
+  '<button class="btn bs" onclick="desvincularClienteCC(\''+id+'\')" style="font-size:12px">Desvincular</button>'
+  :
+  '<div style="font-size:13px;color:#888;margin-bottom:10px">Este empleado no tiene una cuenta corriente vinculada. Si retira mercadería a cuenta, vinculalo con su ficha de cliente.</div>'+
+  '<div style="display:flex;gap:8px">'+
+  '<select id="vincular-cliente-sel" style="flex:1"><option value="">Buscar cliente...</option></select>'+
+  '<button class="btn bp" id="btn-vincular-cliente">Vincular</button>'+
+  '</div>'
+)+
+'</div>'+
 '<div class="card" id="pago-card">'+
 '<h2>Pago del mes — '+mesNombreDisplay+'</h2>'+
 '<div style="background:#f0fdf4;border-radius:10px;padding:12px;margin-bottom:12px">'+
 '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px">Sueldo calculado:</span><span style="font-weight:700;font-size:15px;color:#1D9E75">$'+sueldoAPagar.toLocaleString('es-AR')+'</span></div>'+
+(saldoCC>0?
+  '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px;color:#e74c3c">Deuda Cta. Cte.:</span><span style="font-weight:700;font-size:14px;color:#e74c3c">-$'+Math.round(saldoCC).toLocaleString('es-AR')+'</span></div>'+
+  '<div style="display:flex;justify-content:space-between;border-top:1px solid #c8e6c9;padding-top:6px;margin-top:4px"><span style="font-weight:700;font-size:13px">Neto a pagar:</span><span style="font-weight:700;font-size:17px;color:#1D9E75">$'+Math.round(netoAPagar).toLocaleString('es-AR')+'</span></div>'
+  :'')+
 '</div>'+
 '<div id="historial-pagos-wrap"><div style="color:#888;text-align:center;padding:12px;font-size:13px">Cargando historial...</div></div>'+
 '<div style="margin-top:14px;border-top:1px solid #f0ede8;padding-top:14px">'+
 '<h2 style="margin-bottom:10px">Confirmar pago</h2>'+
 '<div class="form-row">'+
-'<div><label>Monto abonado ($)</label><input type="number" id="pago-monto" placeholder="'+sueldoAPagar+'" style="border:2px solid #D85A30"/></div>'+
+'<div><label>Monto abonado ($)</label><input type="number" id="pago-monto" placeholder="'+(saldoCC>0?Math.round(netoAPagar):sueldoAPagar)+'" style="border:2px solid #D85A30"/></div>'+
 '<div><label>Fecha de pago</label><input type="date" id="pago-fecha" value="'+today()+'"/></div>'+
 '</div>'+
 '<div style="margin-bottom:10px"><label>Observaciones (opcional)</label><input type="text" id="pago-obs" placeholder="Ej: Pago completo, adelanto, etc."/></div>'+
@@ -7536,6 +7647,9 @@ telRow+userRow+altaRow+
 'var _empId="'+id+'";'+
 'var _empNombre='+JSON.stringify(emp.nombre)+';'+
 'var _sueldoCalc='+sueldoAPagar+';\n'+
+'var _saldoCC='+saldoCC+';\n'+
+'var _clienteCCId="'+( clienteVinculadoId||'')+'\";\n'+
+'var _clienteCCNombre='+JSON.stringify(clienteVinculadoNombre||'')+';\n'+
 'function cargarHistorialPagos(){'+
 '  var wrap=document.getElementById("historial-pagos-wrap");if(!wrap)return;'+
 '  fetch("https://firestore.googleapis.com/v1/projects/granja-los-abuelos-55288/databases/(default)/documents/users/admin/pagos-empleados?pageSize=20")'+
@@ -7558,12 +7672,46 @@ telRow+userRow+altaRow+
 '  var body={fields:{empleadoId:{stringValue:_empId},empleadoNombre:{stringValue:_empNombre},mes:{stringValue:_mesActual},monto:{integerValue:String(monto)},sueldoCalc:{integerValue:String(_sueldoCalc)},fecha:{stringValue:fecha},obs:{stringValue:obs},ts:{integerValue:String(Date.now())}}};'+
 '  fetch("https://firestore.googleapis.com/v1/projects/granja-los-abuelos-55288/databases/(default)/documents/users/admin/pagos-empleados",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})'+
 '  .then(function(r){'+
-'    if(r.ok){alert("Pago confirmado: $"+monto.toLocaleString("es-AR")+" para "+_empNombre);'+
-'    document.getElementById("pago-monto").value="";document.getElementById("pago-obs").value="";'+
-'    cargarHistorialPagos();}else{alert("Error al guardar");}'+
+'    if(r.ok){'+
+'      var doneMsg="Pago confirmado: $"+monto.toLocaleString("es-AR")+" para "+_empNombre;'+
+'      if(_saldoCC>0&&_clienteCCId){'+
+'        var ccBody={fields:{clienteId:{stringValue:_clienteCCId},clienteNombre:{stringValue:_clienteCCNombre},monto:{doubleValue:_saldoCC},tipo:{stringValue:"pago"},concepto:{stringValue:"Descuento de sueldo — "+_mesActual},fecha:{stringValue:fecha},ts:{integerValue:String(Date.now())}}};'+
+'        fetch("https://firestore.googleapis.com/v1/projects/granja-los-abuelos-55288/databases/(default)/documents/users/admin/cuenta-corriente",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(ccBody)})'+
+'        .then(function(){alert(doneMsg+". Se canceló la deuda de cta. cte. de $"+Math.round(_saldoCC).toLocaleString("es-AR")+" automáticamente.");window.location.reload();});'+
+'      } else { alert(doneMsg); window.location.reload(); }'+
+'      document.getElementById("pago-monto").value="";document.getElementById("pago-obs").value="";'+
+'      cargarHistorialPagos();'+
+'    }else{alert("Error al guardar");}'+
 '    btn.textContent="✓ Confirmar pago";btn.disabled=false;'+
 '  }).catch(function(e){alert("Error: "+e.message);btn.textContent="✓ Confirmar pago";btn.disabled=false;});'+
 '});'+
+'document.getElementById("vincular-cliente-sel")&&fetch("https://firestore.googleapis.com/v1/projects/granja-los-abuelos-55288/databases/(default)/documents/users/admin/clientes?pageSize=300")'+
+'.then(function(r){return r.json();}).then(function(data){'+
+'  var sel=document.getElementById("vincular-cliente-sel");if(!sel)return;'+
+'  var docs=data.documents||[];'+
+'  docs.sort(function(a,b){return(a.fields.nombre?.stringValue||"").localeCompare(b.fields.nombre?.stringValue||"");});'+
+'  sel.innerHTML="<option value=\\"\\">Buscar cliente...</option>"+docs.map(function(d){'+
+'    var cid=d.name.split("/").pop();'+
+'    var nom=d.fields.nombre?.stringValue||"—";'+
+'    return "<option value=\\""+cid+"|"+nom+"\\">"+nom+"</option>";'+
+'  }).join("");'+
+'}).catch(function(){});'+
+'var btnVinc=document.getElementById("btn-vincular-cliente");'+
+'if(btnVinc)btnVinc.addEventListener("click",function(){'+
+'  var val=document.getElementById("vincular-cliente-sel").value;'+
+'  if(!val){alert("Seleccioná un cliente");return;}'+
+'  var parts=val.split("|");var cid=parts[0];var cnom=parts.slice(1).join("|");'+
+'  btnVinc.textContent="Guardando...";btnVinc.disabled=true;'+
+'  var fields={clienteVinculadoId:{stringValue:cid},clienteVinculadoNombre:{stringValue:cnom}};'+
+'  fetch("https://firestore.googleapis.com/v1/projects/granja-los-abuelos-55288/databases/(default)/documents/users/admin/empleados/"+_empId+"?updateMask.fieldPaths=clienteVinculadoId&updateMask.fieldPaths=clienteVinculadoNombre",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({fields:fields})})'+
+'  .then(function(r){if(r.ok){alert("Cliente vinculado: "+cnom);window.location.reload();}else{alert("Error al vincular");btnVinc.textContent="Vincular";btnVinc.disabled=false;}})'+
+'  .catch(function(e){alert("Error: "+e.message);btnVinc.textContent="Vincular";btnVinc.disabled=false;});'+
+'});'+
+'function desvincularClienteCC(empId){'+
+'  if(!confirm("¿Desvincular cuenta corriente de este empleado?"))return;'+
+'  fetch("https://firestore.googleapis.com/v1/projects/granja-los-abuelos-55288/databases/(default)/documents/users/admin/empleados/"+empId+"?updateMask.fieldPaths=clienteVinculadoId&updateMask.fieldPaths=clienteVinculadoNombre",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({fields:{}})})'+
+'  .then(function(r){if(r.ok){alert("Desvinculado");window.location.reload();}});'+
+'}'+
 '<\/script>'+
 '</body></html>';
 
@@ -8870,8 +9018,8 @@ window.generarInforme=async function(){
   const gananciaNtaReal=gananciaNeta-totalGastos;
   const gananciaDistribuible=gananciaNtaReal-totalRetiroSocios;
   const hayFIFO=true; // Always show cost/profit metrics
-  let ef=0,tr=0,ta=0;
-  vf.forEach(v=>{if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;else ta+=v.total;});
+  let ef=0,tr=0,ta=0,cc_=0;
+  vf.forEach(v=>{if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;else if(v.pago!=='Cuenta corriente')ta+=v.total;else cc_+=v.total;});
   // Descontar retiros de caja chica del medio correspondiente
   const hoy2=today();
   const ccHoy=_cajaChica.filter(x=>x.fecha===hoy2);
@@ -8928,7 +9076,9 @@ window.generarInforme=async function(){
           <tr><td>Efectivo</td><td style="text-align:right;font-weight:600">${fmt(efReal)}${retirosGeneral+retirosEfectivo>0?'<span style="font-size:10px;color:var(--danger)"> (−'+fmt(retirosGeneral+retirosEfectivo)+' retiros)</span>':''}</td><td style="text-align:right;color:#888">${total?Math.round(efReal/total*100):0}%</td></tr>
           <tr><td>Transferencia</td><td style="text-align:right;font-weight:600">${fmt(trReal)}${retirosTransferencia>0?'<span style="font-size:10px;color:var(--danger)"> (−'+fmt(retirosTransferencia)+' retiros)</span>':''}</td><td style="text-align:right;color:#888">${total?Math.round(trReal/total*100):0}%</td></tr>
           <tr><td>Tarjeta</td><td style="text-align:right;font-weight:600">${fmt(ta)}</td><td style="text-align:right;color:#888">${total?Math.round(ta/total*100):0}%</td></tr>
+          ${cc_>0?`<tr><td style="color:#378ADD">💳 Cuenta corriente</td><td style="text-align:right;font-weight:600;color:#378ADD">${fmt(cc_)}</td><td style="text-align:right;color:#378ADD">${total?Math.round(cc_/total*100):0}%</td></tr>`:''}
           <tr style="border-top:2px solid var(--border)"><td style="font-weight:700">Total facturado</td><td style="text-align:right;font-weight:700;color:var(--success)">${fmt(total)}</td><td></td></tr>
+          ${cc_>0?`<tr><td style="font-size:11px;color:#888;padding-left:10px">↳ de los cuales pendiente de cobro (Cta. Cte.)</td><td style="text-align:right;font-size:11px;color:#378ADD">${fmt(cc_)}</td><td></td></tr>`:''}
           <tr><td style="color:var(--danger)">Descuentos</td><td style="text-align:right;color:var(--danger)">-${fmt(descuentosTotal)}</td><td></td></tr>
           ${hayFIFO?`<tr><td style="color:var(--warn)">Costo (FIFO)</td><td style="text-align:right;color:var(--warn)">-${fmt(costoTotal)}</td><td></td></tr>
           <tr style="border-top:2px solid var(--border)"><td style="font-weight:700;color:var(--success)">Ganancia bruta</td><td style="text-align:right;font-weight:700;color:var(--success)">${fmt(gananciaNeta)}</td><td style="text-align:right;color:var(--success)">${total>0?Math.round(gananciaNeta/total*100):0}%</td></tr>
@@ -9493,6 +9643,11 @@ ${topClientes.length?`<div class="card">
         Cuando el stock llegue a ese valor, se generará automáticamente una OT de <strong id="ficha-ot-cant">${prod.cantidadElaborar||1} ${uni}</strong>.
       </div>
     </div>
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+      <div style="font-size:12px;color:#888;margin-bottom:6px;font-weight:600">📖 Receta de elaboración</div>
+      <textarea id="ficha-receta" placeholder="Ej: 1kg pechuga de pollo, 200g pan rallado, 2 huevos, sal y pimienta a gusto. Cortar en fetas finas, pasar por huevo y pan rallado..." style="width:100%;min-height:90px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:13px;resize:vertical;font-family:inherit">${prod.receta||''}</textarea>
+      <button class="btn-save" id="btn-save-receta" style="margin-top:8px">Guardar receta</button>
+    </div>
   </div>
 </div>
 
@@ -9523,6 +9678,22 @@ var _tramosData=${JSON.stringify(prod.tramos||[])};
 document.addEventListener('change',function(e){
   if(e.target.id==='ficha-requiere-elab'){
     const w=document.getElementById('ficha-elab-config');
+    if(e.target.checked){
+      const recetaActual=document.getElementById('ficha-receta')?.value.trim();
+      if(!recetaActual){
+        const receta=prompt('Para marcar este producto como "requiere elaboración" necesitás ingresar la receta:\n\n(ingredientes, cantidades y pasos)');
+        if(!receta||!receta.trim()){
+          alert('No se guardó: la receta es obligatoria para activar elaboración.');
+          e.target.checked=false;
+          return;
+        }
+        const recetaInput=document.getElementById('ficha-receta');
+        if(recetaInput)recetaInput.value=receta.trim();
+        if(window.opener&&!window.opener.closed){
+          window.opener.guardarRecetaProducto(''+id+'',receta.trim());
+        }
+      }
+    }
     if(w)w.style.display=e.target.checked?'block':'none';
     if(window.opener&&!window.opener.closed){
       window.opener.guardarRequiereElaboracion(''+id+'',e.target.checked);
@@ -9730,6 +9901,16 @@ document.addEventListener('DOMContentLoaded',function(){
       }
       return;
     }
+    if(btn.id==='btn-save-receta'){
+      e.preventDefault();
+      const receta=document.getElementById('ficha-receta')?.value.trim()||'';
+      if(window.opener&&!window.opener.closed){
+        window.opener.guardarRecetaProducto('${id}',receta);
+        btn.textContent='✓ Guardada';
+        setTimeout(()=>btn.textContent='Guardar receta',1500);
+      }
+      return;
+    }
     if(btn.dataset.action==='del-tramo'){
       e.preventDefault();
       btn.closest('div[style]')?.remove();
@@ -9798,6 +9979,21 @@ window.addEventListener('storage', async function(e){
           clienteId:cmd.clienteId,clienteNombre:cmd.clienteNombre,
           monto:cmd.monto,tipo:'pago',concepto:cmd.concepto,fecha:today(),ts:Date.now()
         });
+        // Reflejar el cobro real en caja según el medio elegido
+        if(cmd.medio==='efectivo'){
+          await addDoc(collection(db,'users',STORE,'caja-chica'),{
+            tipo:'ingreso',monto:Math.abs(cmd.monto),montoAbs:Math.abs(cmd.monto),esEgreso:false,
+            detalle:'Cobro Cta. Cte. — '+cmd.clienteNombre+(cmd.concepto?' ('+cmd.concepto+')':''),
+            fecha:today(),hora:ftime(),creadoPor:CU,ts:Date.now()
+          });
+        } else if(cmd.medio==='caja-grande'){
+          await addDoc(collection(db,'users',STORE,'caja-grande'),{
+            tipo:'ingreso',monto:Math.abs(cmd.monto),
+            concepto:'Cobro Cta. Cte. — '+cmd.clienteNombre+(cmd.concepto?' ('+cmd.concepto+')':''),
+            fecha:today(),ts:Date.now(),registradoPor:CU,origen:'cuenta-corriente'
+          });
+        }
+        // 'descuento-sueldo' no impacta caja, solo cancela la deuda en CC
         toast('Pago CC registrado: $'+Math.round(cmd.monto).toLocaleString('es-AR'));
       }
     }catch(err){console.warn('cc-pago',err);}
