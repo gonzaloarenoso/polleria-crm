@@ -2359,12 +2359,12 @@ let _locales=[];          // [{id,nombre,direccion}]
 
 function LCOL(name){
   return ACTIVE_LOCALE
-    ? collection(db,'users',STORE,'loc_'+ACTIVE_LOCALE,name)
+    ? collection(db,'users',STORE,'locales',ACTIVE_LOCALE,name)
     : collection(db,'users',STORE,name);
 }
 function LDOC(name,id){
   return ACTIVE_LOCALE
-    ? doc(db,'users',STORE,'loc_'+ACTIVE_LOCALE,name,id)
+    ? doc(db,'users',STORE,'locales',ACTIVE_LOCALE,name,id)
     : doc(db,'users',STORE,name,id);
 }
 function INV_ID(){
@@ -2383,7 +2383,7 @@ async function migrarColeccion(nombreColeccion,localeId){
     const chunk=docs.slice(i,i+400);
     const batch=writeBatch(db);
     chunk.forEach(d=>{
-      batch.set(doc(db,'users',STORE,'loc_'+localeId,nombreColeccion,d.id),d.data());
+      batch.set(doc(db,'users',STORE,'locales',localeId,nombreColeccion,d.id),d.data());
     });
     await batch.commit();
   }
@@ -9435,7 +9435,7 @@ async function generarInformeGeneral(desde,hasta){
   el.innerHTML='<div style="text-align:center;padding:20px;color:#888">⏳ Calculando informe de todos los locales...</div>';
 
   // Helper to query a SPECIFIC locale's collection regardless of ACTIVE_LOCALE
-  const collLoc=(localeId,name)=>collection(db,'users',STORE,'loc_'+localeId,name);
+  const collLoc=(localeId,name)=>collection(db,'users',STORE,'locales',localeId,name);
 
   // Fetch global (no-locale) expenses once
   let pagosProvAll=[],pagosEmpAll=[],gastosEmpAll=[],cajaGrandeAll=[];
