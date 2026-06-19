@@ -1297,6 +1297,15 @@ tr:hover td{background:#fafaf8}
 
       <!-- NEGOCIO -->
       <div id="cfg-negocio">
+        <div class="card" style="margin-bottom:16px">
+          <h3 style="margin-top:4px">🏢 Locales</h3>
+          <div style="font-size:12px;color:#888;margin-bottom:8px">Gestioná las sucursales del negocio. Cada local tiene su propio stock, ventas y caja chica.</div>
+          <div id="cfg-locales-lista" style="margin-bottom:10px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input type="text" id="cfg-local-nombre" placeholder="Ej: Morón - Mitre 481" style="flex:1;min-width:160px"/>
+            <button class="btn bp bsm" onclick="addLocalDesdeConfig()">+ Agregar local</button>
+          </div>
+        </div>
         <div class="g2">
           <div class="card">
             <h3>Datos del negocio</h3>
@@ -1466,15 +1475,7 @@ tr:hover td{background:#fafaf8}
         <!-- Categories + Payment methods row -->
         <div class="g2" style="margin-top:0">
           <div class="card">
-            <h3 style="margin-top:4px">🏢 Locales</h3>
-          <div style="font-size:12px;color:#888;margin-bottom:8px">Gestioná las sucursales del negocio. Cada local tiene su propio stock, ventas y caja chica.</div>
-          <div id="cfg-locales-lista" style="margin-bottom:10px"></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <input type="text" id="cfg-local-nombre" placeholder="Ej: Morón - Mitre 481" style="flex:1;min-width:160px"/>
-            <button class="btn bp bsm" onclick="addLocalDesdeConfig()">+ Agregar local</button>
-          </div>
-          <hr style="margin:14px 0 8px"/>
-          <h3 style="margin-top:4px">Tipos de cliente</h3>
+            <h3 style="margin-top:4px">Tipos de cliente</h3>
           <div style="font-size:12px;color:#888;margin-bottom:8px">Configurá tipos con descuento automático y cuenta corriente.</div>
           <div id="cfg-tipos-cliente-lista" style="margin-bottom:10px"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -6022,7 +6023,7 @@ window.switchCfgTab=function(tab,btn){
   if(tab==='gastos')renderGastos();
   if(tab==='pedidos'){renderFranjas();renderCfgPedidosActual();renderCfgCategorias();renderCfgPagos();}
   if(tab==='fidelizacion'){renderDescuentos();renderDescuentosAuto();renderCfgMensajesFid();renderCfgAvanzado();loadCuponesAdmin();renderCfgNiveles();}
-  if(tab==='negocio'){renderCfgNegocioActual();setTimeout(renderQR,300);}
+  if(tab==='negocio'){renderCfgNegocioActual();renderCfgLocales();setTimeout(renderQR,300);}
 };
 
 window.saveCfgNegocio=async function(){
