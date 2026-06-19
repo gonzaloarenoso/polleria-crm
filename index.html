@@ -460,11 +460,20 @@ tr:hover td{background:#fafaf8}
           <input type="text" id="v-teli" placeholder="Se completa automáticamente" readonly style="background:#f5f4f0"/>
           <label>Producto / Promoción</label>
           <div style="position:relative">
-            <input type="text" id="v-prod-search" placeholder="Buscar por nombre, código o promoción..." autocomplete="off"
+            <input type="text" id="v-prod-search" placeholder="Buscar por nombre o promoción..." autocomplete="off"
               oninput="searchProdSuggestions(this.value)" onfocus="searchProdSuggestions(this.value)"
               style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px"/>
             <div id="v-prod-dd" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:100;max-height:220px;overflow-y:auto"></div>
             <input type="hidden" id="v-prod"/>
+          </div>
+          <div style="margin-top:6px">
+            <label style="font-size:11px;color:#888;margin-bottom:3px;display:block">🔢 Buscar por código</label>
+            <div style="position:relative">
+              <input type="text" id="v-cod-search" placeholder="Ej: MP, 001, POLL-01..." autocomplete="off"
+                oninput="searchProdPorCodigo(this.value)" onfocus="searchProdPorCodigo(this.value)"
+                style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg)"/>
+              <div id="v-cod-dd" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:100;max-height:200px;overflow-y:auto"></div>
+            </div>
           </div>
           <div class="row">
             <div>
@@ -3378,6 +3387,59 @@ window.toggleVentaSinCliente=function(checked){
 };
 
 // ── BUSCADOR DE PRODUCTO EN NUEVA VENTA ──────────────────────────────────────
+
+window.searchProdPorCodigo=function(val){
+  const dd=document.getElementById('v-cod-dd');
+  if(!dd)return;
+  if(!val||val.trim().length<1){dd.style.display='none';return;}
+  const q=val.trim().toLowerCase();
+  const prods=(_productos||[]).filter(p=>
+    p.activo!==false&&p.codigo&&p.codigo.toLowerCase().includes(q)
+  ).slice(0,8);
+  if(!prods.length){
+    dd.style.display='block';
+    dd.innerHTML='<div style="padding:10px;color:#888;font-size:13px">Sin resultados para ese código</div>';
+    return;
+  }
+  dd.style.display='block';
+  dd.innerHTML=prods.map(p=>{
+    const stock=Math.round((_inv[p.nombre]?.stock||0)*1000)/1000;
+    return`<div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px" 
+      onmousedown="selProductoFromCod('${p.id}','${p.nombre.replace(/'/g,"\\'")}','${p.codigo||''}')">
+      <span style="background:var(--bg);border-radius:4px;padding:1px 6px;font-weight:700;font-size:11px;margin-right:6px">${p.codigo}</span>
+      ${p.nombre}
+      <span style="float:right;color:#888;font-size:11px">Stock: ${stock} ${p.unidad||'u.'} · $${(p.precio||0).toLocaleString('es-AR')}</span>
+    </div>`;
+  }).join('');
+};
+
+window.selProductoFromCod=function(id,nombre,codigo){
+  // Same as selecting a product from name search
+  const dd=document.getElementById('v-cod-dd');
+  if(dd)dd.style.display='none';
+  const codInput=document.getElementById('v-cod-search');
+  if(codInput)codInput.value='';
+  // Reuse the product selection logic
+  const p=_productos.find(x=>x.id===id);
+  if(!p)return;
+  const cant=parseDecimal(document.getElementById('v-cant')?.value)||1;
+  const precioFinal=calcPrecioTramo(p.tramos,cant)?.precio||p.precio||0;
+  items.push({id:p.id,nom:p.nombre,precio:precioFinal,cant,unidad:p.unidad||'unidad'});
+  itemTotal+=precioFinal*cant;
+  document.getElementById('v-prod-search').value='';
+  document.getElementById('v-cant').value=1;
+  renderItems();
+  checkAndApplyAutoDiscount();
+};
+
+// Close cod dropdown on outside click
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#v-cod-search')&&!e.target.closest('#v-cod-dd')){
+    const dd=document.getElementById('v-cod-dd');
+    if(dd)dd.style.display='none';
+  }
+});
+
 window.searchProdSuggestions=function(val){
   const dd=document.getElementById('v-prod-dd');if(!dd)return;
   if(!val||val.length<1){dd.style.display='none';return;}
@@ -3539,6 +3601,7 @@ window.addItem=function(){
   const val=document.getElementById('v-prod').value;if(!val||val==='')return;
   // Clear search input after adding
   const si=document.getElementById('v-prod-search');if(si)si.value='';
+  const sci=document.getElementById('v-cod-search');if(sci)sci.value='';
   document.getElementById('v-prod').value='';
   const parts=val.split('|');const[type,refId,nom,pr]=parts;const unidad=parts[4]||'unidad';
   const cant=parseDecimal(document.getElementById('v-cant').value)||1;
@@ -6668,82 +6731,96 @@ window.renderProdInv=function(){
 // ── ÓRDENES DE TRABAJO ────────────────────────────────────────────────────
 window.renderOrdenesProduccion=async function(){
   const el=document.getElementById('prod-ordenes-lista');if(!el)return;
-  el.innerHTML='<div style="text-align:center;padding:20px;color:#888">⏳ Generando órdenes...</div>';
+  el.innerHTML='<div style="text-align:center;padding:20px;color:#888">⏳ Actualizando órdenes...</div>';
 
-  // Products that require elaboration and are below alert
   const prods=(_productos||[]).filter(p=>p.requiereElaboracion&&p.activo!==false);
-  const prodsBajos=prods.filter(p=>{
-    const stock=_inv[p.nombre]?.stock||0;
-    const alerta=_inv[p.nombre]?.alerta||5;
-    return stock<=alerta;
-  });
 
-  // Load existing open orders
+  // Load existing open orders from Firestore
   let existingOrders=[];
   try{
     const snap=await getDocs(collection(db,'users',STORE,'ordenes-trabajo'));
     existingOrders=snap.docs.map(d=>({id:d.id,...d.data()})).filter(o=>o.estado==='abierta');
   }catch(e){}
 
-  // Generate orders for products below alert that don't have one yet
+  // Auto-close orders where stock is now above alert
+  for(const o of existingOrders){
+    const stockActual=Math.round((_inv[o.productoNombre]?.stock||0)*1000)/1000;
+    const alertaActual=_inv[o.productoNombre]?.alerta||5;
+    if(stockActual>alertaActual){
+      try{
+        await updateDoc(doc(db,'users',STORE,'ordenes-trabajo',o.id),{
+          estado:'cerrada-auto',fechaCompletada:today(),motivoCierre:'Stock subió sobre alerta'
+        });
+      }catch(e){}
+    }
+  }
+  // Remove auto-closed from active list
+  existingOrders=existingOrders.filter(o=>{
+    const stockActual=_inv[o.productoNombre]?.stock||0;
+    const alertaActual=_inv[o.productoNombre]?.alerta||5;
+    return stockActual<=alertaActual;
+  });
+
+  // Products currently below alert
+  const prodsBajos=prods.filter(p=>{
+    const stock=_inv[p.nombre]?.stock||0;
+    const alerta=_inv[p.nombre]?.alerta||5;
+    return stock<=alerta;
+  });
+
+  // Create new orders for products below alert without an open order
   const usedNums=existingOrders.map(o=>o.numero).filter(Boolean);
-  
-  const getNextNum=()=>{
-    let n=1;
-    while(usedNums.includes(n))n++;
-    usedNums.push(n);
-    return n;
-  };
+  const getNextNum=()=>{let n=1;while(usedNums.includes(n))n++;usedNums.push(n);return n;};
 
   for(const p of prodsBajos){
-    const alreadyHas=existingOrders.find(o=>o.productoId===p.id&&o.estado==='abierta');
+    const alreadyHas=existingOrders.find(o=>o.productoId===p.id);
     if(!alreadyHas){
       const num=getNextNum();
       try{
         const ref=await addDoc(collection(db,'users',STORE,'ordenes-trabajo'),{
-          numero:num,
-          productoId:p.id,
-          productoNombre:p.nombre,
+          numero:num,productoId:p.id,productoNombre:p.nombre,
           unidad:p.unidad||'unidad',
-          stockActual:Math.round((_inv[p.nombre]?.stock||0)*1000)/1000,
-          alerta:_inv[p.nombre]?.alerta||5,
           cantidadPedida:p.cantidadElaborar||1,
-          estado:'abierta',
-          fechaCreacion:today(),
-          ts:Date.now()
+          estado:'abierta',fechaCreacion:today(),ts:Date.now()
         });
-        existingOrders.push({id:ref.id,numero:num,productoId:p.id,productoNombre:p.nombre,
-          unidad:p.unidad||'unidad',cantidadPedida:p.cantidadElaborar||1,estado:'abierta'});
+        existingOrders.push({id:ref.id,numero:num,productoId:p.id,
+          productoNombre:p.nombre,unidad:p.unidad||'unidad',
+          cantidadPedida:p.cantidadElaborar||1,estado:'abierta'});
       }catch(e){}
     }
   }
 
-  // Render orders
   const ordenes=existingOrders.sort((a,b)=>(a.numero||0)-(b.numero||0));
   if(!ordenes.length){
     el.innerHTML='<div class="empty">✅ No hay órdenes pendientes. Todo el stock está dentro de los límites.</div>';return;
   }
 
-  el.innerHTML=ordenes.map(o=>`
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px">
+  // Always use CURRENT _inv values for display
+  el.innerHTML=ordenes.map(o=>{
+    const stockActual=Math.round((_inv[o.productoNombre]?.stock||0)*1000)/1000;
+    const alertaActual=_inv[o.productoNombre]?.alerta||5;
+    const prod=_productos.find(p=>p.id===o.productoId);
+    const cantPedida=prod?.cantidadElaborar||o.cantidadPedida||1;
+    return`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
         <div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
             <span style="background:var(--primary);color:#fff;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700">OT #${o.numero}</span>
             <span style="font-size:15px;font-weight:700">${o.productoNombre}</span>
           </div>
-          <div style="font-size:12px;color:#888">Stock actual: <strong>${o.stockActual} ${o.unidad}</strong> · Alerta: ${o.alerta} ${o.unidad}</div>
-          <div style="font-size:13px;margin-top:6px">Elaborar: <strong style="color:var(--primary)">${o.cantidadPedida} ${o.unidad}</strong></div>
+          <div style="font-size:12px;color:#888">Stock actual: <strong style="color:var(--danger)">${stockActual} ${o.unidad}</strong> · Alerta: ${alertaActual} ${o.unidad}</div>
+          <div style="font-size:13px;margin-top:6px">Elaborar: <strong style="color:var(--primary)">${cantPedida} ${o.unidad}</strong></div>
         </div>
         <div style="display:flex;gap:8px;align-items:flex-end;flex-direction:column">
           <div style="display:flex;gap:6px;align-items:center">
-            <input type="number" id="ot-cant-${o.id}" placeholder="${o.cantidadPedida}" min="0" step="0.01" style="width:90px;padding:6px 8px;border-radius:8px;border:2px solid var(--primary);text-align:center;font-weight:700"/>
+            <input type="number" id="ot-cant-${o.id}" placeholder="${cantPedida}" min="0" step="0.01" style="width:90px;padding:6px 8px;border-radius:8px;border:2px solid var(--primary);text-align:center;font-weight:700"/>
             <span style="font-size:12px;color:#888">${o.unidad}</span>
           </div>
           <button onclick="confirmarOrden('${o.id}','${o.productoNombre}','${o.unidad}',${o.numero})" style="background:var(--success);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:700;font-size:13px">✓ Confirmar elaboración</button>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 };
 
 window.confirmarOrden=async function(ordenId,prodNombre,unidad,numero){
