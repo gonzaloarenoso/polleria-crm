@@ -2383,10 +2383,7 @@ function renderLocaleSelector(){
     sel.style.display='none';
     return;
   }
-  if(!_locales.length){
-    sel.style.display='none';
-    return;
-  }
+  // Admin siempre ve el selector, aunque no haya locales creados todavía
   sel.style.display='inline-block';
   const cur=ACTIVE_LOCALE||'';
   sel.innerHTML='<option value="">🏢 Todos los locales</option>'+
@@ -2518,7 +2515,7 @@ window.showSec=function(id,btn){
   // ── MULTI-LOCAL: bloquear pestañas operativas si admin no eligió un local ──
   const OPERATIVAS=['ventas','caja','inventario','produccion-inv','produccion-ordenes'];
   let bloqueoDiv=document.getElementById('locale-required-block');
-  if(USER_ROLE==='admin'&&!ACTIVE_LOCALE&&OPERATIVAS.includes(id)){
+  if(USER_ROLE==='admin'&&!ACTIVE_LOCALE&&_locales.length>0&&OPERATIVAS.includes(id)){
     btn.classList.add('active');
     if(!bloqueoDiv){
       bloqueoDiv=document.createElement('div');
