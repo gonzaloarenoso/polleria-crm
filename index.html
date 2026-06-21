@@ -8057,7 +8057,7 @@ telRow+userRow+altaRow+
 '    var matches=_clientesListVinc.filter(function(c){return c.nombre.toLowerCase().includes(q)||(c.tel&&c.tel.includes(q));}).slice(0,10);'+
 '    if(!matches.length){vincDD.innerHTML="<div style=\\"padding:10px;color:#888;font-size:13px\\">Sin resultados</div>";vincDD.style.display="block";return;}'+
 '    vincDD.innerHTML=matches.map(function(c){'+
-'      return "<div style=\\"padding:8px 12px;cursor:pointer;border-bottom:1px solid #eee;font-size:13px\\" data-cid=\\""+c.id+"\\" data-cnom=\\""+c.nombre.replace(/\"/g,"&quot;")+"\\">"+c.nombre+(c.tel?" <span style=\\\\\"color:#888;font-size:11px\\\\\">"+c.tel+"</span>":"")+"</div>";'+
+'      return "<div style=\\"padding:8px 12px;cursor:pointer;border-bottom:1px solid #eee;font-size:13px\\" data-cid=\\""+c.id+"\\" data-cnom=\\""+c.nombre.replace(/\"/g,"&quot;")+"\\">"+c.nombre+(c.tel?" <span style=\\"color:#888;font-size:11px\\">"+c.tel+"</span>":"")+"</div>";'+
 '    }).join("");'+
 '    vincDD.style.display="block";'+
 '    Array.from(vincDD.children).forEach(function(row){'+
