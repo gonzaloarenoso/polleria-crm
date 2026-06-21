@@ -2509,7 +2509,7 @@ function statusClass(s){
 }
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
-const ADMIN_TABS=[['dashboard','Panel'],['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['ventas-dia','Ventas'],['caja','Caja'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['gastos','💰 Gastos'],['configuracion','⚙ Configuración']];
+const ADMIN_TABS=[['dashboard','Panel'],['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['ventas-dia','Ventas'],['caja','Caja'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['configuracion','⚙ Configuración']];
 const ADMIN_TABS_GLOBAL=[['dashboard','Panel'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['gastos','💰 Gastos'],['configuracion','⚙ Configuración']];
 const VEND_TABS=[['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['caja','Caja'],['calendario','📅 Calendario']];
 const PROD_TABS=[['produccion-inv','Inventario'],['produccion-ordenes','Elaborar']];
@@ -4548,7 +4548,7 @@ window.confirmar=async function(){
       } else {costoTotal+=fifoCost(it.nom,it.cant);}
     }
     await fifoConsume(items);
-    await updateDoc(doc(db,'users',STORE,'ventas',docRef.id),{costoFIFO:costoTotal,gananciaNeta:finalTotal-costoTotal});
+    await updateDoc(LDOC('ventas',docRef.id),{costoFIFO:costoTotal,gananciaNeta:finalTotal-costoTotal});
     printTicketAmbos(venta);
     // Mark coupon as used
     if(cuponId)await updateDoc(doc(db,'users',STORE,'cupones',cuponId),{usado:true,usadoEn:today(),ventaId:docRef.id});
@@ -4767,7 +4767,7 @@ window.deleteCliente=async function(id,usuario){
   if(!confirm('¿Eliminar este cliente? Se eliminarán también sus datos del portal.'))return;
   setSyncDot('syncing');
   try{
-    await deleteDoc(doc(db,'users',STORE,'clientes',id));
+    await deleteDoc(LDOC('clientes',id));
     if(usuario){
       try{await deleteDoc(doc(db,'users',usuario));}catch{}
     }
@@ -4813,7 +4813,7 @@ window.saveEditCliente=async function(){
   const ceCC=document.getElementById('ce-cc')?.checked||false;
   const updates={nombre:nom,tel:document.getElementById('ce-tel').value,mail:document.getElementById('ce-mail').value,dir:document.getElementById('ce-dir').value,barrio:document.getElementById('ce-bar').value,notas:document.getElementById('ce-not').value,descuentoFijo:descFijo,tipoCliente:ceTipo,cuentaCorriente:ceCC};
   try{
-    await updateDoc(doc(db,'users',STORE,'clientes',editingClienteId),updates);
+    await updateDoc(LDOC('clientes',editingClienteId),updates);
     if(cli.usuario){
       await updateDoc(doc(db,'users',cli.usuario),{nombre:nom,tel:updates.tel,dir:updates.dir,barrio:updates.barrio,mail:updates.mail});
       const newPass=document.getElementById('ce-pass').value;
@@ -4825,7 +4825,7 @@ window.saveEditCliente=async function(){
       const ex=await getDoc(doc(db,'users',newUser));
       if(!ex.exists()){
         await setDoc(doc(db,'users',newUser),{username:newUser,passHash:hash(newPass),role:'cliente',parentAdmin:STORE,nombre:nom,...updates,createdAt:today()});
-        await updateDoc(doc(db,'users',STORE,'clientes',editingClienteId),{usuario:newUser});
+        await updateDoc(LDOC('clientes',editingClienteId),{usuario:newUser});
         toast('Acceso portal creado: '+newUser);
       } else {alert('Ese usuario ya existe. Elegí otro.');}
     }
@@ -5788,7 +5788,7 @@ window.confirmPedidoOnline=async function(id){
   const finalTotal=v.subtotal-descMonto;
   try{
     const ventaConf={...v,estado:'confirmado',confirmedBy:CU,confirmedAt:today(),descuentoMotivo:d?d.motivo:null,descuentoPct:d?d.porcentaje:0,descuentoMonto:descMonto,total:finalTotal,subtotal:v.subtotal||v.total};
-    await updateDoc(doc(db,'users',STORE,'ventas',id),{estado:'confirmado',confirmedBy:CU,confirmedAt:today(),descuentoMotivo:d?d.motivo:null,descuentoPct:d?d.porcentaje:0,descuentoMonto:descMonto,total:finalTotal});
+    await updateDoc(LDOC('ventas',id),{estado:'confirmado',confirmedBy:CU,confirmedAt:today(),descuentoMotivo:d?d.motivo:null,descuentoPct:d?d.porcentaje:0,descuentoMonto:descMonto,total:finalTotal});
     const cli=_clientes.find(c=>c.usuario===v.clienteId||c.nombre===v.cliente);
     // MOD 5: Print ticket (ORIGINAL + COPIA)
     printTicketAmbos(ventaConf);
@@ -5815,7 +5815,7 @@ window.changeStatus=async function(id,newStatus){
     entregado: v.tipoEntrega==='retiro'?getMsgWA('retiro_retirado',nom+', gracias por tu compra en '+local+'. Te esperamos pronto!'):getMsgWA('envio_entregado','Tu pedido llegó! Gracias por confiar en '+local+', '+nom+'. Te esperamos pronto!')
   };
   try{
-    await updateDoc(doc(db,'users',STORE,'ventas',id),{estado:newStatus,['ts_'+newStatus]:Date.now()});
+    await updateDoc(LDOC('ventas',id),{estado:newStatus,['ts_'+newStatus]:Date.now()});
     if(msgs[newStatus])sendWhatsApp(v.telCli,msgs[newStatus]);
     sendPushNotification(v.clienteId,newStatus,v.cliente);
     toast('Estado actualizado: '+statusLabel(newStatus));
@@ -5842,7 +5842,7 @@ window.doCancelPedido=async function(id){
   if(!motivo){alert('Ingresá un motivo de cancelación');return;}
   const v=_ventas.find(x=>x.id===id);if(!v)return;
   try{
-    await updateDoc(doc(db,'users',STORE,'ventas',id),{estado:'cancelado',motivoCancelacion:motivo,canceladoPor:CU});
+    await updateDoc(LDOC('ventas',id),{estado:'cancelado',motivoCancelacion:motivo,canceladoPor:CU});
     sendWhatsApp(v.telCli,`${v.cliente}, lamentablemente tu pedido fue cancelado. Te contamos porqué: ${motivo}. Ante cualquier consulta contactanos. Granja Los Abuelos`);
     toast('Pedido cancelado');
   }catch(e){alert('Error: '+e.message);}
@@ -5851,7 +5851,7 @@ window.doCancelPedido=async function(id){
 // Recordatorios enviados (en memoria de sesión)
 let _recordatoriosEnviados=new Set();
 
-window.toggleNoRecordatorio=async function(id,noRec){try{await updateDoc(doc(db,'users',STORE,'clientes',id),{noRecordatorio:noRec});toast(noRec?'Marcado como no molestar':'Recordatorios reactivados');}catch(e){alert('Error: '+e.message);}};
+window.toggleNoRecordatorio=async function(id,noRec){try{await updateDoc(LDOC('clientes',id),{noRecordatorio:noRec});toast(noRec?'Marcado como no molestar':'Recordatorios reactivados');}catch(e){alert('Error: '+e.message);}};
 
 window.sendRecordatorio=async function(tel,nombre,clienteId){
   // Check if reminder was sent within last 5 days
@@ -7630,7 +7630,7 @@ window.saveEditVenta=async function(){
     const evSubtotal=editItems.reduce((a,i)=>a+(i.precio*(i.cant||1)),0);
     const evDescMonto=evDescPct>0?Math.round(evSubtotal*evDescPct/100):0;
     const evTotal=evSubtotal-evDescMonto;
-    await updateDoc(doc(db,'users',STORE,'ventas',editVentaId),{cliente:document.getElementById('ev-cli').value,canal:document.getElementById('ev-canal').value,pago:document.getElementById('ev-pago').value,obs:document.getElementById('ev-obs').value,items:editItems,total:evTotal,subtotal:evSubtotal,descuentoPct:evDescPct,descuentoMotivo:evDescMot,descuentoMonto:evDescMonto});
+    await updateDoc(LDOC('ventas',editVentaId),{cliente:document.getElementById('ev-cli').value,canal:document.getElementById('ev-canal').value,pago:document.getElementById('ev-pago').value,obs:document.getElementById('ev-obs').value,items:editItems,total:evTotal,subtotal:evSubtotal,descuentoPct:evDescPct,descuentoMotivo:evDescMot,descuentoMonto:evDescMonto});
     cancelEdit();toast('Venta actualizada');
   }catch(e){alert('Error: '+e.message);}
   setBtn('ev-save-btn',false,'Guardar cambios');
@@ -7653,7 +7653,7 @@ window.deleteVenta=async function(id){
       }
       if(changed)await setDoc(doc(db,'inventario',INV_ID()),newInv);
     }
-    await deleteDoc(doc(db,'users',STORE,'ventas',id));
+    await deleteDoc(LDOC('ventas',id));
     toast('Venta eliminada');logAuditoria('eliminó','venta','Venta eliminada: '+id,'','');
   }
   catch(e){alert('Error: '+e.message);}
@@ -9832,7 +9832,7 @@ window.anularCupon=async function(id){
   try{
     await deleteDoc(doc(db,'users',STORE,'cupones',id));
     toast('Cupón anulado');
-    renderCupones();
+    loadCuponesAdmin();
   }catch(e){alert('Error: '+e.message);}
 };
 
@@ -11390,7 +11390,7 @@ function renderCajaChica(){
 window.deleteMovCC=async function(id){
   if(!confirm('¿Eliminar este movimiento de caja chica?'))return;
   try{
-    await deleteDoc(doc(db,'users',STORE,'caja-chica',id));
+    await deleteDoc(LDOC('caja-chica',id));
     _cajaChica=_cajaChica.filter(x=>x.id!==id);
     renderCajaChica();
     logAuditoria('eliminó','caja-chica','Movimiento eliminado: '+id,'','');
@@ -11971,7 +11971,7 @@ window.editarRegistro=async function(tipo,id){
     if(nuevoTotal===null)return;
     const nuevoObs=prompt('Observaciones actuales: '+(v.obs||'')+'\nIngresá nuevas observaciones:',v.obs||'');
     try{
-      await updateDoc(doc(db,'users',STORE,'ventas',id),{total:parseFloat(nuevoTotal)||v.total,obs:nuevoObs||''});
+      await updateDoc(LDOC('ventas',id),{total:parseFloat(nuevoTotal)||v.total,obs:nuevoObs||''});
       await logAuditoria('modificó','venta','Edición manual venta '+id,'Total: $'+v.total,'Total: $'+nuevoTotal);
       toast('Venta actualizada');
     }catch(e){alert('Error: '+e.message);}
