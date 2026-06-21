@@ -8023,8 +8023,8 @@ telRow+userRow+altaRow+
 '        var ccBody={fields:{clienteId:{stringValue:_clienteCCId},clienteNombre:{stringValue:_clienteCCNombre},monto:{doubleValue:_saldoCC},tipo:{stringValue:"pago"},concepto:{stringValue:"Descuento de sueldo — "+_mesActual},fecha:{stringValue:fecha},ts:{integerValue:String(Date.now())}}};'+
 '        var ccPath=_empLocaleId?"users/admin/locales/"+_empLocaleId+"/cuenta-corriente":"users/admin/cuenta-corriente";'+
 '        fetch("https://firestore.googleapis.com/v1/projects/granja-los-abuelos-55288/databases/(default)/documents/"+ccPath,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(ccBody)})'+
-'        .then(function(){alert(doneMsg+". Se canceló la deuda de cta. cte. de $"+Math.round(_saldoCC).toLocaleString("es-AR")+" automáticamente.");window.location.reload();});'+
-'      } else { alert(doneMsg); window.location.reload(); }'+
+'        .then(function(){alert(doneMsg+". Se canceló la deuda de cta. cte. de $"+Math.round(_saldoCC).toLocaleString("es-AR")+" automáticamente.");if(window.opener&&!window.opener.closed){window.opener.verFichaEmp(_empId);window.close();}else{alert(\"Cerrá esta ventana y volvé a abrir la ficha para ver los cambios.\");}});'+
+'      } else { alert(doneMsg); if(window.opener&&!window.opener.closed){window.opener.verFichaEmp(_empId);window.close();}else{alert(\"Cerrá esta ventana y volvé a abrir la ficha para ver los cambios.\");} }'+
 '      document.getElementById("pago-monto").value="";document.getElementById("pago-obs").value="";'+
 '      cargarHistorialPagos();'+
 '    }else{alert("Error al guardar");}'+
@@ -8078,7 +8078,7 @@ telRow+userRow+altaRow+
 '  btnLocal.textContent="Guardando...";btnLocal.disabled=true;'+
 '  var fields=lid?{localeId:{stringValue:lid}}:{};'+
 '  fetch("https://firestore.googleapis.com/v1/projects/granja-los-abuelos-55288/databases/(default)/documents/users/admin/empleados/"+_empId+"?updateMask.fieldPaths=localeId",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({fields:fields})})'+
-'  .then(function(r){if(r.ok){alert("Local guardado");window.location.reload();}else{alert("Error al guardar local");btnLocal.textContent="Guardar local";btnLocal.disabled=false;}})'+
+'  .then(function(r){if(r.ok){alert("Local guardado");if(window.opener&&!window.opener.closed){window.opener.verFichaEmp(_empId);window.close();}else{alert(\"Cerrá esta ventana y volvé a abrir la ficha para ver los cambios.\");}}else{alert("Error al guardar local");btnLocal.textContent="Guardar local";btnLocal.disabled=false;}})'+
 '  .catch(function(e){alert("Error: "+e.message);btnLocal.textContent="Guardar local";btnLocal.disabled=false;});'+
 '});'+
 'if(btnVinc)btnVinc.addEventListener("click",function(){'+
@@ -8088,13 +8088,13 @@ telRow+userRow+altaRow+
 '  btnVinc.textContent="Guardando...";btnVinc.disabled=true;'+
 '  var fields={clienteVinculadoId:{stringValue:cid},clienteVinculadoNombre:{stringValue:cnom}};'+
 '  fetch("https://firestore.googleapis.com/v1/projects/granja-los-abuelos-55288/databases/(default)/documents/users/admin/empleados/"+_empId+"?updateMask.fieldPaths=clienteVinculadoId&updateMask.fieldPaths=clienteVinculadoNombre",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({fields:fields})})'+
-'  .then(function(r){if(r.ok){alert("Cliente vinculado: "+cnom);window.location.reload();}else{alert("Error al vincular");btnVinc.textContent="Vincular";btnVinc.disabled=false;}})'+
+'  .then(function(r){if(r.ok){alert("Cliente vinculado: "+cnom);if(window.opener&&!window.opener.closed){window.opener.verFichaEmp(_empId);window.close();}else{alert(\"Cerrá esta ventana y volvé a abrir la ficha para ver los cambios.\");}}else{alert("Error al vincular");btnVinc.textContent="Vincular";btnVinc.disabled=false;}})'+
 '  .catch(function(e){alert("Error: "+e.message);btnVinc.textContent="Vincular";btnVinc.disabled=false;});'+
 '});'+
 'function desvincularClienteCC(empId){'+
 '  if(!confirm("¿Desvincular cuenta corriente de este empleado?"))return;'+
 '  fetch("https://firestore.googleapis.com/v1/projects/granja-los-abuelos-55288/databases/(default)/documents/users/admin/empleados/"+empId+"?updateMask.fieldPaths=clienteVinculadoId&updateMask.fieldPaths=clienteVinculadoNombre",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({fields:{}})})'+
-'  .then(function(r){if(r.ok){alert("Desvinculado");window.location.reload();}});'+
+'  .then(function(r){if(r.ok){alert("Desvinculado");if(window.opener&&!window.opener.closed){window.opener.verFichaEmp(_empId);window.close();}else{alert(\"Cerrá esta ventana y volvé a abrir la ficha para ver los cambios.\");}}});'+
 '}'+
 '<\/script>'+
 '</body></html>';
