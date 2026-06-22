@@ -2374,6 +2374,10 @@ window.migrarDatosALocal=async function(localeId){
     const nCC=await migrarColeccion('caja-chica',localeId);
     const nCI=await migrarColeccion('cierres',localeId);
     const nOT=await migrarColeccion('ordenes-trabajo',localeId);
+    const nSH=await migrarColeccion('stock-historial',localeId);
+    const nRC=await migrarColeccion('recepciones',localeId);
+    const nPR=await migrarColeccion('presupuestos',localeId);
+    const nCTA=await migrarColeccion('cuenta-corriente',localeId);
     // Inventario (doc único, no es colección)
     let nInv=0;
     try{
@@ -2383,6 +2387,15 @@ window.migrarDatosALocal=async function(localeId){
         nInv=Object.keys(invSnap.data()).length;
       }
     }catch(e){}
+    // Lotes — costo FIFO (doc único, no es colección) — clave para que el capital en mercadería se calcule bien
+    let nLotes=0;
+    try{
+      const lotesSnap=await getDoc(doc(db,'lotes',STORE));
+      if(lotesSnap.exists()){
+        await setDoc(doc(db,'lotes',STORE+'_loc_'+localeId),lotesSnap.data());
+        nLotes=Object.keys(lotesSnap.data()).length;
+      }
+    }catch(e){}
     toast('✅ Migración completa');
     alert('Migración completada a "'+nombreLocal(localeId)+'":\n\n'+
       '• Ventas: '+nV+'\n'+
@@ -2390,7 +2403,12 @@ window.migrarDatosALocal=async function(localeId){
       '• Movimientos de caja chica: '+nCC+'\n'+
       '• Cierres: '+nCI+'\n'+
       '• Órdenes de trabajo: '+nOT+'\n'+
-      '• Productos con stock: '+nInv+'\n\n'+
+      '• Movimientos de stock: '+nSH+'\n'+
+      '• Recepciones: '+nRC+'\n'+
+      '• Presupuestos: '+nPR+'\n'+
+      '• Cuentas corrientes: '+nCTA+'\n'+
+      '• Productos con stock: '+nInv+'\n'+
+      '• Productos con costo (lotes FIFO): '+nLotes+'\n\n'+
       'Los datos originales no se borraron (quedan como respaldo). Seleccioná "'+nombreLocal(localeId)+'" en el menú para verlos.');
   }catch(e){alert('Error durante la migración: '+e.message);}
 };
@@ -6450,7 +6468,7 @@ function renderTiposClienteSel(elId,selectedId){
 function renderCfgLocales(){
   const el=document.getElementById('cfg-locales-lista');if(!el)return;
   if(!_locales.length){el.innerHTML='<div class="empty" style="font-size:12px">Sin locales creados. El negocio opera como uno solo.</div>';return;}
-  el.innerHTML=_locales.map((l,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bg);border-radius:8px;margin-bottom:4px;font-size:13px"><span>📍 <strong>${l.nombre}</strong></span><div style="display:flex;gap:6px"><button class="btn bs bsm" onclick="renombrarLocalDesdeConfig(${i})" title="Cambiar nombre del local">✏️ Renombrar</button><button class="btn bs bsm" onclick="if(confirm('¿Copiar todos los datos sueltos (ventas, clientes, caja chica, cierres, OTs, stock) a '+'${l.nombre}'+'?'))migrarDatosALocal('${l.id}')" title="Copiar datos actuales sin local a este local">📦 Migrar datos</button><button class="btn bd bsm" onclick="deleteLocalDesdeConfig(${i})">Eliminar</button></div></div>`).join('');
+  el.innerHTML=_locales.map((l,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bg);border-radius:8px;margin-bottom:4px;font-size:13px"><span>📍 <strong>${l.nombre}</strong></span><div style="display:flex;gap:6px"><button class="btn bs bsm" onclick="renombrarLocalDesdeConfig(${i})" title="Cambiar nombre del local">✏️ Renombrar</button><button class="btn bs bsm" onclick="if(confirm('¿Copiar todos los datos sueltos (ventas, clientes, caja chica, cierres, OTs, stock, costos FIFO) a '+'${l.nombre}'+'?'))migrarDatosALocal('${l.id}')" title="Copiar datos actuales sin local a este local">📦 Migrar datos</button><button class="btn bd bsm" onclick="deleteLocalDesdeConfig(${i})">Eliminar</button></div></div>`).join('');
 }
 window.renombrarLocalDesdeConfig=async function(idx){
   const l=_locales[idx];if(!l)return;
