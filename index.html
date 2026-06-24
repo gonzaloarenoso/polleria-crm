@@ -11024,6 +11024,8 @@ async function checkPresenciaHoy(usuario,_retry){
     const status=document.getElementById('presencia-status');
     if(yaRegistro){
       if(btn){btn.textContent='✓ Presente hoy';btn.disabled=true;btn.style.background='#e8f5e9';btn.style.color='#2e7d32';}
+      const ausBtn=document.getElementById('ausencia-btn');
+      if(ausBtn){ausBtn.disabled=true;ausBtn.style.opacity='0.5';}
       if(status)status.textContent='Ya registraste tu presencia hoy';
       setTimeout(()=>{if(banner)banner.style.display='none';},3000);
     }
@@ -11047,6 +11049,10 @@ window.registrarAusencia=async function(){
     const yaRegistro=snap.docs.some(d=>String(d.data().usuario||'').trim().toLowerCase()===String(CU||'').trim().toLowerCase()&&d.data().fecha===hoy);
     if(yaRegistro){
       toast('Ya registraste tu presencia hoy');
+      if(btn){btn.disabled=true;btn.style.opacity='0.5';}
+      const btn2early=document.getElementById('presencia-btn');
+      if(btn2early){btn2early.disabled=true;btn2early.style.opacity='0.5';}
+      setTimeout(()=>{const b=document.getElementById('presencia-banner');if(b)b.style.display='none';},1500);
       return;
     }
     await addDoc(collection(db,'users',STORE,'presencia'),{
@@ -11225,7 +11231,10 @@ window.registrarPresencia=async function(){
     const yaRegistro=snap.docs.some(d=>String(d.data().usuario||'').trim().toLowerCase()===String(CU||'').trim().toLowerCase()&&d.data().fecha===hoy);
     if(yaRegistro){
       toast('Ya registraste tu presencia hoy');
-      if(btn){btn.textContent='✓ Presente hoy';btn.style.background='#e8f5e9';btn.style.color='#2e7d32';}
+      if(btn){btn.textContent='✓ Presente hoy';btn.disabled=true;btn.style.background='#e8f5e9';btn.style.color='#2e7d32';}
+      const ausBtn1=document.getElementById('ausencia-btn');
+      if(ausBtn1){ausBtn1.disabled=true;ausBtn1.style.opacity='0.5';}
+      setTimeout(()=>{const b=document.getElementById('presencia-banner');if(b)b.style.display='none';},1500);
       return;
     }
     await addDoc(collection(db,'users',STORE,'presencia'),{
@@ -11233,8 +11242,10 @@ window.registrarPresencia=async function(){
     });
     toast('✅ Presencia registrada');
     if(btn){btn.textContent='✓ Presente hoy';btn.style.background='#e8f5e9';btn.style.color='#2e7d32';}
+    const ausBtn2=document.getElementById('ausencia-btn');
+    if(ausBtn2){ausBtn2.disabled=true;ausBtn2.style.opacity='0.5';}
     if(status)status.textContent='Presencia registrada para hoy — '+fdate(hoy);
-    setTimeout(()=>{const b=document.getElementById('presencia-banner');if(b)b.style.display='none';},3000);
+    setTimeout(()=>{const b=document.getElementById('presencia-banner');if(b)b.style.display='none';},1500);
     logAuditoria('registró presencia','sistema','Presencia: '+CU+' · '+hoy,'','');
   }catch(e){
     toast('Error: '+e.message,'error');
