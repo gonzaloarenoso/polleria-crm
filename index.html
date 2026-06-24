@@ -10147,6 +10147,16 @@ window.verFichaProducto=async function(id){
   const totalVendido=ventasProd.reduce((a,v)=>{const it=v.items.find(i=>i.nom===nom);return a+(it?parseFloat(it.cant||0):0);},0);
   const totalFacturado=ventasProd.reduce((a,v)=>{const it=v.items.find(i=>i.nom===nom);return a+(it?(it.cant||0)*(it.precio||0):0);},0);
 
+  // Promedio diario de venta (sobre los últimos 30 días, o desde la primera venta si es más reciente)
+  const hace30=new Date(Date.now()-30*86400000).toISOString().split('T')[0];
+  const ventas30=ventasProd.filter(v=>v.fecha&&v.fecha>=hace30);
+  const cantVendida30=ventas30.reduce((a,v)=>{const it=v.items.find(i=>i.nom===nom);return a+(it?parseFloat(it.cant||0):0);},0);
+  const primeraFechaVenta=ventasProd.length?ventasProd.map(v=>v.fecha).sort()[0]:null;
+  const diasConsiderados=primeraFechaVenta&&primeraFechaVenta>hace30
+    ?Math.max(1,Math.round((Date.now()-new Date(primeraFechaVenta+'T12:00:00').getTime())/86400000)+1)
+    :30;
+  const promedioDiario=diasConsiderados>0?cantVendida30/diasConsiderados:0;
+
   // Ventas por mes (últimos 6)
   const ventasMes={};
   ventasProd.forEach(v=>{
@@ -10261,6 +10271,7 @@ input[type=number]{width:90px;padding:4px 6px;border:1px solid #ccc;border-radiu
   <div class="kpis">
     <div class="kpi"><div class="kpi-v">${Math.round(stockActual*1000)/1000}</div><div class="kpi-l">Stock actual</div></div>
     <div class="kpi"><div class="kpi-v">${fmtDec(totalVendido)}</div><div class="kpi-l">Total vendido</div></div>
+    <div class="kpi"><div class="kpi-v">${fmtDec(promedioDiario)} ${uni}</div><div class="kpi-l">Promedio diario (${diasConsiderados}d)</div></div>
     <div class="kpi"><div class="kpi-v">${fmtARS(totalFacturado)}</div><div class="kpi-l">Facturado total</div></div>
     <div class="kpi"><div class="kpi-v" style="color:#27ae60">${fmtARS(prod.precio||0)}</div><div class="kpi-l">Precio de venta</div></div>
     ${lastCosto>0?`<div class="kpi"><div class="kpi-v" style="color:#555">${fmtARS(lastCosto)}</div><div class="kpi-l">Último costo</div></div>`:''}
