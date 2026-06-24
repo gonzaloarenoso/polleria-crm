@@ -3180,11 +3180,12 @@ function startListeners(){
       if(!d.categorias||d.categorias.length===0){
         setDoc(doc(db,'config',STORE),{...d,categorias:defaultCats,metodosPago:defaultPagos}).catch(()=>{});
       }
-      // Si la pestaña Nueva venta ya está activa (ej: primer tab de un vendedor al loguearse),
-      // poblar el selector de medio de pago apenas llegan los métodos configurados.
-      if(document.getElementById('sec-ventas')?.classList.contains('active')){
+      // Poblar el selector de medio de pago apenas llegan/cambian los métodos configurados,
+      // sin depender de que la pestaña "Nueva venta" esté activa en ese momento
+      // (ej: vendedor que loguea y "ventas" es la primera pestaña, antes de que Firebase responda).
+      {
         const vpInit=document.getElementById('v-pago');
-        if(vpInit&&_metodosPago.length&&vpInit.options.length<=1){
+        if(vpInit&&_metodosPago.length){
           const curInit=vpInit.value;
           const activosInit=_metodosPago.filter(m=>m.activo);
           if(activosInit.length){
