@@ -362,8 +362,8 @@ tr:hover td{background:#fafaf8}
       <div class="card" style="margin-bottom:14px">
         <h3>Filtros</h3>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:8px">
-          <div><label>Desde</label><input type="date" id="vd-desde" style="width:145px" onchange="renderVentasDia()"/></div>
-          <div><label>Hasta</label><input type="date" id="vd-hasta" style="width:145px" onchange="renderVentasDia()"/></div>
+          <div id="vd-fecha-wrap-desde"><label>Desde</label><input type="date" id="vd-desde" style="width:145px" onchange="renderVentasDia()"/></div>
+          <div id="vd-fecha-wrap-hasta"><label>Hasta</label><input type="date" id="vd-hasta" style="width:145px" onchange="renderVentasDia()"/></div>
           <div><label>Canal</label>
             <select id="vd-canal-fil" onchange="renderVentasDia()" style="width:140px">
               <option value="">Todos</option>
@@ -2446,6 +2446,7 @@ let _mensajesAdmin=[];
 let _recordatoriosTimestamps={};
 let _eventos=[];
 let _cajaChica=[];
+let _fondoCierreAnteriorCache=null; // {fecha, monto} — fondo de caja del último cierre, para calcular el saldo real de caja chica
 let _cajaCerradaHoy=false;
 let _calMes=new Date().getMonth();
 let _calAno=new Date().getFullYear();
@@ -3634,19 +3635,28 @@ function renderDashCharts(){
 }
 
 window.renderVentasDia=function(){
+  const isAdmin=USER_ROLE==='admin';
+  const wrapDesde=document.getElementById('vd-fecha-wrap-desde');
+  const wrapHasta=document.getElementById('vd-fecha-wrap-hasta');
+  if(wrapDesde)wrapDesde.style.display=isAdmin?'':'none';
+  if(wrapHasta)wrapHasta.style.display=isAdmin?'':'none';
   const desde=document.getElementById('vd-desde')?.value||'';
   const hasta=document.getElementById('vd-hasta')?.value||'';
   const canal=document.getElementById('vd-canal-fil')?.value||'';
   const pago=document.getElementById('vd-pago-fil')?.value||'';
   let vf=[..._ventas];
-  if(desde)vf=vf.filter(v=>v.fecha>=desde);
-  if(hasta)vf=vf.filter(v=>v.fecha<=hasta);
+  if(!isAdmin){
+    // El vendedor solo puede ver las ventas del día de hoy, sin importar los filtros de fecha
+    vf=vf.filter(v=>v.fecha===today());
+  } else {
+    if(desde)vf=vf.filter(v=>v.fecha>=desde);
+    if(hasta)vf=vf.filter(v=>v.fecha<=hasta);
+  }
   if(canal){
     if(canal==='online')vf=vf.filter(v=>v.tipo==='online');
     else vf=vf.filter(v=>v.canal===canal);
   }
   if(pago)vf=vf.filter(v=>v.pago===pago);
-  const isAdmin=USER_ROLE==='admin';
   const tot=vf.reduce((a,v)=>a+v.total,0);
   const metrics=document.getElementById('vd-metrics');
   if(metrics)metrics.style.display=vf.length?'grid':'none';
@@ -5419,13 +5429,16 @@ window.renderProductos=function renderProductos(){
       _categorias.map(cat=>'<option value="'+cat.nombre+'">'+cat.emoji+' '+cat.nombre+'</option>').join('');
     catSel.value=cur;
   }
-  // Admin view: editable list
+  // Vista completa (agregar producto, editar precios/stock/etc): admin y vendedor.
+  // Lo único exclusivo de admin es el bloque "Capital en mercadería" (controlado arriba).
+  const verVistaCompleta=USER_ROLE==='admin'||USER_ROLE==='vendedor';
+  const isAdminCosto=USER_ROLE==='admin'; // mostrar costos en otras secciones sigue siendo solo admin
   const el=document.getElementById('p-lista');
   const elVend=document.getElementById('p-lista-vend');
   const busq=(document.getElementById('p-buscador')?.value||'').toLowerCase().trim();
   const adminForm=document.getElementById('p-admin-form');
   const vendList=document.getElementById('p-vend-list');
-  if(USER_ROLE==='admin'){
+  if(verVistaCompleta){
     if(adminForm)adminForm.style.display='';
     if(vendList)vendList.style.display='none';
     if(!el)return;
@@ -5438,7 +5451,7 @@ window.renderProductos=function renderProductos(){
 <input type="checkbox" ${p.requiereElaboracion?'checked':''} data-action="toggle-elaboracion" data-prod-id="${p.id}" style="margin:0"/>🔧</label>
 </div></div>`).join('');
   } else {
-    // Vendor view: read-only
+    // Cliente u otros roles: solo lectura
     if(adminForm)adminForm.style.display='none';
     if(vendList)vendList.style.display='block';
     if(!elVend)return;
@@ -7369,11 +7382,63 @@ window.confirmarOrden=async function(ordenId,prodNombre,unidad,numero){
     });
     // Close order
     await updateDoc(LDOC('ordenes-trabajo',ordenId),{
-      estado:'completada',cantidadRealizada:cant,fechaCompletada:today()
+      estado:'completada',cantidadRealizada:cant,fechaCompletada:today(),horaCompletada:ftime()
     });
     toast('OT #'+numero+' completada: +'+cant+' '+unidad+' de '+prodNombre);
     renderOrdenesProduccion();
   }catch(e){alert('Error: '+e.message);}
+};
+
+window.switchOTTab=function(tab,btn){
+  document.querySelectorAll('#ot-tab-pend,#ot-tab-comp').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  const pendWrap=document.getElementById('ot-pend-wrap');
+  const compWrap=document.getElementById('ot-comp-wrap');
+  if(tab==='pend'){
+    if(pendWrap)pendWrap.style.display='';
+    if(compWrap)compWrap.style.display='none';
+  } else {
+    if(pendWrap)pendWrap.style.display='none';
+    if(compWrap)compWrap.style.display='';
+    renderOrdenesCompletadas();
+  }
+};
+
+window.renderOrdenesCompletadas=async function(){
+  const el=document.getElementById('prod-ordenes-completadas');if(!el)return;
+  el.innerHTML='<div style="text-align:center;padding:20px;color:#888">⏳ Cargando historial...</div>';
+  try{
+    const snap=await getDocs(LCOL('ordenes-trabajo'));
+    const completadas=snap.docs.map(d=>({id:d.id,...d.data()}))
+      .filter(o=>o.estado==='completada')
+      .sort((a,b)=>{
+        const fa=(a.fechaCompletada||'')+(a.horaCompletada||'');
+        const fb=(b.fechaCompletada||'')+(b.horaCompletada||'');
+        return fb.localeCompare(fa);
+      });
+    if(!completadas.length){
+      el.innerHTML='<div class="empty">Todavía no hay órdenes completadas</div>';return;
+    }
+    el.innerHTML=completadas.map(o=>{
+      const fechaStr=o.fechaCompletada?fdate(o.fechaCompletada):'—';
+      const horaStr=o.horaCompletada?o.horaCompletada:'';
+      return`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="background:var(--success);color:#fff;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700">OT #${o.numero||'—'}</span>
+            <span style="font-size:14px;font-weight:700">${o.productoNombre||'—'}</span>
+          </div>
+          <div style="font-size:12px;color:#888">Elaborado: <strong style="color:var(--success)">${o.cantidadRealizada??'—'} ${o.unidad||''}</strong></div>
+        </div>
+        <div style="font-size:12px;color:#888;text-align:right">
+          <div>${fechaStr}${horaStr?' · '+horaStr:''}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    el.innerHTML='<div class="empty">Error al cargar el historial</div>';
+    console.warn('renderOrdenesCompletadas error',e);
+  }
 };
 
 function renderCaja(){
@@ -7514,7 +7579,7 @@ window.showCierreCaja=async function(){
           <tr>
             <td><strong>Efectivo</strong></td>
             ${isAdminCierre?`<td style="text-align:right">${fmt(ef)}</td><td style="text-align:right">—</td><td style="text-align:right">${fmt(ef)}</td>`:''}
-            <td style="text-align:right"><input type="number" id="cc-ef-real" value="${ef}" style="width:110px;text-align:right;font-weight:700;border:2px solid var(--primary);border-radius:6px;padding:4px 6px" onchange="calcDiferencias()"/></td>
+            <td style="text-align:right"><input type="number" id="cc-ef-real" value="${ef}" style="width:110px;text-align:right;font-weight:700;border:2px solid var(--primary);border-radius:6px;padding:4px 6px" onchange="this.dataset.tocadoManualmente='1';calcDiferencias()"/></td>
           </tr>
           ${isAdminCierre&&tr>0?`<tr>
             <td><strong>Transferencia</strong></td>
@@ -7576,9 +7641,16 @@ window.showCierreCaja=async function(){
           if(retEl)retEl.textContent='-$'+Math.round(retiros).toLocaleString('es-AR');
         }
         panel.style.display='block';
-        // Also set the cc-ef-real data-esperado attribute for calcDiferencias
+        // Set the cc-ef-real value AND data-esperado attribute to the full expected total
+        // (fondo anterior + ventas efectivo - retiros), not just today's cash sales.
         const efInput=document.getElementById('cc-ef-real');
-        if(efInput)efInput.dataset.esperado=esperado;
+        if(efInput){
+          efInput.dataset.esperado=esperado;
+          // Solo pisamos el valor si el empleado todavía no lo tocó a mano
+          if(!efInput.dataset.tocadoManualmente){
+            efInput.value=Math.round(esperado);
+          }
+        }
         calcDiferencias();
       }
     }catch(e){console.warn('fondo anterior error',e);}
@@ -7652,6 +7724,9 @@ window.confirmarCierreCaja=async function(){
     document.getElementById('cierre-caja-wrap').style.display='none';
     toast('Caja cerrada y guardada correctamente');
     logAuditoria('cerró','caja','Cierre de caja · $'+(cierre.total||0),'','');
+    // Invalidar caché de fondo anterior usado en "Saldo caja chica" y refrescar si la vista está abierta
+    _fondoCierreAnteriorCache=null;
+    if(document.getElementById('cc-lista'))renderCajaChica();
     // MOD 3: Generate WhatsApp stock report link
     const tel=_cfgNegocio?.tel||'';
     if(tel){
@@ -10206,14 +10281,16 @@ ${topClientes.length?`<div class="card">
 <div class="card">
   <h3>🛒 Historial de compras de stock</h3>
   ${compras.length?`<table><thead><tr><th>Fecha</th><th>Cantidad</th><th>Costo unit.</th><th>Total</th><th>Proveedor</th><th class="no-print">Editar</th></tr></thead><tbody id="compras-tbody">
-  ${compras.map(s=>`<tr id="row-${s.id}" data-docid="${s.id}" style="${s.tipo==='ajuste'?'background:rgba(239,159,39,0.07)':''}">
-    <td>${s.fecha||'—'}${s.tipo==='ajuste'?'<br><span style="font-size:10px;color:#EF9F27;font-weight:600">ajuste</span>':''}</td>
+  ${compras.map(s=>{
+    const horaStr=s.ts?new Date(s.ts).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):'';
+    return`<tr id="row-${s.id}" data-docid="${s.id}" style="${s.tipo==='ajuste'?'background:rgba(239,159,39,0.07)':''}">
+    <td>${s.fecha||'—'}${horaStr?' <span style="font-size:11px;color:#888">'+horaStr+'</span>':''}${s.tipo==='ajuste'?'<br><span style="font-size:10px;color:#EF9F27;font-weight:600">ajuste</span>':''}</td>
     <td class="td-cant-${s.id}" style="${s.tipo==='ajuste'?'color:#EF9F27;font-weight:700':''}"><span>${s.tipo==='ajuste'?'−':''}${fmtDec(Math.abs(s.cantidad||0))} ${uni}</span></td>
     <td class="td-costo-${s.id}">${s.tipo==='ajuste'?'<span style="color:#aaa;font-size:11px">sin costo</span>':s.costoUnitario?fmtARS(s.costoUnitario):'—'}</td>
     <td>${s.tipo==='ajuste'?'—':s.totalCosto?fmtARS(s.totalCosto):'—'}</td>
     <td>${s.proveedor||prod.proveedor||'—'}</td>
     <td class="no-print">${s.legacy?'<span style="font-size:10px;color:#aaa;font-style:italic">histórico</span>':s.tipo==='ajuste'?'<span style="font-size:10px;color:#EF9F27;font-style:italic">ajuste</span>':`<button class="btn-edit" data-action="edit" data-docid="${s.id}" data-cant="${s.cantidad||0}" data-costo="${s.costoUnitario||0}">✏ Editar</button>`}</td>
-  </tr>`).join('')}
+  </tr>`;}).join('')}
   </tbody></table>`
   :`<p style="color:#888;text-align:center;padding:16px">Sin historial de compras registrado</p>`}
 </div>
@@ -10319,12 +10396,16 @@ document.addEventListener('change',function(e){
         if(recetaInput)recetaInput.value=receta.trim();
         if(window.opener&&!window.opener.closed){
           window.opener.guardarRecetaProducto(''+id+'',receta.trim());
+        } else {
+          alert('No se pudo guardar: se perdió la conexión con la pantalla principal del CRM. Cerrá esta ficha, volvé a la pantalla principal y abrí la ficha de nuevo desde ahí.');
         }
       }
     }
     if(w)w.style.display=e.target.checked?'block':'none';
     if(window.opener&&!window.opener.closed){
       window.opener.guardarRequiereElaboracion(''+id+'',e.target.checked);
+    } else if(e.target.checked){
+      alert('No se pudo guardar: se perdió la conexión con la pantalla principal del CRM. Cerrá esta ficha, volvé a la pantalla principal y abrí la ficha de nuevo desde ahí.');
     }
   }
 });
@@ -10526,6 +10607,8 @@ document.addEventListener('DOMContentLoaded',function(){
         // Update description live
         const otDesc=document.getElementById('ficha-ot-cant');
         if(otDesc)otDesc.textContent=cant+' ${uni}';
+      } else {
+        alert('No se pudo guardar: se perdió la conexión con la pantalla principal del CRM (esto puede pasar si cerraste esa pestaña o el navegador la descartó). Cerrá esta ficha, volvé a la pantalla principal y abrí la ficha de nuevo desde ahí para guardar los cambios.');
       }
       return;
     }
@@ -10536,6 +10619,8 @@ document.addEventListener('DOMContentLoaded',function(){
         window.opener.guardarRecetaProducto('${id}',receta);
         btn.textContent='✓ Guardada';
         setTimeout(()=>btn.textContent='Guardar receta',1500);
+      } else {
+        alert('No se pudo guardar la receta: se perdió la conexión con la pantalla principal del CRM (esto puede pasar si cerraste esa pestaña o el navegador la descartó). Cerrá esta ficha, volvé a la pantalla principal y abrí la ficha de nuevo desde ahí para guardar los cambios.');
       }
       return;
     }
@@ -10895,7 +10980,7 @@ window.repetirPedido=function(id){
 };
 
 
-async function checkPresenciaHoy(usuario){
+async function checkPresenciaHoy(usuario,_retry){
   if(USER_ROLE==='admin')return;
   const banner=document.getElementById('presencia-banner');
   if(!banner)return;
@@ -10903,7 +10988,7 @@ async function checkPresenciaHoy(usuario){
   try{
     const hoy=today();
     const snap=await getDocs(collection(db,'users',STORE,'presencia'));
-    const yaRegistro=snap.docs.some(d=>d.data().usuario===usuario&&d.data().fecha===hoy);
+    const yaRegistro=snap.docs.some(d=>String(d.data().usuario||'').trim().toLowerCase()===String(usuario||'').trim().toLowerCase()&&d.data().fecha===hoy);
     const btn=document.getElementById('presencia-btn');
     const status=document.getElementById('presencia-status');
     if(yaRegistro){
@@ -10911,9 +10996,13 @@ async function checkPresenciaHoy(usuario){
       if(status)status.textContent='Ya registraste tu presencia hoy';
       setTimeout(()=>{if(banner)banner.style.display='none';},3000);
     }
-  }catch(e){console.log('presencia check',e);}
+  }catch(e){
+    console.log('presencia check',e);
+    // Si falló la consulta (conexión, permisos, etc), reintentamos una sola vez
+    // en vez de dejar el banner mostrando "registrá tu presencia" para siempre.
+    if(!_retry)setTimeout(()=>checkPresenciaHoy(usuario,true),2000);
+  }
 }
-
 
 // ── REGISTRAR AUSENCIA (empleado) ─────────────────────────────────────────
 window.registrarAusencia=async function(){
@@ -10924,7 +11013,7 @@ window.registrarAusencia=async function(){
   if(btn){btn.disabled=true;btn.textContent='Registrando...';}
   try{
     const snap=await getDocs(collection(db,'users',STORE,'presencia'));
-    const yaRegistro=snap.docs.some(d=>d.data().usuario===CU&&d.data().fecha===hoy);
+    const yaRegistro=snap.docs.some(d=>String(d.data().usuario||'').trim().toLowerCase()===String(CU||'').trim().toLowerCase()&&d.data().fecha===hoy);
     if(yaRegistro){
       toast('Ya registraste tu presencia hoy');
       return;
@@ -11102,7 +11191,7 @@ window.registrarPresencia=async function(){
   if(btn){btn.disabled=true;btn.textContent='Registrando...';}
   try{
     const snap=await getDocs(collection(db,'users',STORE,'presencia'));
-    const yaRegistro=snap.docs.some(d=>d.data().usuario===CU&&d.data().fecha===hoy);
+    const yaRegistro=snap.docs.some(d=>String(d.data().usuario||'').trim().toLowerCase()===String(CU||'').trim().toLowerCase()&&d.data().fecha===hoy);
     if(yaRegistro){
       toast('Ya registraste tu presencia hoy');
       if(btn){btn.textContent='✓ Presente hoy';btn.style.background='#e8f5e9';btn.style.color='#2e7d32';}
@@ -11536,11 +11625,34 @@ window.addCajaChica=async function(){
 
 function renderCajaChica(){
   const el=document.getElementById('cc-lista');if(!el)return;
-  if(!_cajaChica.length){el.innerHTML='<div class="empty">Sin movimientos de caja chica hoy</div>';document.getElementById('caja-chica-saldo').textContent='';return;}
-  const saldo=_cajaChica.reduce((a,m)=>a+m.monto,0);
-  document.getElementById('caja-chica-saldo').innerHTML='Saldo caja chica: <span style="color:'+(saldo>=0?'var(--success)':'var(--danger)')+'">'+fmt(Math.abs(saldo))+'</span>';
+  // Saldo real de caja = fondo del último cierre + ventas en efectivo de hoy + movimientos manuales de hoy (ingresos - egresos)
+  const ccHoy=_cajaChica.filter(m=>m.fecha===today());
+  const movManualHoy=ccHoy.reduce((a,m)=>a+m.monto,0);
+  const ventasEfectivoHoy=(_ventas||[]).filter(v=>v.fecha===today()&&v.pago==='Efectivo').reduce((a,v)=>a+(v.total||0),0);
+  const aplicarSaldo=(fondoAnterior)=>{
+    const saldo=fondoAnterior+ventasEfectivoHoy+movManualHoy;
+    const elSaldo=document.getElementById('caja-chica-saldo');
+    if(elSaldo)elSaldo.innerHTML='Saldo caja chica: <span style="color:'+(saldo>=0?'var(--success)':'var(--danger)')+'">'+fmt(Math.abs(saldo))+'</span>';
+  };
+  if(_fondoCierreAnteriorCache&&_fondoCierreAnteriorCache.fecha===today()){
+    aplicarSaldo(_fondoCierreAnteriorCache.monto);
+  } else {
+    (async()=>{
+      try{
+        const snap=await getDocs(LCOL('cierres'));
+        const cierresOrdenados=snap.docs.map(d=>d.data()).sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+        const ultimoAnterior=cierresOrdenados.filter(ci=>ci.fecha<today()).pop();
+        const fondoAnterior=ultimoAnterior?(ultimoAnterior.fondoCambio||ultimoAnterior.efectivoDisponible||0):0;
+        _fondoCierreAnteriorCache={fecha:today(),monto:fondoAnterior};
+        aplicarSaldo(fondoAnterior);
+      }catch(e){console.warn('No se pudo calcular fondo anterior para caja chica',e);aplicarSaldo(0);}
+    })();
+  }
   const tipos={retiro:'Retiro',adelanto:'Adelanto empleado',proveedor:'Pago proveedor',gasto:'Gasto menor',ingreso:'Ingreso extra',fondo:'Fondo de cambio'};
-  el.innerHTML=_cajaChica.map(m=>'<div class="pr"><div><div style="font-size:13px;font-weight:600">'+(tipos[m.tipo]||m.tipo)+(m.detalle?' — '+m.detalle:'')+'</div><div style="font-size:11px;color:#888">'+m.hora+' · '+m.creadoPor+'</div></div><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:700;color:'+(m.esEgreso?'var(--danger)':'var(--success)')+'">'+( m.esEgreso?'-':'+')+''+fmt(m.montoAbs)+'</span><button class="btn bd bsm" onclick="deleteMovCC(\''+m.id+'\')" style="padding:3px 8px;font-size:11px">✕</button></div></div>').join('');
+  // El vendedor solo ve los movimientos del día de hoy; el admin ve todo el historial.
+  const movsVisibles=USER_ROLE==='admin'?_cajaChica:ccHoy;
+  if(!movsVisibles.length){el.innerHTML='<div class="empty">Sin movimientos de caja chica hoy</div>';return;}
+  el.innerHTML=movsVisibles.map(m=>'<div class="pr"><div><div style="font-size:13px;font-weight:600">'+(tipos[m.tipo]||m.tipo)+(m.detalle?' — '+m.detalle:'')+'</div><div style="font-size:11px;color:#888">'+fdate(m.fecha)+' '+m.hora+' · '+m.creadoPor+'</div></div><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:700;color:'+(m.esEgreso?'var(--danger)':'var(--success)')+'">'+( m.esEgreso?'-':'+')+''+fmt(m.montoAbs)+'</span><button class="btn bd bsm" onclick="deleteMovCC(\''+m.id+'\')" style="padding:3px 8px;font-size:11px">✕</button></div></div>').join('');
 }
 
 window.deleteMovCC=async function(id){
@@ -12324,11 +12436,20 @@ window.registrarTurno=async function(){
   <div id="sec-produccion-ordenes" class="sec">
     <div style="max-width:900px;margin:0 auto;padding:16px">
       <div id="prod-local-indicator2" style="margin-bottom:12px"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
         <h2 style="margin:0">📋 Órdenes de trabajo</h2>
-        <button class="btn bs bsm" onclick="renderOrdenesProduccion()">🔄 Actualizar</button>
+        <button class="btn bs bsm" id="prod-ot-refresh-btn" onclick="renderOrdenesProduccion()">🔄 Actualizar</button>
       </div>
-      <div id="prod-ordenes-lista"><div class="empty">Cargando...</div></div>
+      <div class="tab-row" style="margin-bottom:16px;max-width:340px">
+        <button class="tab-btn active" id="ot-tab-pend" onclick="switchOTTab('pend',this)">Pendientes</button>
+        <button class="tab-btn" id="ot-tab-comp" onclick="switchOTTab('comp',this)">Completadas</button>
+      </div>
+      <div id="ot-pend-wrap">
+        <div id="prod-ordenes-lista"><div class="empty">Cargando...</div></div>
+      </div>
+      <div id="ot-comp-wrap" style="display:none">
+        <div id="prod-ordenes-completadas"><div class="empty">Cargando...</div></div>
+      </div>
     </div>
   </div>
 
