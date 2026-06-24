@@ -203,6 +203,11 @@ tr:hover td{background:#fafaf8}
       <input type="text" id="r-dir" placeholder="Calle y número"/>
       <label style="margin-top:8px">Barrio / Localidad *</label>
       <input type="text" id="r-barrio" placeholder="Barrio"/>
+      <div id="r-local-wrap" style="margin-top:8px;display:none">
+        <label>Elegí la sucursal más cercana a tu domicilio *</label>
+        <select id="r-local" onchange="mostrarDirLocalReg()"><option value="">Seleccioná una sucursal...</option></select>
+        <div id="r-local-dir" style="font-size:12px;color:#888;margin-top:4px"></div>
+      </div>
       <label style="margin-top:8px">Usuario (generado automáticamente)</label>
       <input type="text" id="r-user" placeholder="Se completa automáticamente" readonly style="background:#f5f4f0;color:#888;cursor:not-allowed"/>
       <label style="margin-top:8px">Contraseña * <span style="font-size:10px;color:#888">(mín. 4 caracteres)</span></label>
@@ -1290,13 +1295,13 @@ tr:hover td{background:#fafaf8}
         <button class="tab-btn active" id="cfg-tab-negocio" onclick="switchCfgTab('negocio',this)">Negocio</button>
         <button class="tab-btn" id="cfg-tab-pedidos" onclick="switchCfgTab('pedidos',this)">Pedidos online</button>
         <button class="tab-btn" id="cfg-tab-fidelizacion" onclick="switchCfgTab('fidelizacion',this)">Programa Fidelización</button>
-        <button class="tab-btn" id="cfg-tab-datos" onclick="switchCfgTab('datos',this)" style="color:var(--danger)">Datos</button>
         <!-- Hidden legacy tabs kept for compatibility -->
       </div>
 
       <!-- NEGOCIO -->
       <div id="cfg-negocio">
-        <div class="card" style="margin-bottom:16px">
+        <!-- Solo visible en el portal general (sin local elegido) -->
+        <div class="card" id="cfg-locales-card" style="margin-bottom:16px">
           <h3 style="margin-top:4px">🏢 Locales</h3>
           <div style="font-size:12px;color:#888;margin-bottom:8px">Gestioná las sucursales del negocio. Cada local tiene su propio stock, ventas y caja chica.</div>
           <div id="cfg-locales-lista" style="margin-bottom:10px"></div>
@@ -1305,14 +1310,22 @@ tr:hover td{background:#fafaf8}
             <button class="btn bp bsm" onclick="addLocalDesdeConfig()">+ Agregar local</button>
           </div>
         </div>
+        <!-- Solo visible DENTRO de un local específico -->
+        <div class="card" id="cfg-datos-local-card" style="margin-bottom:16px;display:none">
+          <h3 style="margin-top:4px">📍 Datos de este local</h3>
+          <div style="font-size:12px;color:#888;margin-bottom:10px">Dirección, teléfono y horario propios de <strong id="cfg-datos-local-nombre">este local</strong>. Cada sucursal tiene los suyos.</div>
+          <div class="g2" style="gap:10px">
+            <div><label>Dirección</label><input type="text" id="cfg-local-dir" placeholder="Calle y número"/></div>
+            <div><label>Teléfono</label><input type="text" id="cfg-local-tel" placeholder="11-5555-1234"/></div>
+          </div>
+          <label>Horario de atención</label><input type="text" id="cfg-local-horario" placeholder="Lun-Sab 9-20hs"/>
+          <div class="row" style="margin-top:10px"><button class="btn bp bsm" onclick="guardarDatosLocal()">Guardar datos de este local</button></div>
+        </div>
         <div class="g2">
           <div class="card">
             <h3>Datos del negocio</h3>
-
-            <label>Nombre del local</label><input type="text" id="cfg-nombre-local" placeholder="Granja Los Abuelos"/>
-            <label>Dirección</label><input type="text" id="cfg-dir-local" placeholder="Calle y número, Caseros"/>
-            <label>Teléfono</label><input type="text" id="cfg-tel-local" placeholder="11-5555-1234"/>
-            <label>Horario de atención</label><input type="text" id="cfg-horario" placeholder="Lun-Sab 9-20hs"/>
+            <div style="font-size:12px;color:#888;margin-bottom:10px">Esto es la marca, igual para todos los locales.</div>
+            <label>Nombre del negocio</label><input type="text" id="cfg-nombre-local" placeholder="Granja Los Abuelos"/>
             <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">
               <h3 style="margin-bottom:8px">Comisiones por medio de pago</h3>
               <div style="font-size:12px;color:#888;margin-bottom:10px">Se descuentan del total acreditado en el cierre de caja.</div>
@@ -1326,7 +1339,7 @@ tr:hover td{background:#fafaf8}
           </div>
           <div class="card">
             <h3>📱 Código QR del portal</h3>
-            <div style="font-size:13px;color:#888;margin-bottom:12px">Mostralo en el mostrador, bolsas o tarjetas para que tus clientes accedan al portal.</div>
+            <div style="font-size:13px;color:#888;margin-bottom:12px">Mostralo en el mostrador, bolsas o tarjetas para que tus clientes accedan al portal. Es el mismo para todos los locales — el cliente elige su sucursal al registrarse.</div>
             <div id="qr-container" style="display:flex;flex-direction:column;align-items:center;gap:12px">
               <canvas id="qr-canvas" width="200" height="200" style="border-radius:10px;border:1px solid var(--border)"></canvas>
               <div style="font-size:12px;color:#888;text-align:center" id="qr-url"></div>
@@ -1566,6 +1579,17 @@ tr:hover td{background:#fafaf8}
             </div>
             <div class="card">
               <h3>Configuración de cupones</h3>
+              <div style="background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+                <div>
+                  <div style="font-weight:600;font-size:13px">⏸ Pausar generación de cupones nuevos</div>
+                  <div style="font-size:11px;color:#888">Los cupones ya emitidos siguen funcionando. Solo se frena la creación de nuevos.</div>
+                </div>
+                <label class="switch" style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0">
+                  <input type="checkbox" id="cfg-cupones-pausados" onchange="toggleCuponesPausados(this.checked)" style="opacity:0;width:0;height:0">
+                  <span id="cupones-pausa-track" style="position:absolute;inset:0;background:#ccc;border-radius:24px;cursor:pointer;transition:.3s"></span>
+                  <span id="cupones-pausa-thumb" style="position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.3s;pointer-events:none"></span>
+                </label>
+              </div>
               <label>Compras acumuladas para reclamar cupón ($)</label>
               <input type="number" id="cfg-fid-cada" value="50000"/>
               <label>Descuento del cupón (%)</label>
@@ -1854,80 +1878,6 @@ tr:hover td{background:#fafaf8}
       </div>
 
       <!-- ZONA DE DATOS -->
-      <div id="cfg-datos" style="display:none">
-        <div style="background:#FCEBEB;border:1px solid #f5c1c1;border-radius:10px;padding:14px;margin-bottom:20px;font-size:13px;color:#A32D2D">
-          <strong>⚠ Zona de eliminación permanente.</strong> Las acciones de esta sección no se pueden deshacer. Se requerirá tu contraseña.
-        </div>
-        <div class="g2">
-          <div class="card">
-            <h3>Ventas</h3>
-            <label>Desde</label><input type="date" id="gd-v-desde" style="margin-bottom:6px"/>
-            <label>Hasta</label><input type="date" id="gd-v-hasta" style="margin-bottom:10px"/>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn bd" onclick="gdConfirm('ventas-rango','Borrar ventas del período seleccionado')">Borrar por período</button>
-              <button class="btn bd" style="background:#A32D2D;color:#fff;border:none" onclick="gdConfirm('ventas-todas','Borrar TODAS las ventas')">Borrar todas</button>
-            </div>
-          </div>
-          <div class="card">
-            <h3>Clientes</h3>
-            <div style="font-size:13px;color:#888;margin-bottom:12px">Eliminar todos los clientes y sus accesos al portal.</div>
-            <button class="btn bd" style="background:#A32D2D;color:#fff;border:none" onclick="gdConfirm('clientes-todos','Borrar TODOS los clientes y sus accesos al portal')">Borrar todos los clientes</button>
-          </div>
-          <div class="card">
-            <h3>Pedidos online</h3>
-            <label>Estado</label>
-            <select id="gd-po-estado" style="margin-bottom:10px">
-              <option value="todos">Todos</option>
-              <option value="pendiente_confirmacion">Pendientes</option>
-              <option value="cancelado">Cancelados</option>
-              <option value="entregado">Entregados</option>
-            </select>
-            <button class="btn bd" style="background:#A32D2D;color:#fff;border:none" onclick="gdConfirm('pedidos-online','Borrar pedidos online según el estado seleccionado')">Borrar pedidos online</button>
-          </div>
-          <div class="card">
-            <h3>Productos y stock</h3>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn bd" onclick="gdConfirm('productos','Borrar TODOS los productos')">Borrar productos</button>
-              <button class="btn bd" onclick="gdConfirm('promociones','Borrar TODAS las promociones')">Borrar promociones</button>
-              <button class="btn bd" onclick="gdConfirm('stock','Resetear TODO el stock a cero')">Resetear stock</button>
-            </div>
-          </div>
-          <div class="card">
-            <h3>Caja chica</h3>
-            <div style="font-size:13px;color:#888;margin-bottom:12px">Eliminar todos los movimientos de caja chica registrados.</div>
-            <button class="btn bd" style="background:#A32D2D;color:#fff;border:none" onclick="gdConfirm('caja-chica-todos','Borrar TODOS los movimientos de caja chica')">Borrar todos los movimientos</button>
-          </div>
-          <div class="card" style="border:2px solid #A32D2D">
-            <h3 style="color:#A32D2D">⚠ Reinicio completo</h3>
-            <div style="font-size:13px;color:#888;margin-bottom:12px">Borra absolutamente todo. El sistema queda vacío.</div>
-            <button class="btn bd" style="background:#A32D2D;color:#fff;border:none;width:100%" onclick="gdConfirm('todo','Borrar TODO el contenido del sistema. Esta acción es irreversible.')">Borrar todo y empezar de cero</button>
-          </div>
-          <div class="card">
-            <h3>🗜 Archivar ventas antiguas</h3>
-            <div style="font-size:13px;color:#888;margin-bottom:12px">Comprime y archiva las ventas de más de 6 meses en un documento separado, liberando espacio en Firebase.</div>
-            <div id="archivo-info" style="font-size:12px;color:#888;margin-bottom:10px"></div>
-            <button class="btn bs" onclick="archivarVentasAntiguas()">Archivar ventas antiguas</button>
-          </div>
-        </div>
-        <!-- CONFIRM MODAL -->
-        <div id="gd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999;align-items:center;justify-content:center;padding:20px">
-          <div style="background:#fff;border-radius:16px;padding:28px;max-width:400px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
-            <div style="font-size:16px;font-weight:700;margin-bottom:8px;color:#A32D2D">⚠ Confirmar eliminación</div>
-            <div id="gd-modal-msg" style="font-size:13px;color:#555;margin-bottom:16px;line-height:1.5"></div>
-            <div style="background:#FCEBEB;border-radius:8px;padding:10px 12px;font-size:12px;color:#A32D2D;margin-bottom:16px">Esta acción es <strong>permanente e irreversible</strong>.</div>
-            <label style="font-size:13px;font-weight:600;color:#1a1a1a">Ingresá tu contraseña para confirmar:</label>
-            <div class="pass-wrap" style="margin-top:6px">
-              <input type="password" id="gd-pass" placeholder="Tu contraseña de admin"/>
-              <button class="pass-toggle" onclick="togglePass('gd-pass',this)" type="button">👁</button>
-            </div>
-            <div id="gd-pass-err" class="err" style="margin-top:6px"></div>
-            <div style="display:flex;gap:10px;margin-top:16px">
-              <button class="btn bd" style="flex:1;background:#A32D2D;color:#fff;border:none" id="gd-confirm-btn" onclick="gdExecute()">Sí, eliminar</button>
-              <button class="btn bs" style="flex:1" onclick="gdClose()">No, cancelar</button>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- INFORMES -->
@@ -2090,6 +2040,17 @@ tr:hover td{background:#fafaf8}
 
 <!-- CLIENTE PORTAL (MOD 9) -->
 <div id="cliente-screen">
+  <!-- PROMPT DE SUCURSAL (clientes viejos sin local asignado) -->
+  <div id="sucursal-prompt-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:3000;align-items:center;justify-content:center;padding:20px">
+    <div style="background:#fff;border-radius:16px;padding:28px;max-width:440px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
+      <div style="font-size:32px;margin-bottom:8px;text-align:center">🏢</div>
+      <h3 style="margin-bottom:8px;text-align:center">Elegí tu sucursal</h3>
+      <div style="font-size:13px;color:#888;margin-bottom:16px;text-align:center">Para mostrarte el stock y precios correctos, necesitamos saber a qué sucursal pertenecés.</div>
+      <div id="sucursal-prompt-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
+      <div id="sucursal-prompt-err" style="display:none;color:var(--danger);font-size:12px;margin-bottom:8px;text-align:center"></div>
+      <button class="btn bp" style="width:100%" id="sucursal-prompt-btn" onclick="confirmarSucursalCliente()">Confirmar</button>
+    </div>
+  </div>
   <div class="cli-topbar">
     <div style="display:flex;align-items:center;gap:8px;width:100%">
       <!-- Message banner on login -->
@@ -2462,6 +2423,7 @@ async function aplicarCambioLocal(localeId){
   _ventas=[];_clientes=[];_cajaChica=[];_inv={};
   startListeners();
   toast(ACTIVE_LOCALE?('Viendo: '+nombreLocal(ACTIVE_LOCALE)):'Viendo: Todos los locales');
+  if(typeof renderVisibilidadLocalesCfg==='function')renderVisibilidadLocalesCfg();
   // Rebuild nav (cambia el set de solapas visibles según haya o no local elegido)
   buildNav(USER_ROLE);
 }
@@ -2543,7 +2505,12 @@ function buildNav(role){
     return`<button ${i===0?'class="active"':''} onclick="showSec('${id}',this)" id="nav-btn-${id}">${label}<span class="notif-badge" id="nb-${id}"></span></button>`;
   }).join('');
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
-  const firstSec=document.getElementById('sec-'+tabs[0][0]);if(firstSec)firstSec.classList.add('active');
+  // Activar la primera pestaña pasando por showSec, para que corran sus efectos
+  // (poblar medio de pago, renderizar inventario, etc.) igual que si se clickeara a mano.
+  setTimeout(()=>{
+    const firstBtn=document.getElementById('nav-btn-'+tabs[0][0]);
+    if(firstBtn&&typeof showSec==='function')showSec(tabs[0][0],firstBtn);
+  },0);
 }
 
 window.showSec=function(id,btn){
@@ -2836,6 +2803,30 @@ window.switchTab=function(t){
   document.getElementById('form-reg').style.display=t==='reg'?'block':'none';
   document.getElementById('tab-login').className='tab-btn'+(t==='login'?' active':'');
   document.getElementById('tab-reg').className='tab-btn'+(t==='reg'?' active':'');
+  if(t==='reg')cargarLocalesParaRegistro();
+};
+
+let _localesRegistro=[];
+async function cargarLocalesParaRegistro(){
+  const wrap=document.getElementById('r-local-wrap');
+  const sel=document.getElementById('r-local');
+  if(!wrap||!sel)return;
+  try{
+    const cfgSnap=await getDoc(doc(db,'config','admin'));
+    const locs=cfgSnap.exists()?(cfgSnap.data().locales||[]):[];
+    _localesRegistro=locs;
+    if(!locs.length){wrap.style.display='none';return;}
+    wrap.style.display='block';
+    sel.innerHTML='<option value="">Seleccioná una sucursal...</option>'+
+      locs.map(l=>`<option value="${l.id}">${l.nombre}</option>`).join('');
+  }catch(e){console.warn('cargarLocalesParaRegistro',e);}
+}
+window.mostrarDirLocalReg=function(){
+  const sel=document.getElementById('r-local');
+  const dirEl=document.getElementById('r-local-dir');
+  if(!sel||!dirEl)return;
+  const loc=_localesRegistro.find(l=>l.id===sel.value);
+  dirEl.textContent=loc?.direccion?('📍 '+loc.direccion+(loc.horario?' · '+loc.horario:'')):'';
 };
 
 window.togglePass=function(inputId,btn){
@@ -2851,6 +2842,7 @@ window.doRegisterCliente=async function(){
   const mail=document.getElementById('r-mail').value.trim();
   const dir=document.getElementById('r-dir').value.trim();
   const barrio=document.getElementById('r-barrio').value.trim();
+  const localeIdReg=document.getElementById('r-local')?.value||'';
   const u=autoUsername(nombre,apellido);
   const p=document.getElementById('r-pass').value;
   const p2=document.getElementById('r-pass2').value;
@@ -2863,20 +2855,34 @@ window.doRegisterCliente=async function(){
   if(!mail){err.style.display='block';err.textContent='El email es obligatorio.';return;}
   if(!dir){err.style.display='block';err.textContent='La dirección es obligatoria.';return;}
   if(!barrio){err.style.display='block';err.textContent='El barrio es obligatorio.';return;}
+  if(_localesRegistro.length&&!localeIdReg){err.style.display='block';err.textContent='Elegí la sucursal más cercana a tu domicilio.';return;}
   if(p.length<4){err.style.display='block';err.textContent='La contraseña debe tener al menos 4 caracteres.';return;}
   if(p!==p2){err.style.display='block';err.textContent='Las contraseñas no coinciden.';return;}
   const btn=document.getElementById('r-btn');
   btn.innerHTML='<span class="spin"></span> Registrando...';btn.disabled=true;
   try{
-    // Find admin store (use default store "admin")
-    const ex=await getDoc(doc(db,'users',u));
-    if(ex.exists()){err.style.display='block';err.textContent='Ese usuario ya existe. Elegí otro.';btn.innerHTML='Registrarme';btn.disabled=false;return;}
+    // Si el usuario generado (inicial+apellido) ya existe (ej: Manuel Gomez y Mariano Gomez
+    // generan ambos "mgomez"), le agregamos un número hasta encontrar uno libre.
+    let uFinal=u;let intento=1;
+    while((await getDoc(doc(db,'users',uFinal))).exists()){
+      intento++;
+      uFinal=u+intento;
+      if(intento>50){err.style.display='block';err.textContent='No se pudo generar un usuario disponible. Contactá al negocio.';btn.innerHTML='Registrarme';btn.disabled=false;return;}
+    }
+    const uOriginal=u;u=uFinal;
     // We need to find the STORE - use hardcoded admin for self-registration
     const adminStore='admin'; // Master store
-    await setDoc(doc(db,'users',u),{username:u,passHash:hash(p),role:'cliente',parentAdmin:adminStore,nombre:nombre+' '+apellido,tel,mail,dir,barrio,createdAt:today()});
-    // Also add to admin's clientes collection
-    await addDoc(collection(db,'users',adminStore,'clientes'),{nombre,tel,mail,dir,barrio,notas:'',usuario:u,createdAt:today()});
-    ok.style.display='block';ok.textContent='¡Cuenta creada! Ahora podés ingresar con tu usuario.';
+    await setDoc(doc(db,'users',u),{username:u,passHash:hash(p),role:'cliente',parentAdmin:adminStore,localeId:localeIdReg||null,nombre:nombre+' '+apellido,tel,mail,dir,barrio,createdAt:today()});
+    // Guardar en la colección de clientes del LOCAL elegido (o la general si no hay locales configurados)
+    const clientesPath=localeIdReg
+      ?collection(db,'users',adminStore,'locales',localeIdReg,'clientes')
+      :collection(db,'users',adminStore,'clientes');
+    await addDoc(clientesPath,{nombre:nombre+' '+apellido,tel,mail,dir,barrio,notas:'',usuario:u,localeId:localeIdReg||null,createdAt:today()});
+    if(u!==uOriginal){
+      alert('¡Cuenta creada!\n\nYa existía un usuario "'+uOriginal+'", así que tu usuario final es:\n\n'+u+'\n\nAnotalo, lo vas a necesitar para ingresar.');
+    }
+    ok.style.display='block';
+    ok.textContent='¡Cuenta creada! Tu usuario es: "'+u+'". Ahora podés ingresar.';
     switchTab('login');
     document.getElementById('l-user').value=u;
     btn.innerHTML='Registrarme';btn.disabled=false;
@@ -2954,7 +2960,6 @@ window.doRegister=async function(){
 async function loginSuccess(u,userData){
   USER_ROLE=userData.role||'admin';
   // Auto-archive check (monthly)
-  if(USER_ROLE==='admin')checkAutoArchive();
   // MOD 17: Block inactive employees
   if(USER_ROLE==='vendedor'&&userData.activo===false){
     document.getElementById('l-err').style.display='block';
@@ -3071,7 +3076,7 @@ async function loginSuccess(u,userData){
       }catch(e){ACTIVE_LOCALE=null;}
     }
     renderLocaleSelector();
-    buildNav(USER_ROLE);setSyncDot('syncing');startListeners();setTimeout(checkAutoArchive,8000);
+    buildNav(USER_ROLE);setSyncDot('syncing');startListeners();
     logAuditoria('inició sesión','sistema','Login: '+u,'','');
   }
 }
@@ -3144,7 +3149,7 @@ function startListeners(){
   _unsubs.push(onSnapshot(doc(db,'lotes',INV_ID()),snap=>{
     _lotes=snap.exists()?snap.data():{};
   }));
-  _unsubs.push(onSnapshot(doc(db,'franjas',STORE),snap=>{
+  _unsubs.push(onSnapshot(doc(db,'franjas',INV_ID()),snap=>{
     _franjas=snap.exists()?(snap.data().lista||['10-12hs','12-14hs','14-16hs','16-18hs','18-20hs']):['10-12hs','12-14hs','14-16hs','16-18hs','18-20hs'];
     renderFranjas();
     setSyncDot('ok');
@@ -3175,6 +3180,19 @@ function startListeners(){
       if(!d.categorias||d.categorias.length===0){
         setDoc(doc(db,'config',STORE),{...d,categorias:defaultCats,metodosPago:defaultPagos}).catch(()=>{});
       }
+      // Si la pestaña Nueva venta ya está activa (ej: primer tab de un vendedor al loguearse),
+      // poblar el selector de medio de pago apenas llegan los métodos configurados.
+      if(document.getElementById('sec-ventas')?.classList.contains('active')){
+        const vpInit=document.getElementById('v-pago');
+        if(vpInit&&_metodosPago.length&&vpInit.options.length<=1){
+          const curInit=vpInit.value;
+          const activosInit=_metodosPago.filter(m=>m.activo);
+          if(activosInit.length){
+            const phInit='<option value="" disabled'+(curInit?'':' selected')+' style="color:#aaa">— Seleccioná método de pago —</option>';
+            vpInit.innerHTML=phInit+activosInit.map(m=>'<option value="'+m.nombre+'"'+(m.nombre===curInit?' selected':'')+'>'+m.nombre+'</option>').join('');
+          }
+        }
+      }
       _novedades=d.novedades||[];
       _cfgMensajes=d.mensajesWA||{};
       _cfgAvanzado=d.avanzado||{};
@@ -3188,7 +3206,7 @@ function startListeners(){
     }
     setSyncDot('ok');
   }));
-  _unsubs.push(onSnapshot(collection(db,'users',STORE,'cupones'),snap=>{
+  _unsubs.push(onSnapshot(LCOL('cupones'),snap=>{
     _cupones=snap.docs.map(d=>({id:d.id,...d.data()}));
   }));
   // Check if caja was closed today
@@ -3234,19 +3252,79 @@ function startListeners(){
   }));
 }
 
-function startClienteListeners(){
+window.mostrarPromptSucursalCliente=function(){
+  document.getElementById('loading-screen')?.style.setProperty('display','none');
+  document.getElementById('login-screen')?.style.setProperty('display','none');
+  document.getElementById('cliente-screen').style.display='block';
+  const modal=document.getElementById('sucursal-prompt-modal');
+  const lista=document.getElementById('sucursal-prompt-lista');
+  if(!modal||!lista)return;
+  lista.innerHTML=_locales.map(l=>`<label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:2px solid var(--border);border-radius:10px;cursor:pointer" onclick="document.querySelectorAll('.sucursal-prompt-radio').forEach(r=>r.checked=false);this.querySelector('input').checked=true;document.querySelectorAll('#sucursal-prompt-lista label').forEach(el=>el.style.borderColor='var(--border)');this.style.borderColor='var(--primary)'">
+    <input type="radio" name="sucursal-prompt" class="sucursal-prompt-radio" value="${l.id}" style="width:18px;height:18px"/>
+    <div><div style="font-weight:600;font-size:14px">${l.nombre}</div>${l.direccion?`<div style="font-size:12px;color:#888">📍 ${l.direccion}</div>`:''}</div>
+  </label>`).join('');
+  modal.style.display='flex';
+};
+
+window.confirmarSucursalCliente=async function(){
+  const sel=document.querySelector('.sucursal-prompt-radio:checked');
+  const errEl=document.getElementById('sucursal-prompt-err');
+  if(!sel){errEl.style.display='block';errEl.textContent='Elegí una sucursal para continuar.';return;}
+  const localeId=sel.value;
+  const btn=document.getElementById('sucursal-prompt-btn');
+  btn.textContent='Guardando...';btn.disabled=true;
+  try{
+    await updateDoc(doc(db,'users',CU),{localeId});
+    const snapCli=await getDocs(collection(db,'users','admin','clientes'));
+    const cliDoc=snapCli.docs.find(d=>d.data().usuario===CU);
+    if(cliDoc){
+      await updateDoc(doc(db,'users','admin','clientes',cliDoc.id),{localeId});
+    } else {
+      // Si por algún motivo no existía el registro en clientes, lo creamos en el local elegido
+      await addDoc(collection(db,'users','admin','locales',localeId,'clientes'),{
+        nombre:CLI_DATA?.nombre||'',tel:CLI_DATA?.tel||'',mail:CLI_DATA?.mail||'',
+        dir:CLI_DATA?.dir||'',barrio:CLI_DATA?.barrio||'',notas:'',usuario:CU,localeId,createdAt:today()
+      });
+    }
+    CLI_DATA={...CLI_DATA,localeId};
+    document.getElementById('sucursal-prompt-modal').style.display='none';
+    toast('Sucursal confirmada');
+    startClienteListeners();
+  }catch(e){
+    errEl.style.display='block';errEl.textContent='Error: '+e.message;
+    btn.textContent='Confirmar';btn.disabled=false;
+  }
+};
+
+async function startClienteListeners(){
   // Always use master store admin
   STORE='admin';
+  // Cargar la lista de locales (una sola vez) para saber si el negocio usa multi-local
+  if(!_locales.length){
+    try{
+      const cfgSnap0=await getDoc(doc(db,'config','admin'));
+      if(cfgSnap0.exists()&&cfgSnap0.data().locales?.length)_locales=cfgSnap0.data().locales;
+    }catch(e){}
+  }
+  // Si el negocio tiene locales y este cliente todavía no eligió ninguno
+  // (se registró antes de que existiera esta opción), se le pide ahora.
+  if(_locales.length>0&&!CLI_DATA?.localeId){
+    mostrarPromptSucursalCliente();
+    return;
+  }
+  // El portal usa el local asignado al cliente (CLI_DATA.localeId) reutilizando
+  // las mismas funciones LCOL/INV_ID que usa el admin para escalar por local.
+  ACTIVE_LOCALE=CLI_DATA?.localeId||null;
 
-  // Descuento fijo del cliente desde colección clientes
-  _unsubs.push(onSnapshot(collection(db,'users',STORE,'clientes'),snap=>{
+  // Descuento fijo del cliente desde colección clientes (de SU local)
+  _unsubs.push(onSnapshot(LCOL('clientes'),snap=>{
     const cliDoc=snap.docs.find(d=>d.data().usuario===CU);
     if(cliDoc&&CLI_DATA){
       CLI_DATA.descuentoFijo=cliDoc.data().descuentoFijo||0;
     }
   }));
 
-  const qv=query(collection(db,'users',STORE,'ventas'),orderBy('ts','desc'));
+  const qv=query(LCOL('ventas'),orderBy('ts','desc'));
   _unsubs.push(onSnapshot(qv,snap=>{
     const all=snap.docs.map(d=>({id:d.id,...d.data()}));
     _misPedidos=all.filter(v=>v.clienteId===CU);
@@ -3260,15 +3338,15 @@ function startClienteListeners(){
     _promociones=snap.exists()?(snap.data().lista||[]):[];
     renderCliCatalog();
   }));
-  // Real-time inventory listener on the correct store
-  _unsubs.push(onSnapshot(doc(db,'inventario',STORE),snap=>{
+  // Real-time inventory listener — stock del local asignado al cliente
+  _unsubs.push(onSnapshot(doc(db,'inventario',INV_ID()),snap=>{
     _inv=snap.exists()?snap.data():{};
     renderCliCatalog();
   }));
-  _unsubs.push(onSnapshot(doc(db,'lotes',STORE),snap=>{
+  _unsubs.push(onSnapshot(doc(db,'lotes',INV_ID()),snap=>{
     _lotes=snap.exists()?snap.data():{};
   }));
-  _unsubs.push(onSnapshot(doc(db,'franjas',STORE),snap=>{
+  _unsubs.push(onSnapshot(doc(db,'franjas',INV_ID()),snap=>{
     _franjas=snap.exists()?(snap.data().lista||['10-12hs','12-14hs','14-16hs','16-18hs','18-20hs']):['10-12hs','12-14hs','14-16hs','16-18hs','18-20hs'];
     const sel=document.getElementById('cli-franja');
     if(sel)sel.innerHTML=_franjas.map(f=>`<option>${f}</option>`).join('');
@@ -3285,6 +3363,7 @@ function startClienteListeners(){
       _cfgNegocio=d.negocio||{};
       _cfgPedidos=d.pedidos||{};
       _cfgAvanzado=d.avanzado||{};
+      if(d.locales&&d.locales.length)_locales=d.locales;
       if(d.nivelesCliente&&d.nivelesCliente.length)_nivelesCliente=d.nivelesCliente;
       if(d.catsCajaChica&&d.catsCajaChica.length){_catsCajaChica=d.catsCajaChica;updateCCSelect();}
       _categorias=d.categorias&&d.categorias.length>0?d.categorias:[
@@ -3333,7 +3412,7 @@ function startClienteListeners(){
     if(document.getElementById('cli-sec-mensajes')?.style.display!=='none')renderCliMensajes();
   }));
   // Cupones listener for client
-  _unsubs.push(onSnapshot(collection(db,'users',STORE,'cupones'),snap=>{
+  _unsubs.push(onSnapshot(LCOL('cupones'),snap=>{
     _cupones=snap.docs.map(d=>({id:d.id,...d.data()}));
     renderCliPuntos();
     if(document.getElementById('cli-sec-mis-datos')?.style.display!=='none')renderMisCupones();
@@ -3363,6 +3442,10 @@ function renderDescuentoSelect(){
 }
 function renderFranjas(){
   const el=document.getElementById('franjas-lista');if(!el)return;
+  if(!ACTIVE_LOCALE&&_locales.length>0){
+    el.innerHTML='<div style="font-size:12px;color:#888;font-style:italic">📍 Las franjas horarias son por local. Elegí un local para configurarlas.</div>';
+    return;
+  }
   el.innerHTML=_franjas.map((f,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#f0ede8;border-radius:20px;padding:4px 10px;font-size:12px">${f}<button onclick="removeFranja(${i})" style="background:none;border:none;cursor:pointer;color:#888;font-size:14px;line-height:1">×</button></span>`).join('');
 }
 
@@ -4571,7 +4654,7 @@ window.confirmar=async function(){
     await updateDoc(LDOC('ventas',docRef.id),{costoFIFO:costoTotal,gananciaNeta:finalTotal-costoTotal});
     printTicketAmbos(venta);
     // Mark coupon as used
-    if(cuponId)await updateDoc(doc(db,'users',STORE,'cupones',cuponId),{usado:true,usadoEn:today(),ventaId:docRef.id});
+    if(cuponId)await updateDoc(LDOC('cupones',cuponId),{usado:true,usadoEn:today(),ventaId:docRef.id});
     _cuponAplicado=null;
     // Check fidelización
     const cliSel=_clientes.find(x=>x.id===selectedClienteId);
@@ -6081,27 +6164,24 @@ window.showFidSub=function(sub,btn){
 };
 
 window.switchCfgTab=function(tab,btn){
-  ['negocio','descuentos','pedidos','mensajes','avanzado','fidelizacion','datos'].forEach(t=>{
+  ['negocio','descuentos','pedidos','mensajes','avanzado','fidelizacion'].forEach(t=>{
     const el=document.getElementById('cfg-'+t);if(el)el.style.display='none';
     const b=document.getElementById('cfg-tab-'+t);
-    if(b){b.className='tab-btn';if(t==='datos')b.style.color='var(--danger)';else b.style.color='';}
+    if(b){b.className='tab-btn';b.style.color='';}
   });
   const el=document.getElementById('cfg-'+tab);if(el)el.style.display='block';
   if(btn)btn.className='tab-btn active';
   if(tab==='pedidos'){renderFranjas();renderCfgPedidosActual();renderCfgCategorias();renderCfgPagos();}
-  if(tab==='fidelizacion'){renderDescuentos();renderDescuentosAuto();renderCfgMensajesFid();renderCfgAvanzado();loadCuponesAdmin();renderCfgNiveles();}
-  if(tab==='negocio'){renderCfgNegocioActual();renderCfgLocales();setTimeout(renderQR,300);}
+  if(tab==='fidelizacion'){renderDescuentos();renderDescuentosAuto();renderCfgMensajesFid();renderCfgAvanzado();loadCuponesAdmin();renderCfgNiveles();renderCuponesPausaToggle();}
+  if(tab==='negocio'){renderCfgNegocioActual();renderCfgLocales();renderVisibilidadLocalesCfg();setTimeout(renderQR,300);}
 };
 
 window.saveCfgNegocio=async function(){
   const neg={
     nombre:document.getElementById('cfg-nombre-local').value.trim(),
-    dir:document.getElementById('cfg-dir-local').value.trim(),
-    tel:document.getElementById('cfg-tel-local').value.trim(),
     comisionTransferencia:parseFloat(document.getElementById('cfg-com-transferencia')?.value)||0,
     comisionDebito:parseFloat(document.getElementById('cfg-com-debito')?.value)||0,
     comisionCredito:parseFloat(document.getElementById('cfg-com-credito')?.value)||0,
-    horario:document.getElementById('cfg-horario').value.trim(),
     msgRecordatorio:document.getElementById('cfg-msg-recordatorio')?.value.trim()||''
   };
   try{
@@ -6117,19 +6197,47 @@ window.saveCfgNegocio=async function(){
 function renderCfgNegocioActual(){
   const el=document.getElementById('cfg-negocio-actual');if(!el)return;
   if(!_cfgNegocio.nombre){el.innerHTML='<div class="empty">Sin datos configurados</div>';return;}
-  el.innerHTML=`<div class="pr"><span style="color:#888;font-size:12px">Nombre</span><span style="font-weight:600">${_cfgNegocio.nombre||'—'}</span></div>
-    <div class="pr"><span style="color:#888;font-size:12px">Dirección</span><span>${_cfgNegocio.dir||'—'}</span></div>
-    <div class="pr"><span style="color:#888;font-size:12px">Teléfono</span><span>${_cfgNegocio.tel||'—'}</span></div>
-    <div class="pr"><span style="color:#888;font-size:12px">Horario</span><span>${_cfgNegocio.horario||'—'}</span></div>`;
+  el.innerHTML=`<div class="pr"><span style="color:#888;font-size:12px">Nombre</span><span style="font-weight:600">${_cfgNegocio.nombre||'—'}</span></div>`;
   // Populate fields
   if(_cfgNegocio.nombre)document.getElementById('cfg-nombre-local').value=_cfgNegocio.nombre;
-  if(_cfgNegocio.dir)document.getElementById('cfg-dir-local').value=_cfgNegocio.dir;
   if(_cfgNegocio.comisionTransferencia!=null){const el=document.getElementById('cfg-com-transferencia');if(el)el.value=_cfgNegocio.comisionTransferencia;}
   if(_cfgNegocio.comisionDebito!=null){const el=document.getElementById('cfg-com-debito');if(el)el.value=_cfgNegocio.comisionDebito;}
   if(_cfgNegocio.comisionCredito!=null){const el=document.getElementById('cfg-com-credito');if(el)el.value=_cfgNegocio.comisionCredito;}
-  if(_cfgNegocio.tel)document.getElementById('cfg-tel-local').value=_cfgNegocio.tel;
-  if(_cfgNegocio.horario)document.getElementById('cfg-horario').value=_cfgNegocio.horario;
 }
+
+// ── DATOS POR LOCAL (dirección/teléfono/horario) ──────────────────────────
+function renderVisibilidadLocalesCfg(){
+  const locCard=document.getElementById('cfg-locales-card');
+  const datosCard=document.getElementById('cfg-datos-local-card');
+  if(ACTIVE_LOCALE){
+    if(locCard)locCard.style.display='none';
+    if(datosCard){
+      datosCard.style.display='block';
+      const loc=_locales.find(l=>l.id===ACTIVE_LOCALE);
+      const nameEl=document.getElementById('cfg-datos-local-nombre');if(nameEl)nameEl.textContent=loc?loc.nombre:'este local';
+      const dirEl=document.getElementById('cfg-local-dir');if(dirEl)dirEl.value=loc?.direccion||'';
+      const telEl=document.getElementById('cfg-local-tel');if(telEl)telEl.value=loc?.telefono||'';
+      const horEl=document.getElementById('cfg-local-horario');if(horEl)horEl.value=loc?.horario||'';
+    }
+  } else {
+    if(locCard)locCard.style.display='block';
+    if(datosCard)datosCard.style.display='none';
+  }
+}
+
+window.guardarDatosLocal=async function(){
+  if(!ACTIVE_LOCALE){alert('Elegí un local primero');return;}
+  const direccion=document.getElementById('cfg-local-dir')?.value.trim()||'';
+  const telefono=document.getElementById('cfg-local-tel')?.value.trim()||'';
+  const horario=document.getElementById('cfg-local-horario')?.value.trim()||'';
+  const nuevos=_locales.map(l=>l.id===ACTIVE_LOCALE?{...l,direccion,telefono,horario}:l);
+  try{
+    const ex=await getDoc(doc(db,'config',STORE));
+    await setDoc(doc(db,'config',STORE),{...(ex.exists()?ex.data():{}),locales:nuevos});
+    _locales=nuevos;
+    toast('Datos del local guardados');
+  }catch(e){alert('Error: '+e.message);}
+};
 
 // Categories management
 window.addCategoria=async function(){
@@ -6401,13 +6509,13 @@ function checkAutoDiscount(pago){
 window.addFranja=async function(){
   const f=document.getElementById('franja-input').value.trim();if(!f)return;
   try{
-    await setDoc(doc(db,'franjas',STORE),{lista:[..._franjas,f]});
+    await setDoc(doc(db,'franjas',INV_ID()),{lista:[..._franjas,f]});
     document.getElementById('franja-input').value='';toast('Franja agregada');
   }catch(e){alert('Error: '+e.message);}
 };
 window.removeFranja=async function(i){
   const nf=[..._franjas];nf.splice(i,1);
-  try{await setDoc(doc(db,'franjas',STORE),{lista:nf});toast('Franja eliminada');}
+  try{await setDoc(doc(db,'franjas',INV_ID()),{lista:nf});toast('Franja eliminada');}
   catch(e){alert('Error: '+e.message);}
 };
 
@@ -8620,12 +8728,18 @@ function renderCliPuntos(){
   const acumuladoActual=Math.max(0,totalComprado-usadoEnCupones);
   const pct=Math.min(100,Math.round(acumuladoActual/regla.cada*100));
   const banner=document.getElementById('cli-puntos-banner');
-  if(banner)banner.style.display='flex';
-  const puntos=document.getElementById('cli-puntos-valor');
-  if(puntos)puntos.textContent='$'+Math.round(acumuladoActual).toLocaleString('es-AR')+' / $'+regla.cada.toLocaleString('es-AR');
-  // Show reclamar button if reached limit
   const btnRec=document.getElementById('cli-btn-reclamar');
-  if(btnRec)btnRec.style.display=acumuladoActual>=regla.cada?'block':'none';
+  if(_cfgPedidos?.cuponesPausados){
+    // Generación de cupones pausada: no mostrar la barra de progreso
+    if(banner)banner.style.display='none';
+    if(btnRec)btnRec.style.display='none';
+  } else {
+    if(banner)banner.style.display='flex';
+    const puntos=document.getElementById('cli-puntos-valor');
+    if(puntos)puntos.textContent='$'+Math.round(acumuladoActual).toLocaleString('es-AR')+' / $'+regla.cada.toLocaleString('es-AR');
+    // Show reclamar button if reached limit
+    if(btnRec)btnRec.style.display=acumuladoActual>=regla.cada?'block':'none';
+  }
   // Show existing cupons
   const cupDisp=_cupones.find(cup=>cup.clienteId===CU&&!cup.usado&&new Date(cup.vence)>=new Date());
   const cupEl=document.getElementById('cli-cupon-disponible');
@@ -8637,11 +8751,12 @@ function renderCliPuntos(){
 
 window.reclamarCupon=async function(){
   if(!CU)return;
+  if(_cfgPedidos?.cuponesPausados){toast('La generación de cupones está pausada temporalmente.','error');return;}
   const regla=_cfgPedidos?.fidelizacion||{cada:50000,pct:5,maxDto:2500,minCompra:20000,dias:30};
   const codigo=Math.random().toString(36).substr(2,4).toUpperCase();
   const vence=new Date();vence.setDate(vence.getDate()+regla.dias);
   try{
-    await addDoc(collection(db,'users',STORE,'cupones'),{
+    await addDoc(LCOL('cupones'),{
       codigo,clienteId:CU,clienteNombre:CLI_DATA.nombre,
       descPct:regla.pct,maxDescuento:regla.maxDto||2500,minCompra:regla.minCompra||0,
       vence:vence.toISOString().split('T')[0],
@@ -8802,10 +8917,10 @@ window.submitPedidoOnline=async function(){
     total:finalTotal
   };
   try{
-    await addDoc(collection(db,'users',STORE,'ventas'),pedido);
+    await addDoc(LCOL('ventas'),pedido);
     // Mark coupon as used (single use)
     if(cuponUsadoId){
-      try{await updateDoc(doc(db,'users',STORE,'cupones',cuponUsadoId),{usado:true,usadoEn:today(),ventaId:'online-'+Date.now()});}catch(e){console.log('cupon mark error',e);}
+      try{await updateDoc(LDOC('cupones',cuponUsadoId),{usado:true,usadoEn:today(),ventaId:'online-'+Date.now()});}catch(e){console.log('cupon mark error',e);}
     }
     cartItems=[];cartTotal=0;
     document.getElementById('cli-obs').value='';
@@ -9009,39 +9124,6 @@ window.generarComparativa=function(){
     '</tbody></table></div>';
 };
 
-async function checkAutoArchive(){
-  if(!STORE||!db)return;
-  const hoy=new Date();
-  const key='last_autoarchive_'+STORE;
-  try{
-    const last=localStorage.getItem(key)||'';
-    const mesActual=hoy.toISOString().substring(0,7);
-    if(last===mesActual)return; // already ran this month
-    // Check if there are ventas older than 6 months
-    const hace6=new Date();hace6.setMonth(hace6.getMonth()-6);
-    const fechaCorte=hace6.toISOString().split('T')[0];
-    const snap=await getDocs(collection(db,'users',STORE,'ventas'));
-    const viejas=snap.docs.filter(d=>d.data().fecha<fechaCorte);
-    if(!viejas.length){localStorage.setItem(key,mesActual);return;}
-    // Archive them
-    const ventasData=viejas.map(d=>({id:d.id,...d.data()}));
-    const archivo={
-      fechaArchivo:today(),tipo:'automatico',
-      fechaDesde:ventasData.map(v=>v.fecha).sort()[0],
-      fechaHasta:fechaCorte,
-      cantidad:ventasData.length,
-      totalFacturado:ventasData.reduce((a,v)=>a+v.total,0),
-      resumenProductos:{},ts:Date.now()
-    };
-    ventasData.forEach(v=>v.items?.forEach(i=>{archivo.resumenProductos[i.nom]=(archivo.resumenProductos[i.nom]||0)+i.cant;}));
-    const batch=writeBatch(db);
-    viejas.forEach(d=>batch.delete(d.ref));
-    await batch.commit();
-    await addDoc(collection(db,'users',STORE,'archivos-historicos'),archivo);
-    localStorage.setItem(key,mesActual);
-    toast('✓ Archivado automático: '+ventasData.length+' ventas archivadas');
-  }catch(e){console.log('Auto-archive error:',e);}
-}
 
 function renderMiCuenta(){
   if(!CLI_DATA)return;
@@ -9720,7 +9802,8 @@ window.saveCfgFidelizacion=async function(){
     pct:parseInt(document.getElementById('cfg-fid-pct')?.value)||5,
     maxDto:parseInt(document.getElementById('cfg-fid-maxdto')?.value)||2500,
     minCompra:parseInt(document.getElementById('cfg-fid-mincompra')?.value)||20000,
-    dias:parseInt(document.getElementById('cfg-fid-dias')?.value)||30
+    dias:parseInt(document.getElementById('cfg-fid-dias')?.value)||30,
+    bienvenida:parseInt(document.getElementById('cfg-fid-bienvenida')?.value)||0
   };
   try{
     const snap=await getDoc(doc(db,'config',STORE));
@@ -9730,6 +9813,30 @@ window.saveCfgFidelizacion=async function(){
     toast('Configuración de fidelización guardada');
   }catch(e){alert('Error: '+e.message);}
 };
+
+window.toggleCuponesPausados=async function(pausado){
+  try{
+    const snap=await getDoc(doc(db,'config',STORE));
+    const ex=snap.exists()?snap.data():{};
+    const ped={...((ex.pedidos)||{}),cuponesPausados:pausado};
+    await setDoc(doc(db,'config',STORE),{...ex,pedidos:ped});
+    const track=document.getElementById('cupones-pausa-track');
+    const thumb=document.getElementById('cupones-pausa-thumb');
+    if(track)track.style.background=pausado?'var(--warn)':'#ccc';
+    if(thumb)thumb.style.left=pausado?'23px':'3px';
+    toast(pausado?'⏸ Generación de cupones pausada':'▶ Generación de cupones reanudada');
+  }catch(e){alert('Error: '+e.message);}
+};
+
+function renderCuponesPausaToggle(){
+  const chk=document.getElementById('cfg-cupones-pausados');
+  const track=document.getElementById('cupones-pausa-track');
+  const thumb=document.getElementById('cupones-pausa-thumb');
+  const pausado=!!_cfgPedidos?.cuponesPausados;
+  if(chk)chk.checked=pausado;
+  if(track)track.style.background=pausado?'var(--warn)':'#ccc';
+  if(thumb)thumb.style.left=pausado?'23px':'3px';
+}
 
 // ── COUPON APPLY FUNCTIONS ────────────────────────────────────────────────────
 
@@ -9799,6 +9906,7 @@ window.aplicarCuponPortal=async function(){
 // ── FIDELIZACIÓN: Check and generate coupons ──────────────────────────────────
 async function checkFidelizacion(clienteId,clienteNombre,totalVenta){
   if(!clienteId)return;
+  if(_cfgPedidos?.cuponesPausados)return; // Generación de cupones nuevos pausada por el admin
   const fid=_cfgPedidos?.fidelizacion||{cada:50000,pct:5,maxDto:2500,minCompra:20000,dias:30};
   // Get total purchases for this client
   const ventas=_ventas.filter(v=>v.clienteId===clienteId||v.cliente===clienteNombre);
@@ -9818,7 +9926,7 @@ async function checkFidelizacion(clienteId,clienteNombre,totalVenta){
       vence:vence.toISOString().split('T')[0],
       generadoEn:today(),usado:false,ts:Date.now()
     };
-    await addDoc(collection(db,'users',STORE,'cupones'),cupon);
+    await addDoc(LCOL('cupones'),cupon);
     toast('🎟 Cupón generado para '+clienteNombre+': GLA-'+codigo);
     // If client is logged in portal, show celebration modal
     if(USER_ROLE==='cliente'&&document.getElementById('cliente-screen')?.style.display!=='none'){
@@ -9877,7 +9985,7 @@ window.loadCuponesAdmin=async function(){
 window.anularCupon=async function(id){
   if(!confirm('¿Anular este cupón?'))return;
   try{
-    await deleteDoc(doc(db,'users',STORE,'cupones',id));
+    await deleteDoc(LDOC('cupones',id));
     toast('Cupón anulado');
     loadCuponesAdmin();
   }catch(e){alert('Error: '+e.message);}
@@ -11866,17 +11974,18 @@ function checkCatalogoPublico(){
 
 // ── DESCUENTO BIENVENIDA ──────────────────────────────────────────────────────
 async function checkDescuentoBienvenida(usuario,nombre){
+  if(_cfgPedidos?.cuponesPausados)return; // Generación de cupones nuevos pausada por el admin
   const fid=_cfgPedidos?.fidelizacion||{};
   const pctBienvenida=fid.bienvenida||0;
   if(!pctBienvenida)return;
   // Check if user already got welcome coupon
-  const cupSnap=await getDocs(collection(db,'users',STORE,'cupones'));
+  const cupSnap=await getDocs(LCOL('cupones'));
   const yaRecibio=cupSnap.docs.some(d=>d.data().clienteId===usuario&&d.data().tipo==='bienvenida');
   if(yaRecibio)return;
   // Generate welcome coupon
   const codigo=Math.random().toString(36).substr(2,4).toUpperCase();
   const vence=new Date();vence.setDate(vence.getDate()+30);
-  await addDoc(collection(db,'users',STORE,'cupones'),{
+  await addDoc(LCOL('cupones'),{
     codigo,clienteId:usuario,clienteNombre:nombre,
     descPct:pctBienvenida,maxDescuento:9999,minCompra:0,
     vence:vence.toISOString().split('T')[0],
@@ -11907,6 +12016,7 @@ async function checkReferido(nuevoUsuario,nuevoNombre){
   const params=new URLSearchParams(window.location.search);
   const refUsuario=params.get('ref');
   if(!refUsuario)return;
+  if(_cfgPedidos?.cuponesPausados)return; // Generación de cupones nuevos pausada por el admin
   // Give welcome bonus to new client
   await checkDescuentoBienvenida(nuevoUsuario,nuevoNombre);
   // Give bonus to referrer
@@ -11914,7 +12024,7 @@ async function checkReferido(nuevoUsuario,nuevoNombre){
   const pctRef=fid.bienvenida||5;
   const codigo=Math.random().toString(36).substr(2,4).toUpperCase();
   const vence=new Date();vence.setDate(vence.getDate()+30);
-  await addDoc(collection(db,'users',STORE,'cupones'),{
+  await addDoc(LCOL('cupones'),{
     codigo,clienteId:refUsuario,
     descPct:pctRef,maxDescuento:9999,minCompra:0,
     vence:vence.toISOString().split('T')[0],
@@ -12200,182 +12310,6 @@ window.registrarTurno=async function(){
   }catch(e){alert('Error: '+e.message);}
 };
 
-// ── GESTIÓN DE DATOS ──────────────────────────────────────────────────────────
-let _gdAction=null;
-
-window.archivarVentasAntiguas=async function(){
-  const hace6meses=new Date();hace6meses.setMonth(hace6meses.getMonth()-6);
-  const fechaCorte=hace6meses.toISOString().split('T')[0];
-  const ventasAntiguas=_ventas.filter(v=>v.fecha<fechaCorte);
-  const infoEl=document.getElementById('archivo-info');
-  if(!ventasAntiguas.length){
-    if(infoEl)infoEl.textContent='No hay ventas de más de 6 meses para archivar.';
-    return;
-  }
-  if(!confirm('Se van a archivar '+ventasAntiguas.length+' ventas anteriores al '+fechaCorte+'. Las ventas se comprimen en un archivo histórico y se eliminan de la base activa. ¿Continuar?'))return;
-  try{
-    // Save compressed archive
-    const archivo={
-      fechaArchivo:today(),
-      fechaDesde:ventasAntiguas.map(v=>v.fecha).sort()[0],
-      fechaHasta:fechaCorte,
-      cantidad:ventasAntiguas.length,
-      totalFacturado:ventasAntiguas.reduce((a,v)=>a+v.total,0),
-      resumenProductos:{},
-      ts:Date.now()
-    };
-    ventasAntiguas.forEach(v=>v.items?.forEach(i=>{
-      archivo.resumenProductos[i.nom]=(archivo.resumenProductos[i.nom]||0)+i.cant;
-    }));
-    await addDoc(collection(db,'users',STORE,'archivos-historicos'),archivo);
-    // Delete old ventas in batches
-    const batch=writeBatch(db);
-    const snap=await getDocs(collection(db,'users',STORE,'ventas'));
-    let count=0;
-    snap.docs.forEach(d=>{
-      if(d.data().fecha<fechaCorte){batch.delete(d.ref);count++;}
-    });
-    await batch.commit();
-    if(infoEl)infoEl.innerHTML='<span style="color:var(--success)">✓ '+count+' ventas archivadas correctamente</span>';
-    toast(count+' ventas antiguas archivadas');
-  }catch(e){alert('Error: '+e.message);}
-};
-
-window.gdConfirm=function(action,msg){
-  _gdAction=action;
-  const modal=document.getElementById('gd-modal');
-  document.getElementById('gd-modal-msg').textContent='¿Estás seguro que deseás '+msg+'?';
-  document.getElementById('gd-pass').value='';
-  document.getElementById('gd-pass-err').style.display='none';
-  modal.style.display='flex';modal.style.alignItems='center';modal.style.justifyContent='center';
-};
-
-window.gdClose=function(){
-  _gdAction=null;
-  document.getElementById('gd-modal').style.display='none';
-};
-
-window.gdExecute=async function(){
-  const pass=document.getElementById('gd-pass').value;
-  const errEl=document.getElementById('gd-pass-err');
-  const btn=document.getElementById('gd-confirm-btn');
-  if(!pass){errEl.style.display='block';errEl.textContent='Ingresá tu contraseña.';return;}
-  // Verify password
-  const snap=await getDoc(doc(db,'users',CU));
-  if(!snap.exists()||snap.data().passHash!==hash(pass)){
-    errEl.style.display='block';errEl.textContent='Contraseña incorrecta.';return;
-  }
-  btn.innerHTML='<span class="spin"></span> Eliminando...';btn.disabled=true;
-  errEl.style.display='none';
-  try{
-    await gdRun(_gdAction);
-    gdClose();
-    toast('Operación completada con éxito');
-    // Refresh listeners
-    renderDash();renderVentasDia();
-  }catch(e){
-    errEl.style.display='block';errEl.textContent='Error: '+e.message;
-  }
-  btn.innerHTML='Sí, eliminar';btn.disabled=false;
-};
-
-async function gdRun(action){
-  async function deleteCollection(colRef){
-    const snap=await getDocs(colRef);
-    const batch=writeBatch(db);
-    snap.docs.forEach(d=>batch.delete(d.ref));
-    await batch.commit();
-    // If more than 500, run again
-    if(snap.size===500)await deleteCollection(colRef);
-  }
-
-  if(action==='ventas-rango'||action==='ventas-todas'){
-    const desde=document.getElementById('gd-v-desde')?.value||'';
-    const hasta=document.getElementById('gd-v-hasta')?.value||'';
-    const qSnap=await getDocs(collection(db,'users',STORE,'ventas'));
-    const batch=writeBatch(db);
-    qSnap.docs.forEach(d=>{
-      const v=d.data();
-      if(action==='ventas-todas'||(desde&&hasta&&v.fecha>=desde&&v.fecha<=hasta)){
-        batch.delete(d.ref);
-      }
-    });
-    await batch.commit();
-    _ventas=[];
-  }
-  else if(action==='clientes-todos'){
-    // Delete all clients and their portal users
-    const qSnap=await getDocs(collection(db,'users',STORE,'clientes'));
-    const batch=writeBatch(db);
-    const userBatch=writeBatch(db);
-    qSnap.docs.forEach(d=>{
-      batch.delete(d.ref);
-      const usuario=d.data().usuario;
-      if(usuario)userBatch.delete(doc(db,'users',usuario));
-    });
-    await batch.commit();
-    await userBatch.commit();
-    _clientes=[];
-  }
-  else if(action==='pedidos-online'){
-    const estado=document.getElementById('gd-po-estado')?.value||'todos';
-    const qSnap=await getDocs(collection(db,'users',STORE,'ventas'));
-    const batch=writeBatch(db);
-    qSnap.docs.forEach(d=>{
-      const v=d.data();
-      if(v.tipo==='online'&&(estado==='todos'||v.estado===estado)){
-        batch.delete(d.ref);
-      }
-    });
-    await batch.commit();
-    _ventas=_ventas.filter(v=>!(v.tipo==='online'&&(estado==='todos'||v.estado===estado)));
-  }
-  else if(action==='caja-chica-todos'){
-    const snap=await getDocs(collection(db,'users',STORE,'caja-chica'));
-    const batch=writeBatch(db);
-    snap.docs.forEach(d=>batch.delete(d.ref));
-    await batch.commit();
-    _cajaChica=[];renderCajaChica();
-    logAuditoria('borró','datos','Eliminados todos los movimientos de caja chica','','');
-  }
-  else if(action==='productos'){
-    await setDoc(doc(db,'productos',STORE),{lista:[]});
-    _productos=[];
-  }
-  else if(action==='promociones'){
-    await setDoc(doc(db,'promociones',STORE),{lista:[]});
-    _promociones=[];
-  }
-  else if(action==='stock'){
-    await setDoc(doc(db,'inventario',STORE),{});
-    await setDoc(doc(db,'lotes',STORE),{});
-    _inv={};_lotes={};
-  }
-  else if(action==='todo'){
-    // Delete all ventas
-    const vSnap=await getDocs(collection(db,'users',STORE,'ventas'));
-    const vBatch=writeBatch(db);
-    vSnap.docs.forEach(d=>vBatch.delete(d.ref));
-    await vBatch.commit();
-    // Delete all clientes + their portal users
-    const cSnap=await getDocs(collection(db,'users',STORE,'clientes'));
-    const cBatch=writeBatch(db);
-    const uBatch=writeBatch(db);
-    cSnap.docs.forEach(d=>{
-      cBatch.delete(d.ref);
-      const usuario=d.data().usuario;
-      if(usuario)uBatch.delete(doc(db,'users',usuario));
-    });
-    await cBatch.commit();
-    await uBatch.commit();
-    // Reset products, promos, stock, lotes
-    await setDoc(doc(db,'productos',STORE),{lista:[]});
-    await setDoc(doc(db,'promociones',STORE),{lista:[]});
-    await setDoc(doc(db,'inventario',STORE),{});
-    await setDoc(doc(db,'lotes',STORE),{});
-    _ventas=[];_clientes=[];_productos=[];_promociones=[];_inv={};_lotes={};
-  }
-}
 </script>
 
   <!-- PRODUCCION SECTIONS -->
