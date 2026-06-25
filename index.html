@@ -227,6 +227,17 @@ tr:hover td{background:#fafaf8}
   </div>
 </div>
 
+<!-- ROLE PICKER (dual role: empleado + cliente) -->
+<div id="role-picker" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;padding:32px 28px;max-width:370px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+    <div style="font-size:36px;margin-bottom:10px">👋</div>
+    <div style="font-size:19px;font-weight:700;margin-bottom:6px" id="rp-nombre">Hola</div>
+    <div style="font-size:14px;color:#666;margin-bottom:24px;line-height:1.5">Tenés acceso como empleado y como cliente.<br>¿Cómo querés ingresar?</div>
+    <button onclick="enterAsRole('empleado')" style="display:block;width:100%;padding:14px;border:2px solid var(--primary);background:var(--primary);color:#fff;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px">🏪 Ingresar como Empleado</button>
+    <button onclick="enterAsRole('cliente')" style="display:block;width:100%;padding:14px;border:2px solid var(--success);background:#fff;color:var(--success);border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">🛒 Ingresar como Cliente</button>
+  </div>
+</div>
+
 <!-- MAIN APP (admin + vendor) -->
 <div id="main-screen" style="display:none">
   <!-- Botón de presencia para empleados -->
@@ -442,7 +453,7 @@ tr:hover td{background:#fafaf8}
           <!-- Quick register inline -->
           <div id="v-quick-reg" style="display:none;background:#f5f4f0;border-radius:8px;padding:12px;margin-top:8px;border:1px solid var(--border)">
             <div style="font-weight:600;font-size:12px;margin-bottom:8px;color:#555">Registro rápido de cliente</div>
-            <label style="margin-top:0">Nombre *</label><input type="text" id="qr-nombre" placeholder="Nombre"/>
+            <label style="margin-top:0">Nombre *</label><input type="text" id="qr-nombre" placeholder="Nombre" oninput="updateAutoUser('qr-nombre','qr-apellido','qr-user')"/>
             <label>Apellido *</label><input type="text" id="qr-apellido" placeholder="Apellido" oninput="updateAutoUser('qr-nombre','qr-apellido','qr-user')"/>
             <label>Teléfono *</label><input type="text" id="qr-tel" placeholder="11-5555-1234"/>
             <label>Email *</label><input type="email" id="qr-mail" placeholder="mail@ejemplo.com"/>
@@ -611,7 +622,7 @@ tr:hover td{background:#fafaf8}
           <div class="access-box">
             <div class="access-box-title">Acceso al portal de pedidos (obligatorio)</div>
             <label style="margin-top:0">Usuario <span style="font-size:11px;color:#888">(se genera automáticamente)</span></label>
-            <input type="text" id="c-user" placeholder="Usuario para el portal" style="background:#f5f5f5"/>
+            <input type="text" id="c-user" placeholder="Se completa automáticamente" readonly style="background:#f5f4f0;color:#888;cursor:not-allowed"/>
             <label>Contraseña *</label>
             <input type="password" id="c-clave" placeholder="Mínimo 4 caracteres"/>
           </div>
@@ -1085,6 +1096,7 @@ tr:hover td{background:#fafaf8}
         <div style="display:flex;gap:6px">
           <button class="btn bp bsm" id="emp-tab-lista" onclick="setEmpTab('lista')">👥 Empleados</button>
           <button class="btn bsm" id="emp-tab-presencia" onclick="setEmpTab('presencia')">📅 Presencia</button>
+          <button class="btn bsm" style="color:#854F0B;border-color:#854F0B" onclick="openRenameUser()">🔄 Renombrar usuario</button>
         </div>
       </div>
       <!-- PRESENCIA ADMIN -->
@@ -1160,6 +1172,28 @@ tr:hover td{background:#fafaf8}
         </div>
       </div>
       </div><!-- /emp-lista-wrap -->
+    </div>
+
+    <!-- MODAL: Renombrar usuario global -->
+    <div id="rename-user-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;padding:20px">
+      <div style="background:#fff;border-radius:16px;padding:28px;max-width:440px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+        <h3 style="margin-top:0;margin-bottom:6px">🔄 Renombrar usuario</h3>
+        <div style="font-size:13px;color:#666;margin-bottom:18px;line-height:1.5">Cambia el nombre de usuario en <strong>todo el sistema</strong>: documento de login, clientes, empleados, ventas, presencia y cuenta corriente.</div>
+        <label style="font-weight:600">Usuario actual</label>
+        <select id="ren-old" style="margin-bottom:12px" onchange="onRenameSelectChange()">
+          <option value="">Seleccioná un usuario...</option>
+        </select>
+        <div id="ren-old-info" style="font-size:12px;color:#888;margin-top:-8px;margin-bottom:12px;display:none"></div>
+        <label style="font-weight:600">Nuevo usuario</label>
+        <input type="text" id="ren-new" placeholder="Ej: bperez" style="margin-bottom:6px"/>
+        <div style="font-size:11px;color:#aaa;margin-bottom:16px">Solo letras minúsculas y números, sin espacios ni acentos.</div>
+        <div id="ren-progress" style="display:none;background:#f5f4f0;border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px;max-height:180px;overflow-y:auto"></div>
+        <div id="ren-err" class="err" style="display:none;margin-bottom:10px"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn bp" id="ren-btn" onclick="executeRenameUser()">Renombrar</button>
+          <button class="btn bs" onclick="closeRenameUser()">Cancelar</button>
+        </div>
+      </div>
     </div>
 
     <!-- CALENDARIO -->
@@ -2864,7 +2898,7 @@ window.doRegisterCliente=async function(){
   try{
     // Si el usuario generado (inicial+apellido) ya existe (ej: Manuel Gomez y Mariano Gomez
     // generan ambos "mgomez"), le agregamos un número hasta encontrar uno libre.
-    let uFinal=u;let intento=1;
+    let uFinal=u;let intento=0;
     while((await getDoc(doc(db,'users',uFinal))).exists()){
       intento++;
       uFinal=u+intento;
@@ -2958,8 +2992,10 @@ window.doRegister=async function(){
   }
 };
 
-async function loginSuccess(u,userData){
-  USER_ROLE=userData.role||'admin';
+let _pendingLoginU=null,_pendingLoginData=null;
+
+async function loginSuccess(u,userData,roleOverride){
+  USER_ROLE=roleOverride||userData.role||'admin';
   // Auto-archive check (monthly)
   // MOD 17: Block inactive employees
   if(USER_ROLE==='vendedor'&&userData.activo===false){
@@ -2967,6 +3003,24 @@ async function loginSuccess(u,userData){
     document.getElementById('l-err').textContent='Tu cuenta está desactivada. Contactá al administrador.';
     document.getElementById('l-btn').innerHTML='Ingresar';document.getElementById('l-btn').disabled=false;
     CU=null;return;
+  }
+  // ── DUAL ROLE CHECK: empleado que también es cliente ──
+  if(!roleOverride&&(USER_ROLE==='vendedor'||USER_ROLE==='produccion')&&userData.alsoCliente===true){
+    try{
+      const MASTER_STORE='admin';
+      const cfgSnap=await getDocs(collection(db,'users',MASTER_STORE,'config'));
+      const portalCfg=cfgSnap.docs.find(d=>d.id==='portal');
+      const portalActivo=portalCfg?portalCfg.data().activo!==false:true;
+      if(portalActivo){
+        _pendingLoginU=u;_pendingLoginData=userData;
+        document.getElementById('loading-screen').style.display='none';
+        document.getElementById('login-screen').style.display='none';
+        document.getElementById('role-picker').style.display='flex';
+        document.getElementById('rp-nombre').textContent='Hola, '+(userData.nombre||u);
+        document.getElementById('l-btn').innerHTML='Ingresar';document.getElementById('l-btn').disabled=false;
+        return;
+      }
+    }catch(e){console.log('dual role check',e);}
   }
   CLI_DATA=USER_ROLE==='cliente'?{...userData}:null;
   // MOD 14: Request push notification permission for clients
@@ -3082,6 +3136,19 @@ async function loginSuccess(u,userData){
   }
 }
 
+// ── DUAL ROLE: empleado elige cómo ingresar ──
+window.enterAsRole=function(role){
+  document.getElementById('role-picker').style.display='none';
+  if(!_pendingLoginU||!_pendingLoginData)return;
+  const u=_pendingLoginU,data=_pendingLoginData;
+  _pendingLoginU=null;_pendingLoginData=null;
+  if(role==='cliente'){
+    loginSuccess(u,data,'cliente');
+  } else {
+    loginSuccess(u,data,data.role);
+  }
+};
+
 window.doLogout=function(){
   _unsubs.forEach(f=>f());_unsubs=[];
   CU=STORE=USER_ROLE=CLI_DATA=null;
@@ -3093,6 +3160,9 @@ window.doLogout=function(){
   const locSel=document.getElementById('locale-selector');if(locSel)locSel.style.display='none';
   document.getElementById('main-screen').style.display='none';
   document.getElementById('cliente-screen').style.display='none';
+  document.getElementById('role-picker').style.display='none';
+  const portalBloq=document.getElementById('portal-bloqueado');if(portalBloq)portalBloq.style.display='none';
+  document.getElementById('rename-user-modal').style.display='none';
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('l-pass').value='';
   document.getElementById('l-err').style.display='none';
@@ -4545,15 +4615,20 @@ window.doQuickReg=async function(){
   if(pass.length<4){alert('La contraseña del portal debe tener al menos 4 caracteres');return;}
   setBtn('qr-btn',true,'Registrando...');
   try{
-    const ex=await getDoc(doc(db,'users',usuario));
-    const finalUser=ex.exists()?usuario+Date.now().toString().slice(-4):usuario;
+    let finalUser=usuario;let intento=0;
+    while((await getDoc(doc(db,'users',finalUser))).exists()){
+      intento++;
+      finalUser=usuario+intento;
+      if(intento>50){alert('No se pudo generar un usuario disponible.');setBtn('qr-btn',false,'Registrar y seleccionar');return;}
+    }
+    if(finalUser!==usuario){alert('El usuario \"'+usuario+'\" ya existía. Se asignó: '+finalUser);}
     await setDoc(doc(db,'users',finalUser),{username:finalUser,passHash:hash(pass),role:'cliente',parentAdmin:STORE,nombre:nombre+' '+apellido,tel,mail,dir,barrio,createdAt:today()});
     const docRef=await addDoc(LCOL('clientes'),{nombre:nombre+' '+apellido,tel,mail,dir,barrio,notas:'',usuario:finalUser,createdAt:today()});
     // Auto-select the new client
     selectCli(docRef.id);
     hideQuickReg();
     toast('Cliente registrado y seleccionado: '+nombre+' '+apellido);
-      logAuditoria('creó','cliente','Nuevo cliente: '+nombre+' '+apellido+' ('+usuario+')','','');
+      logAuditoria('creó','cliente','Nuevo cliente: '+nombre+' '+apellido+' ('+finalUser+')','','');
   }catch(e){alert('Error al registrar: '+e.message);}
   setBtn('qr-btn',false,'Registrar y seleccionar');
 };
@@ -4853,11 +4928,11 @@ window.renderClientes=function renderClientes(){
 }
 
 window.autoGenUsuario=function(){
-  const nom=(document.getElementById('c-nom')?.value||'').trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
-  const ape=(document.getElementById('c-ape')?.value||'').trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+  const nom=(document.getElementById('c-nom')?.value||'').trim();
+  const ape=(document.getElementById('c-ape')?.value||'').trim();
   const userEl=document.getElementById('c-user');
-  if(userEl&&!userEl.dataset.manual){
-    userEl.value=nom+(ape?'.'+ape:'');
+  if(userEl){
+    userEl.value=autoUsername(nom,ape);
   }
 };
 
@@ -4881,19 +4956,22 @@ window.addCliente=async function(){
   if(clave.length<4){alert('La contraseña del portal debe tener al menos 4 caracteres');return;}
   setBtn('c-btn',true,'Guardar cliente');setSyncDot('syncing');
   try{
+    let usuarioFinal=usuario;
     if(usuario){
-      const ex=await getDoc(doc(db,'users',usuario));
-      if(ex.exists()&&ex.data().parentAdmin!==STORE){
-        alert('Ese usuario ya existe. Intentá con otro nombre o modificá el apellido.');
-        setBtn('c-btn',false,'Guardar cliente');return;
+      let intento=0;
+      while((await getDoc(doc(db,'users',usuarioFinal))).exists()){
+        intento++;
+        usuarioFinal=usuario+intento;
+        if(intento>50){alert('No se pudo generar un usuario disponible.');setBtn('c-btn',false,'Guardar cliente');return;}
       }
-      await setDoc(doc(db,'users',usuario),{username:usuario,passHash:hash(clave),role:'cliente',parentAdmin:STORE,nombre:n,tel:document.getElementById('c-tel').value,mail:document.getElementById('c-mail').value,dir:document.getElementById('c-dir2').value,barrio:document.getElementById('c-bar').value,createdAt:today()});
+      if(usuarioFinal!==usuario){alert('El usuario \"'+usuario+'\" ya existía. Se asignó: '+usuarioFinal);}
+      await setDoc(doc(db,'users',usuarioFinal),{username:usuarioFinal,passHash:hash(clave),role:'cliente',parentAdmin:STORE,nombre:n,tel:document.getElementById('c-tel').value,mail:document.getElementById('c-mail').value,dir:document.getElementById('c-dir2').value,barrio:document.getElementById('c-bar').value,createdAt:today()});
     }
     const cTipo=document.getElementById('c-tipo')?.value||'tradicional';
     const cCC=document.getElementById('c-cc')?.checked||false;
-    await addDoc(LCOL('clientes'),{nombre:n,tel:document.getElementById('c-tel').value,mail:document.getElementById('c-mail').value,dir:document.getElementById('c-dir2').value,barrio:document.getElementById('c-bar').value,notas:document.getElementById('c-not').value,usuario:usuario||null,tipoCliente:cTipo,cuentaCorriente:cCC,createdAt:today()});
+    await addDoc(LCOL('clientes'),{nombre:n,tel:document.getElementById('c-tel').value,mail:document.getElementById('c-mail').value,dir:document.getElementById('c-dir2').value,barrio:document.getElementById('c-bar').value,notas:document.getElementById('c-not').value,usuario:usuarioFinal||null,tipoCliente:cTipo,cuentaCorriente:cCC,createdAt:today()});
     ['c-nom','c-ape','c-tel','c-mail','c-dir2','c-bar','c-not','c-user','c-clave'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-    toast('Cliente guardado'+(usuario?' con acceso al portal':''));
+    toast('Cliente guardado'+(usuarioFinal?' con acceso al portal (usuario: '+usuarioFinal+')':''));
   }catch(e){alert('Error: '+e.message);}
   setBtn('c-btn',false,'Guardar cliente');
 };
@@ -7954,7 +8032,7 @@ function renderEmp(){
           <div style="font-weight:700;font-size:14px">${e.nombre}${!ACTIVE_LOCALE?` <span style="font-size:10px;background:${e.localeId?'rgba(55,138,221,0.12)':'rgba(150,150,150,0.15)'};color:${e.localeId?'#378ADD':'#888'};padding:2px 7px;border-radius:10px">📍 ${e.localeId?nombreLocal(e.localeId):'Sin local'}</span>`:''}</div>
           <div style="font-size:12px;color:#888;margin-top:2px">${e.rol}${e.tel?' · '+e.tel:''}</div>
           ${e.usuario
-            ?`<div style="font-size:12px;color:var(--primary);margin-top:3px">Usuario: <strong>${e.usuario}</strong> <span class="badge rbadge-vend">Vendedor</span></div>`
+            ?`<div style="font-size:12px;color:var(--primary);margin-top:3px">Usuario: <strong>${e.usuario}</strong> <span class="badge rbadge-vend">Vendedor</span>${e.alsoCliente?` <span style="font-size:10px;background:rgba(29,158,117,0.12);color:#1D9E75;padding:2px 7px;border-radius:10px;font-weight:600">🛒 Cliente</span>`:''}</div>`
             :'<div style="font-size:11px;color:#bbb;margin-top:2px">Sin acceso al sistema</div>'}
           <div style="font-size:11px;color:#aaa;margin-top:2px">Alta: ${e.createdAt||'—'}</div>
         </div>
@@ -7964,6 +8042,7 @@ function renderEmp(){
           <button class="btn bs bsm" onclick="generarReciboEmp('${e.id}')">💰 Recibo</button>
           <button class="btn bs bsm" onclick="toggleActivoEmp('${e.id}',${e.activo!==false})">${e.activo===false?'Activar':'Desactivar'}</button>
           ${e.usuario?`<button class="btn bs bsm" onclick="openResetPass('${e.usuario}','${e.nombre}')">🔑 Clave</button>`:''}
+          ${e.usuario&&!e.alsoCliente?`<button class="btn bs bsm" style="color:#1D9E75;border-color:#1D9E75" onclick="habilitarEmpleadoComoCliente('${e.id}','${e.usuario}','${e.nombre.replace(/'/g,"\\'")}')">🛒 Habilitar como cliente</button>`:''}
           <button class="btn bs bsm" onclick="startEditEmp('${e.id}')">Editar</button>
           <button class="btn bd bsm" onclick="delEmp('${e.id}','${e.usuario||''}')">Eliminar</button>
         </div>
@@ -7984,25 +8063,49 @@ window.addEmp=async function(){
   try{
     const rolSel=document.getElementById('e-rol')?.value||'';
     const sysRole=rolSel==='Producción'?'produccion':'vendedor';
-    if(usuario){
-      const ex=await getDoc(doc(db,'users',usuario));
-      if(ex.exists()){
-        if(ex.data().parentAdmin===STORE||ex.data().role==='vendedor'||ex.data().role==='produccion'){
-          await setDoc(doc(db,'users',usuario),{username:usuario,passHash:hash(pass),role:sysRole,parentAdmin:STORE,nombre:nom,createdAt:today()});
-        } else {
-          alert('Ese usuario ya existe y pertenece a otro sistema. Elegí otro nombre o modificá el apellido.');
-          setBtn('e-btn',false,'Guardar empleado');return;
-        }
-      } else {
-        await setDoc(doc(db,'users',usuario),{username:usuario,passHash:hash(pass),role:sysRole,parentAdmin:STORE,nombre:nom,createdAt:today()});
+    let usuarioFinal=usuario;
+    if(usuario&&pass){
+      let intento=0;
+      while((await getDoc(doc(db,'users',usuarioFinal))).exists()){
+        intento++;
+        usuarioFinal=usuario+intento;
+        if(intento>50){alert('No se pudo generar un usuario disponible.');setBtn('e-btn',false,'Guardar empleado');return;}
       }
+      if(usuarioFinal!==usuario){alert('El usuario \"'+usuario+'\" ya existía. Se asignó: '+usuarioFinal);}
+      await setDoc(doc(db,'users',usuarioFinal),{username:usuarioFinal,passHash:hash(pass),role:sysRole,parentAdmin:STORE,nombre:nom,alsoCliente:true,createdAt:today()});
     }
-    await addDoc(collection(db,'users',STORE,'empleados'),{nombre:nom,rol:document.getElementById('e-rol').value,tel:document.getElementById('e-tel').value,usuario:usuario||null,createdAt:today()});
+    const tel=document.getElementById('e-tel').value;
+    const hasAccess=!!(usuarioFinal&&pass);
+    await addDoc(collection(db,'users',STORE,'empleados'),{nombre:nom,rol:document.getElementById('e-rol').value,tel:tel,usuario:usuarioFinal||null,alsoCliente:hasAccess?true:false,createdAt:today()});
+    // Crear también registro de cliente para acceso al portal
+    if(hasAccess&&usuarioFinal){
+      await addDoc(LCOL('clientes'),{nombre:nom,tel:tel,mail:'',dir:'',barrio:'',notas:'Empleado con acceso de cliente',usuario:usuarioFinal,tipoCliente:'tradicional',cuentaCorriente:false,createdAt:today()});
+    }
     ['e-nombre','e-apellido','e-tel','e-user','e-pass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-    toast('Empleado guardado'+(usuario?' con acceso al sistema':''));
+    toast('Empleado guardado'+(hasAccess?' con acceso dual (usuario: '+usuarioFinal+')':' (sin acceso al sistema)'));
   }catch(e){alert('Error: '+e.message);}
   setBtn('e-btn',false,'Guardar empleado');
 };
+window.habilitarEmpleadoComoCliente=async function(empId,usuario,nombre){
+  if(!confirm('¿Habilitar a '+nombre+' como cliente del portal?\n\nVa a poder ingresar con el mismo usuario ('+usuario+') tanto como empleado como cliente.'))return;
+  setSyncDot('syncing');
+  try{
+    // 1. Agregar alsoCliente al documento de usuario
+    await updateDoc(doc(db,'users',usuario),{alsoCliente:true});
+    // 2. Agregar alsoCliente al documento de empleado
+    await updateDoc(doc(db,'users',STORE,'empleados',empId),{alsoCliente:true});
+    // 3. Crear registro de cliente si no existe ya
+    const cliSnap=await getDocs(LCOL('clientes'));
+    const yaExiste=cliSnap.docs.find(d=>d.data().usuario===usuario);
+    if(!yaExiste){
+      const emp=_empleados.find(x=>x.id===empId);
+      await addDoc(LCOL('clientes'),{nombre:nombre,tel:emp?.tel||'',mail:'',dir:'',barrio:'',notas:'Empleado con acceso de cliente',usuario:usuario,tipoCliente:'tradicional',cuentaCorriente:false,createdAt:today()});
+    }
+    toast('✅ '+nombre+' ahora puede ingresar como cliente con el usuario: '+usuario);
+    logAuditoria('habilitó','cliente','Empleado habilitado como cliente: '+nombre+' ('+usuario+')','','');
+  }catch(e){alert('Error: '+e.message);}
+};
+
 window.delEmp=async function(id,usuario){
   if(!confirm('¿Eliminar este empleado?'))return;
   try{
@@ -8524,6 +8627,206 @@ window.saveEditEmp=async function(){
     cancelEditEmp();toast('Empleado actualizado');
   }catch(e){alert('Error: '+e.message);}
   setBtn('ee-save-btn',false,'Guardar cambios');
+};
+
+// ── HERRAMIENTA: RENOMBRAR USUARIO GLOBAL ─────────────────────────────────────
+window.openRenameUser=async function(){
+  const sel=document.getElementById('ren-old');
+  sel.innerHTML='<option value="">Seleccioná un usuario...</option>';
+  document.getElementById('ren-new').value='';
+  document.getElementById('ren-err').style.display='none';
+  document.getElementById('ren-progress').style.display='none';
+  document.getElementById('ren-old-info').style.display='none';
+  document.getElementById('ren-btn').disabled=false;
+  // Populate with all known users (empleados + clientes)
+  const users=new Map();
+  _empleados.forEach(e=>{if(e.usuario)users.set(e.usuario,{nombre:e.nombre,tipo:'Empleado ('+e.rol+')'});});
+  _clientes.forEach(c=>{
+    if(c.usuario){
+      if(users.has(c.usuario)){users.get(c.usuario).tipo+=' + Cliente';}
+      else{users.set(c.usuario,{nombre:c.nombre,tipo:'Cliente'});}
+    }
+  });
+  [...users.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([u,info])=>{
+    sel.innerHTML+=`<option value="${u}">${u} — ${info.nombre} (${info.tipo})</option>`;
+  });
+  document.getElementById('rename-user-modal').style.display='flex';
+};
+window.onRenameSelectChange=function(){
+  const old=document.getElementById('ren-old').value;
+  const info=document.getElementById('ren-old-info');
+  if(!old){info.style.display='none';return;}
+  const emp=_empleados.find(e=>e.usuario===old);
+  const cli=_clientes.find(c=>c.usuario===old);
+  let txt='';
+  if(emp)txt+='👷 Empleado: '+emp.nombre+' ('+emp.rol+')';
+  if(cli)txt+=(txt?' · ':'')+'🛒 Cliente: '+cli.nombre;
+  info.textContent=txt;info.style.display='block';
+  // Suggest new username based on name
+  const nombre=(emp?.nombre||cli?.nombre||'').trim();
+  const parts=nombre.split(/\s+/);
+  if(parts.length>=2){
+    document.getElementById('ren-new').value=autoUsername(parts[0],parts.slice(1).join(' '));
+  }
+};
+window.closeRenameUser=function(){
+  document.getElementById('rename-user-modal').style.display='none';
+};
+window.executeRenameUser=async function(){
+  const oldUser=document.getElementById('ren-old').value.trim();
+  const newUser=document.getElementById('ren-new').value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+  const err=document.getElementById('ren-err');
+  const prog=document.getElementById('ren-progress');
+  err.style.display='none';
+  if(!oldUser){err.textContent='Seleccioná el usuario a renombrar.';err.style.display='block';return;}
+  if(!newUser){err.textContent='Ingresá el nuevo nombre de usuario.';err.style.display='block';return;}
+  if(newUser===oldUser){err.textContent='El nuevo usuario es igual al actual.';err.style.display='block';return;}
+  if(newUser==='admin'){err.textContent='No podés usar "admin" como nombre de usuario.';err.style.display='block';return;}
+  document.getElementById('ren-new').value=newUser;
+  // Check if new username already exists
+  const exSnap=await getDoc(doc(db,'users',newUser));
+  if(exSnap.exists()){err.textContent='El usuario "'+newUser+'" ya existe. Elegí otro.';err.style.display='block';return;}
+  if(!confirm('¿Renombrar "'+oldUser+'" → "'+newUser+'"?\n\nEsto va a actualizar el usuario en TODO el sistema: login, clientes, empleados, ventas, presencia y cuenta corriente.\n\nEsta acción no se puede deshacer.'))return;
+  const btn=document.getElementById('ren-btn');
+  btn.disabled=true;btn.textContent='Renombrando...';
+  prog.style.display='block';prog.innerHTML='';
+  const log=m=>{prog.innerHTML+=m+'<br>';prog.scrollTop=prog.scrollHeight;};
+  try{
+    // 1. Copy user document
+    log('📋 Copiando documento de usuario...');
+    const oldSnap=await getDoc(doc(db,'users',oldUser));
+    if(!oldSnap.exists()){err.textContent='No se encontró el documento del usuario "'+oldUser+'".';err.style.display='block';btn.disabled=false;btn.textContent='Renombrar';return;}
+    const userData={...oldSnap.data(),username:newUser};
+    await setDoc(doc(db,'users',newUser),userData);
+    log('✅ Documento de usuario creado como "'+newUser+'"');
+
+    // 2. Update empleados
+    log('👷 Buscando en empleados...');
+    const empSnap=await getDocs(collection(db,'users',STORE,'empleados'));
+    let empCount=0;
+    for(const d of empSnap.docs){
+      if(d.data().usuario===oldUser){
+        await updateDoc(doc(db,'users',STORE,'empleados',d.id),{usuario:newUser});
+        empCount++;
+      }
+    }
+    log(empCount?'✅ '+empCount+' empleado(s) actualizado(s)':'— Sin empleados con ese usuario');
+
+    // 3. Update clientes (main + locales)
+    log('🛒 Buscando en clientes...');
+    let cliCount=0;
+    // Main collection
+    try{
+      const cliSnap=await getDocs(collection(db,'users',STORE,'clientes'));
+      for(const d of cliSnap.docs){
+        if(d.data().usuario===oldUser){
+          await updateDoc(doc(db,'users',STORE,'clientes',d.id),{usuario:newUser});
+          cliCount++;
+        }
+      }
+    }catch{}
+    // Locale collections
+    for(const loc of _locales){
+      try{
+        const cliLoc=await getDocs(collection(db,'users',STORE,'locales',loc.id,'clientes'));
+        for(const d of cliLoc.docs){
+          if(d.data().usuario===oldUser){
+            await updateDoc(doc(db,'users',STORE,'locales',loc.id,'clientes',d.id),{usuario:newUser});
+            cliCount++;
+          }
+        }
+      }catch{}
+    }
+    // __none__ locale
+    try{
+      const cliNone=await getDocs(collection(db,'users',STORE,'locales','__none__','clientes'));
+      for(const d of cliNone.docs){
+        if(d.data().usuario===oldUser){
+          await updateDoc(doc(db,'users',STORE,'locales','__none__','clientes',d.id),{usuario:newUser});
+          cliCount++;
+        }
+      }
+    }catch{}
+    log(cliCount?'✅ '+cliCount+' cliente(s) actualizado(s)':'— Sin clientes con ese usuario');
+
+    // 4. Update ventas (vendedor + clienteId) main + locales
+    log('🧾 Buscando en ventas...');
+    let ventaCount=0;
+    async function updateVentasInCol(colRef){
+      try{
+        const snap=await getDocs(colRef);
+        for(const d of snap.docs){
+          const data=d.data();
+          const upd={};
+          if(data.vendedor===oldUser)upd.vendedor=newUser;
+          if(data.clienteId===oldUser)upd.clienteId=newUser;
+          if(Object.keys(upd).length){
+            await updateDoc(doc(colRef,d.id),upd);
+            ventaCount++;
+          }
+        }
+      }catch{}
+    }
+    await updateVentasInCol(collection(db,'users',STORE,'ventas'));
+    for(const loc of _locales){
+      await updateVentasInCol(collection(db,'users',STORE,'locales',loc.id,'ventas'));
+    }
+    try{await updateVentasInCol(collection(db,'users',STORE,'locales','__none__','ventas'));}catch{}
+    log(ventaCount?'✅ '+ventaCount+' venta(s) actualizada(s)':'— Sin ventas con ese usuario');
+
+    // 5. Update presencia
+    log('📅 Buscando en presencia...');
+    let presCount=0;
+    try{
+      const presSnap=await getDocs(collection(db,'users',STORE,'presencia'));
+      for(const d of presSnap.docs){
+        if(d.data().usuario===oldUser){
+          await updateDoc(doc(db,'users',STORE,'presencia',d.id),{usuario:newUser});
+          presCount++;
+        }
+      }
+    }catch{}
+    log(presCount?'✅ '+presCount+' registro(s) de presencia actualizado(s)':'— Sin registros de presencia');
+
+    // 6. Update cuenta corriente (main + locales)
+    log('💰 Buscando en cuenta corriente...');
+    let ccCount=0;
+    async function updateCCInCol(colRef){
+      try{
+        const snap=await getDocs(colRef);
+        for(const d of snap.docs){
+          if(d.data().clienteId===oldUser){
+            await updateDoc(doc(colRef,d.id),{clienteId:newUser});
+            ccCount++;
+          }
+        }
+      }catch{}
+    }
+    await updateCCInCol(collection(db,'users',STORE,'cuenta-corriente'));
+    for(const loc of _locales){
+      await updateCCInCol(collection(db,'users',STORE,'locales',loc.id,'cuenta-corriente'));
+    }
+    try{await updateCCInCol(collection(db,'users',STORE,'locales','__none__','cuenta-corriente'));}catch{}
+    log(ccCount?'✅ '+ccCount+' movimiento(s) de cuenta corriente actualizado(s)':'— Sin movimientos de cuenta corriente');
+
+    // 7. Delete old user document
+    log('🗑 Eliminando documento viejo "'+oldUser+'"...');
+    await deleteDoc(doc(db,'users',oldUser));
+    log('✅ Documento "'+oldUser+'" eliminado');
+
+    const total=empCount+cliCount+ventaCount+presCount+ccCount+1;
+    log('<br><strong style="color:var(--success)">✅ ¡Listo! Se actualizaron '+total+' registros en total.</strong>');
+    log('<strong>"'+oldUser+'" ahora es "'+newUser+'"</strong>');
+    toast('Usuario renombrado: '+oldUser+' → '+newUser);
+    logAuditoria('renombró','usuario','Usuario renombrado: '+oldUser+' → '+newUser,'','');
+    btn.textContent='✓ Completado';
+    // Refresh the select
+    setTimeout(()=>{closeRenameUser();},3000);
+  }catch(e){
+    log('<br><strong style="color:var(--danger)">❌ Error: '+e.message+'</strong>');
+    err.textContent='Error durante el renombrado: '+e.message;err.style.display='block';
+    btn.disabled=false;btn.textContent='Renombrar';
+  }
 };
 
 // ── MOD 9: CLIENTE PORTAL ─────────────────────────────────────────────────────
