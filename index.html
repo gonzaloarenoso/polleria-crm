@@ -10432,7 +10432,7 @@ document.addEventListener('change',function(e){
     if(e.target.checked){
       const recetaActual=document.getElementById('ficha-receta')?.value.trim();
       if(!recetaActual){
-        const receta=prompt('Para marcar este producto como "requiere elaboración" necesitás ingresar la receta:\n\n(ingredientes, cantidades y pasos)');
+        const receta=prompt('Para marcar este producto como "requiere elaboración" necesitás ingresar la receta:\\n\\n(ingredientes, cantidades y pasos)');
         if(!receta||!receta.trim()){
           alert('No se guardó: la receta es obligatoria para activar elaboración.');
           e.target.checked=false;
