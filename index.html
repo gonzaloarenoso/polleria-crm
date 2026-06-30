@@ -2302,7 +2302,7 @@ tr:hover td{background:#fafaf8}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, updateDoc, where, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, updateDoc, where, getDocs, writeBatch, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAYvWsAYcC4H5Givd44jsAX34MubjWfnRY",
@@ -2345,6 +2345,36 @@ function INV_ID(){
   if(ACTIVE_LOCALE)return STORE+'_loc_'+ACTIVE_LOCALE;
   if(_locales.length>0)return STORE+'_loc___none__';
   return STORE;
+}
+// Atomic stock update: only touches the specified product(s), never overwrites other products
+async function invUpdateStock(changes){
+  // changes: { "ProductA": +5, "ProductB": -2 } or { "ProductA": 10 } (absolute)
+  // Uses increment for safe concurrent updates
+  const updates={};
+  for(const [prod,delta] of Object.entries(changes)){
+    updates[`${prod}.stock`]=increment(delta);
+  }
+  const invRef=doc(db,'inventario',INV_ID());
+  try{
+    await updateDoc(invRef,updates);
+  }catch(e){
+    // Document might not exist yet; create it then retry
+    if(e.code==='not-found'){
+      const initial={};
+      for(const [prod,delta] of Object.entries(changes)){
+        initial[prod]={stock:Math.max(0,delta),alerta:5};
+      }
+      await setDoc(invRef,initial,{merge:true});
+    } else throw e;
+  }
+}
+// Set absolute stock value for a product (used when we need exact value, not delta)
+async function invSetStock(prod,absoluteValue,extraFields){
+  const invRef=doc(db,'inventario',INV_ID());
+  const upd={[`${prod}.stock`]:absoluteValue};
+  if(extraFields){for(const[k,v]of Object.entries(extraFields))upd[`${prod}.${k}`]=v;}
+  try{await updateDoc(invRef,upd);}
+  catch(e){if(e.code==='not-found'){await setDoc(invRef,{[prod]:{stock:absoluteValue,alerta:5,...(extraFields||{})}},{merge:true});}else throw e;}
 }
 function nombreLocal(id){
   const l=_locales.find(x=>x.id===id);
@@ -4738,20 +4768,17 @@ window.confirmar=async function(){
         fecha:venta.fecha,ts:Date.now()
       });}catch(e){console.warn('cc save',e);}
     }
-    const newInv={..._inv};let changed=false;
+    // Atomic stock reduction — only touches affected products
+    const stockDeltas={};
     for(const it of items){
       if(it.esPromo){
         const promo=_promociones.find(p=>p.id===it.refId);
-        if(promo){for(const comp of promo.componentes){if(newInv[comp.producto]){newInv[comp.producto]={...newInv[comp.producto],stock:Math.max(0,newInv[comp.producto].stock-comp.cantidad*it.cant)};changed=true;}}}
+        if(promo){for(const comp of promo.componentes){if(_inv[comp.producto]){stockDeltas[comp.producto]=(stockDeltas[comp.producto]||0)-(comp.cantidad*it.cant);}}}
       } else {
-        // Descuento stock para productos normales
-        if(newInv[it.nom]){
-          newInv[it.nom]={...newInv[it.nom],stock:Math.max(0,(newInv[it.nom].stock||0)-it.cant)};
-          changed=true;
-        }
+        if(_inv[it.nom]){stockDeltas[it.nom]=(stockDeltas[it.nom]||0)-it.cant;}
       }
     }
-    if(changed)await setDoc(doc(db,'inventario',INV_ID()),newInv);
+    if(Object.keys(stockDeltas).length)await invUpdateStock(stockDeltas);
     // FIFO cost calculation and lote consumption
     let costoTotal=0;
     for(const it of items){
@@ -5106,6 +5133,52 @@ document.addEventListener('click',function(e){
   const wrap=document.getElementById('s-prod-input');
   if(dd&&wrap&&!wrap.contains(e.target)&&!dd.contains(e.target))dd.style.display='none';
 });
+// ── Quick stock inline: cost/margin calculator ──
+window.calcQsSug=function(el){
+  const wrap=el.closest('[id^="qs-"]');
+  if(!wrap)return;
+  const c=parseInt(el.value)||0;
+  const infoEl=wrap.querySelector('.qs-margin-info');
+  const precioRow=wrap.querySelector('.qs-precio-row');
+  const precioInput=wrap.querySelector('.qs-precio-venta');
+  if(!infoEl)return;
+  if(c>0){
+    const prodNom=wrap.closest('.pr')?.querySelector('[data-prod-nom]')?.dataset.prodNom||'';
+    const prodObj=prodNom?_productos.find(p=>p.nombre===prodNom):null;
+    const precioActual=prodObj?.precio||0;
+    const precioSug=Math.round(c*1.6);
+    let html='Sugerido (60%): <strong>$'+precioSug.toLocaleString('es-AR')+'</strong>';
+    if(precioActual>0){
+      const margen=Math.round(((precioActual-c)/precioActual)*100);
+      const color=margen>=40?'#1D9E75':margen>=25?'#EF9F27':'#e74c3c';
+      html+=' · Precio actual: <strong>$'+precioActual.toLocaleString('es-AR')+'</strong> → margen: <strong style="color:'+color+'">'+margen+'%</strong>';
+    }
+    infoEl.style.display='block';infoEl.innerHTML=html;
+    if(precioRow)precioRow.style.display='flex';
+    if(precioInput&&precioInput.value)calcQsMargenReal(precioInput);
+  } else {
+    infoEl.style.display='none';
+    if(precioRow)precioRow.style.display='none';
+  }
+};
+window.calcQsMargenReal=function(el){
+  const wrap=el.closest('[id^="qs-"]');
+  if(!wrap)return;
+  const costoEl=wrap.querySelector('.qs-costo');
+  const margenEl=wrap.querySelector('.qs-margen-real');
+  if(!costoEl||!margenEl)return;
+  const c=parseInt(costoEl.value)||0;
+  const pv=parseInt(el.value)||0;
+  if(c>0&&pv>0){
+    const ganancia=pv-c;
+    const margen=Math.round((ganancia/pv)*100);
+    const remarc=Math.round((ganancia/c)*100);
+    const color=margen>=40?'#1D9E75':margen>=25?'#EF9F27':'#e74c3c';
+    margenEl.innerHTML='Remarc: <strong style="color:'+color+'">'+remarc+'%</strong> · Margen: <strong style="color:'+color+'">'+margen+'%</strong> · Ganancia: <strong>$'+ganancia.toLocaleString('es-AR')+'</strong>/u.';
+  } else {
+    margenEl.innerHTML='';
+  }
+};
 window.calcSug=function(){
   const c=parseInt(document.getElementById('s-costo').value)||0;
   const el=document.getElementById('s-sug');
@@ -5254,19 +5327,15 @@ window.updStock=async function(){
   setBtn('s-btn',true,'Actualizar stock');setSyncDot('syncing');
   try{
     const modoAjuste=document.getElementById('s-modo')?.value==='ajustar';
-    const newInv={..._inv};
-    if(!newInv[prod])newInv[prod]={stock:0,alerta:5};
     const nuevaAlerta=parseInt(document.getElementById('s-alerta')?.value);
-    const stockActualProd=newInv[prod].stock||0;
-    const nuevoStock=modoAjuste
-      ?Math.round((stockActualProd-cant)*1000)/1000
-      :Math.round((stockActualProd+cant)*1000)/1000;
-    newInv[prod]={
-      ...newInv[prod],
-      stock:Math.max(0,nuevoStock),
-      ...(nuevaAlerta>0?{alerta:nuevaAlerta}:{})
-    };
-    await setDoc(doc(db,'inventario',INV_ID()),newInv);
+    const stockActualProd=_inv[prod]?.stock||0;
+    const delta=modoAjuste?-cant:cant;
+    const nuevoStock=Math.max(0,Math.round((stockActualProd+delta)*1000)/1000);
+    // Atomic update: only touches this product's fields
+    const upd={[`${prod}.stock`]:increment(delta)};
+    if(nuevaAlerta>0)upd[`${prod}.alerta`]=nuevaAlerta;
+    try{await updateDoc(doc(db,'inventario',INV_ID()),upd);}
+    catch(e){if(e.code==='not-found'){await setDoc(doc(db,'inventario',INV_ID()),{[prod]:{stock:Math.max(0,delta),alerta:nuevaAlerta||5}},{merge:true});}else throw e;}
     // Si es ajuste, guardar en stock-historial con tipo ajuste (sin costo)
     if(modoAjuste){
       try{
@@ -5549,7 +5618,7 @@ window.renderProductos=function renderProductos(){
     if(!_productos.length){el.innerHTML='<div class="empty">Sin productos</div>';return;}
     const UNITS=['unidad','kg','g','lts','ml','porcion','docena','pack'];
     const prodsFiltrados=busq?_productos.filter(p=>p.nombre.toLowerCase().includes(busq)||(p.categoria||'').toLowerCase().includes(busq)||(p.proveedor||'').toLowerCase().includes(busq)||(p.codigo||'').toLowerCase().includes(busq)):_productos;
-    el.innerHTML=prodsFiltrados.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">${p.codigo?`<span style="background:var(--bg);border-radius:4px;padding:1px 5px;font-weight:600;margin-right:4px">${p.codigo}</span>`:''}Unidad: <strong>${p.unidad||'unidad'}</strong>${p.tramos?.length?` &nbsp;·&nbsp; <span style="color:#378ADD">🏷 ${p.tramos.length} tramo${p.tramos.length>1?'s':''}</span>`:''}</div></div><div style="display:flex;align-items:center;gap:6px;margin-top:4px">${(()=>{const stk=Math.round((_inv[p.nombre]?.stock||0)*1000)/1000;const alt=_inv[p.nombre]?.alerta||5;const ok=stk>alt;return `<span style="font-size:11px">Stock: <strong>${stk} ${p.unidad||'u.'}</strong></span><span style="padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:${ok?'rgba(29,158,117,0.1)':'rgba(232,68,34,0.1)'};color:${ok?'#1D9E75':'#e74c3c'}">${ok?'OK':'⚠ BAJO'}</span><button class="btn bs" style="font-size:10px;padding:2px 8px" data-action="open-quick-stock" data-prod-id="${p.id}" data-prod-nom="${p.nombre}" data-prod-uni="${p.unidad||'u.'}">📦 Stock</button><span style="font-size:10px;color:#aaa;margin-left:4px">Alerta:</span><input type="number" value="${_inv[p.nombre]?.alerta||5}" min="0" step="0.1" data-action="save-alerta" data-prod-nom="${p.nombre}" title="Alerta mínima de stock" style="width:55px;font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin-left:2px"/>`;})()}</div><div id="qs-${p.id}" style="display:none;margin-top:6px;padding:8px;background:var(--bg);border-radius:8px;grid-column:1/-1"><div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap"><input type="text" inputmode="decimal" class="qs-cant" placeholder="Cantidad" style="width:80px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px"/><select class="qs-modo" style="padding:4px 6px;border-radius:6px;border:1px solid var(--border);font-size:11px"><option value="agregar">➕ Agregar</option><option value="ajustar">➖ Ajuste</option></select><button class="btn bp bsm" data-action="save-quick-stock" data-prod-id="${p.id}" data-prod-nom="${p.nombre}">✓ Guardar</button><button class="btn bs bsm" data-action="close-quick-stock" data-prod-id="${p.id}">✕</button></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><input type="text" inputmode="numeric" value="${p.precio||0}" data-action="save-precio" data-prod-id="${p.id}" style="width:86px;font-size:12px;padding:5px 8px;border-radius:6px;border:1.5px solid var(--border);text-align:right;background:var(--bg);color:var(--text)" title="Editar precio (Tab para guardar)"/><button class="btn ${p.activo===false?'bd':'bs'} bsm" onclick="toggleActivoProducto('${p.id}',${p.activo!==false})">${p.activo===false?'🔴':'🟢'}</button><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bs bsm" onclick="iniciarRenombrar('${p.id}','${p.nombre.replace(/'/g,"\\\\'")}')" title="Renombrar producto">✏️ Renombrar</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button>
+    el.innerHTML=prodsFiltrados.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">${p.codigo?`<span style="background:var(--bg);border-radius:4px;padding:1px 5px;font-weight:600;margin-right:4px">${p.codigo}</span>`:''}Unidad: <strong>${p.unidad||'unidad'}</strong>${p.tramos?.length?` &nbsp;·&nbsp; <span style="color:#378ADD">🏷 ${p.tramos.length} tramo${p.tramos.length>1?'s':''}</span>`:''}</div></div><div style="display:flex;align-items:center;gap:6px;margin-top:4px">${(()=>{const stk=Math.round((_inv[p.nombre]?.stock||0)*1000)/1000;const alt=_inv[p.nombre]?.alerta||5;const ok=stk>alt;return `<span style="font-size:11px">Stock: <strong>${stk} ${p.unidad||'u.'}</strong></span><span style="padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:${ok?'rgba(29,158,117,0.1)':'rgba(232,68,34,0.1)'};color:${ok?'#1D9E75':'#e74c3c'}">${ok?'OK':'⚠ BAJO'}</span><button class="btn bs" style="font-size:10px;padding:2px 8px" data-action="open-quick-stock" data-prod-id="${p.id}" data-prod-nom="${p.nombre}" data-prod-uni="${p.unidad||'u.'}">📦 Stock</button><span style="font-size:10px;color:#aaa;margin-left:4px">Alerta:</span><input type="number" value="${_inv[p.nombre]?.alerta||5}" min="0" step="0.1" data-action="save-alerta" data-prod-nom="${p.nombre}" title="Alerta mínima de stock" style="width:55px;font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin-left:2px"/>`;})()}</div><div id="qs-${p.id}" style="display:none;margin-top:6px;padding:8px;background:var(--bg);border-radius:8px;grid-column:1/-1"><div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap"><input type="text" inputmode="decimal" class="qs-cant" placeholder="Cantidad" style="width:80px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px"/><input type="text" inputmode="numeric" class="qs-costo" placeholder="Costo $" style="width:80px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px" oninput="calcQsSug(this)"/><select class="qs-modo" style="padding:4px 6px;border-radius:6px;border:1px solid var(--border);font-size:11px"><option value="agregar">➕ Agregar</option><option value="ajustar">➖ Ajuste</option></select><button class="btn bp bsm" data-action="save-quick-stock" data-prod-id="${p.id}" data-prod-nom="${p.nombre}">✓ Guardar</button><button class="btn bs bsm" data-action="close-quick-stock" data-prod-id="${p.id}">✕</button></div><div class="qs-margin-info" style="display:none;margin-top:6px;padding:6px 8px;background:#fff;border-radius:6px;font-size:11px;line-height:1.7"></div><div class="qs-precio-row" style="display:none;margin-top:4px;display:none;gap:6px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:#888">Precio venta:</span><input type="text" inputmode="numeric" class="qs-precio-venta" value="${p.precio||''}" placeholder="$" style="width:80px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);font-size:12px" oninput="calcQsMargenReal(this)"/><span class="qs-margen-real" style="font-size:11px;font-weight:600"></span></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><input type="text" inputmode="numeric" value="${p.precio||0}" data-action="save-precio" data-prod-id="${p.id}" style="width:86px;font-size:12px;padding:5px 8px;border-radius:6px;border:1.5px solid var(--border);text-align:right;background:var(--bg);color:var(--text)" title="Editar precio (Tab para guardar)"/><button class="btn ${p.activo===false?'bd':'bs'} bsm" onclick="toggleActivoProducto('${p.id}',${p.activo!==false})">${p.activo===false?'🔴':'🟢'}</button><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bs bsm" onclick="iniciarRenombrar('${p.id}','${p.nombre.replace(/'/g,"\\\\'")}')" title="Renombrar producto">✏️ Renombrar</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button>
 <input type="text" value="${p.codigo||''}" placeholder="Código" data-action="edit-codigo" data-prod-id="${p.id}" title="Código de producto" style="width:70px;font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)" onblur="guardarCodigoProducto(this.dataset.prodId,this.value)"/>
 <label title="Requiere elaboración (producción)" style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;padding:4px 6px;background:${p.requiereElaboracion?'rgba(239,159,39,0.15)':'var(--bg)'};border-radius:6px;border:1px solid ${p.requiereElaboracion?'#EF9F27':'var(--border)'}">
 <input type="checkbox" ${p.requiereElaboracion?'checked':''} data-action="toggle-elaboracion" data-prod-id="${p.id}" style="margin:0"/>🔧</label>
@@ -7156,7 +7225,16 @@ document.addEventListener('click',function(e){
     // Close all others first
     document.querySelectorAll('[id^="qs-"]').forEach(el=>el.style.display='none');
     const wrap=document.getElementById('qs-'+prodId);
-    if(wrap){wrap.style.display='block';wrap.querySelector('.qs-cant')?.focus();}
+    if(wrap){
+      wrap.style.display='block';
+      // Auto-fill last cost
+      const costoEl=wrap.querySelector('.qs-costo');
+      if(costoEl&&!costoEl.value){
+        const lastLote=(_lotes[prodNom]||[]).filter(l=>l.costo>0).sort((a,b)=>(b.ts||0)-(a.ts||0))[0];
+        if(lastLote){costoEl.value=lastLote.costo;calcQsSug(costoEl);}
+      }
+      wrap.querySelector('.qs-cant')?.focus();
+    }
     return;
   }
   if(act==='close-quick-stock'){
@@ -7167,24 +7245,52 @@ document.addEventListener('click',function(e){
   if(act==='save-quick-stock'){
     const wrap=document.getElementById('qs-'+prodId);
     const cantInput=wrap?.querySelector('.qs-cant');
+    const costoInput=wrap?.querySelector('.qs-costo');
     const modoSel=wrap?.querySelector('.qs-modo');
     const cant=parseDecimal(cantInput?.value);
     const modo=modoSel?.value||'agregar';
     if(!cant||!prodNom){alert('Ingresá una cantidad');return;}
+    // Get cost: typed value, or last known cost
+    let costo=parseInt(costoInput?.value)||0;
+    if(!costo&&modo==='agregar'){
+      const lastLote=(_lotes[prodNom]||[]).filter(l=>l.costo>0).sort((a,b)=>(b.ts||0)-(a.ts||0))[0];
+      if(lastLote)costo=lastLote.costo;
+    }
     btn.textContent='...';btn.disabled=true;
-    const newInv={..._inv};
-    if(!newInv[prodNom])newInv[prodNom]={stock:0,alerta:5};
-    const stockAct=newInv[prodNom].stock||0;
-    const nuevoStock=modo==='ajustar'
-      ?Math.max(0,Math.round((stockAct-cant)*1000)/1000)
-      :Math.round((stockAct+cant)*1000)/1000;
-    newInv[prodNom]={...newInv[prodNom],stock:nuevoStock};
-    setDoc(doc(db,'inventario',INV_ID()),newInv).then(()=>{
-      if(modo==='ajustar')
-        addDoc(LCOL('stock-historial'),{producto:prodNom,cantidad:-cant,tipo:'ajuste',fecha:today(),ts:Date.now()});
-      toast(prodNom+': '+(modo==='ajustar'?'-':'+')+''+cant+' '+(modo==='ajustar'?'ajustado':'agregado'));
+    const delta=modo==='ajustar'?-cant:cant;
+    invUpdateStock({[prodNom]:delta}).then(async()=>{
+      if(modo==='ajustar'){
+        await addDoc(LCOL('stock-historial'),{producto:prodNom,cantidad:-cant,tipo:'ajuste',fecha:today(),ts:Date.now()});
+      } else {
+        const prod=_productos.find(p=>p.nombre===prodNom);
+        const histEntry={producto:prodNom,cantidad:cant,tipo:'compra',fecha:today(),ts:Date.now()};
+        if(costo>0){histEntry.costoUnitario=costo;histEntry.totalCosto=costo*cant;}
+        if(prod?.proveedor)histEntry.proveedor=prod.proveedor;
+        await addDoc(LCOL('stock-historial'),histEntry);
+        // FIFO lote
+        if(costo>0){
+          const lotes=_lotes[prodNom]||[];
+          lotes.push({qty:cant,costo:costo,fecha:today(),ts:Date.now()});
+          _lotes[prodNom]=lotes;
+          await setDoc(doc(db,'lotes',STORE),_lotes);
+        }
+      }
+      // Update price if user entered a new one
+      const pvInput=wrap?.querySelector('.qs-precio-venta');
+      if(pvInput&&pvInput.value){
+        const nuevoPrecio=parseInt(pvInput.value);
+        if(nuevoPrecio>0){
+          const prodObj=_productos.find(p=>p.nombre===prodNom);
+          if(prodObj&&prodObj.precio!==nuevoPrecio){
+            const nuevos=_productos.map(p=>p.nombre===prodNom?{...p,precio:nuevoPrecio}:p);
+            await setDoc(doc(db,'productos',STORE),{lista:nuevos});
+          }
+        }
+      }
+      toast(prodNom+': '+(modo==='ajustar'?'-':'+')+''+cant+' '+(modo==='ajustar'?'ajustado':'agregado')+(costo&&modo!=='ajustar'?' (costo: $'+costo.toLocaleString('es-AR')+')':''));
       if(wrap)wrap.style.display='none';
       if(cantInput)cantInput.value='';
+      if(costoInput)costoInput.value='';
       btn.textContent='✓ Guardar';btn.disabled=false;
     }).catch(e=>{alert('Error: '+e.message);btn.textContent='✓ Guardar';btn.disabled=false;});
     return;
@@ -7212,10 +7318,7 @@ document.addEventListener('change', function(e){
     const nom = el.dataset.prodNom;
     const alerta = parseDecimal(el.value);
     if(!nom || isNaN(alerta)) return;
-    const newInv = {..._inv};
-    if(!newInv[nom]) newInv[nom] = {stock:0};
-    newInv[nom].alerta = alerta;
-    setDoc(doc(db,'inventario',INV_ID()), newInv)
+    updateDoc(doc(db,'inventario',INV_ID()), {[`${nom}.alerta`]:alerta})
       .then(()=>toast('Alerta actualizada: '+alerta))
       .catch(e=>alert('Error: '+e.message));
     return;
@@ -7236,11 +7339,8 @@ window.guardarPrecioInline=async function(id, val){
 window.guardarAlertaInline=async function(nom, val){
   const alerta = parseDecimal(val);
   if(isNaN(alerta)) return;
-  const newInv = {..._inv};
-  if(!newInv[nom]) newInv[nom]={stock:0};
-  newInv[nom].alerta = alerta;
   try{
-    await setDoc(doc(db,'inventario',INV_ID()), newInv);
+    await updateDoc(doc(db,'inventario',INV_ID()), {[`${nom}.alerta`]:alerta});
     toast('Alerta actualizada: '+alerta);
   }catch(e){alert('Error: '+e.message);}
 };
@@ -7344,10 +7444,7 @@ window.confirmarAddStockProd=async function(prodId,nombre){
   const btns=cantEl?.parentElement?.querySelectorAll('button');
   if(btns)btns.forEach(b=>{b.disabled=true;});
   try{
-    const newInv={..._inv};
-    if(!newInv[nombre])newInv[nombre]={stock:0,alerta:5};
-    newInv[nombre]={...newInv[nombre],stock:Math.round((newInv[nombre].stock+cant)*1000)/1000};
-    await setDoc(doc(db,'inventario',INV_ID()),newInv);
+    await invUpdateStock({[nombre]:cant});
     await addDoc(LCOL('stock-historial'),{
       producto:nombre,cantidad:cant,tipo:'elaboracion',
       obs:'Carga manual sin OT — producción',fecha:today(),ts:Date.now()
@@ -7489,11 +7586,8 @@ window.confirmarOrden=async function(ordenId,prodNombre,unidad,numero){
   const btn=cantEl?.parentElement?.querySelector('button');
   if(btn){btn.disabled=true;btn.textContent='Guardando...';}
   try{
-    // Add to stock (deep copy at product level)
-    const newInv={..._inv};
-    if(!newInv[prodNombre])newInv[prodNombre]={stock:0,alerta:5};
-    newInv[prodNombre]={...newInv[prodNombre],stock:Math.round((newInv[prodNombre].stock+cant)*1000)/1000};
-    await setDoc(doc(db,'inventario',INV_ID()),newInv);
+    // Add to stock (atomic)
+    await invUpdateStock({[prodNombre]:cant});
     // Save to stock-historial
     await addDoc(LCOL('stock-historial'),{
       producto:prodNombre,cantidad:cant,tipo:'elaboracion',
@@ -7983,20 +8077,20 @@ window.saveEditVenta=async function(){
   if(!editVentaId)return;setBtn('ev-save-btn',true,'Guardar cambios');setSyncDot('syncing');
   try{
     const vOld=_ventas.find(x=>x.id===editVentaId);
-    const newInv={..._inv};let changed=false;
-    // 1) Restaurar stock de los ítems viejos
+    const stockDeltas={};
+    // 1) Restaurar stock de los ítems viejos (+)
     if(vOld&&vOld.items){
       for(const it of vOld.items){
-        if(it.esPromo){const promo=_promociones.find(p=>p.id===it.refId);if(promo){for(const comp of promo.componentes){if(newInv[comp.producto]){newInv[comp.producto]={...newInv[comp.producto],stock:(newInv[comp.producto].stock||0)+comp.cantidad*parseFloat(it.cant)};changed=true;}}}}
-        else{if(newInv[it.nom]){newInv[it.nom]={...newInv[it.nom],stock:(newInv[it.nom].stock||0)+parseFloat(it.cant)};changed=true;}}
+        if(it.esPromo){const promo=_promociones.find(p=>p.id===it.refId);if(promo){for(const comp of promo.componentes){if(_inv[comp.producto]){stockDeltas[comp.producto]=(stockDeltas[comp.producto]||0)+comp.cantidad*parseFloat(it.cant);}}}}
+        else{if(_inv[it.nom]){stockDeltas[it.nom]=(stockDeltas[it.nom]||0)+parseFloat(it.cant);}}
       }
     }
-    // 2) Descontar stock de los ítems nuevos
+    // 2) Descontar stock de los ítems nuevos (-)
     for(const it of editItems){
-      if(it.esPromo){const promo=_promociones.find(p=>p.id===it.refId);if(promo){for(const comp of promo.componentes){if(newInv[comp.producto]){newInv[comp.producto]={...newInv[comp.producto],stock:Math.max(0,(newInv[comp.producto].stock||0)-comp.cantidad*parseFloat(it.cant))};changed=true;}}}}
-      else{if(newInv[it.nom]){newInv[it.nom]={...newInv[it.nom],stock:Math.max(0,(newInv[it.nom].stock||0)-parseFloat(it.cant))};changed=true;}}
+      if(it.esPromo){const promo=_promociones.find(p=>p.id===it.refId);if(promo){for(const comp of promo.componentes){if(_inv[comp.producto]){stockDeltas[comp.producto]=(stockDeltas[comp.producto]||0)-comp.cantidad*parseFloat(it.cant);}}}}
+      else{if(_inv[it.nom]){stockDeltas[it.nom]=(stockDeltas[it.nom]||0)-parseFloat(it.cant);}}
     }
-    if(changed)await setDoc(doc(db,'inventario',INV_ID()),newInv);
+    if(Object.keys(stockDeltas).length)await invUpdateStock(stockDeltas);
     const evDescPct=parseFloat(document.getElementById('ev-desc-pct')?.value)||0;
     const evDescMot=document.getElementById('ev-desc-mot')?.value||'';
     const evSubtotal=editItems.reduce((a,i)=>a+(i.precio*(i.cant||1)),0);
@@ -8014,16 +8108,16 @@ window.deleteVenta=async function(id){
     const v=_ventas.find(x=>x.id===id);
     // Restaurar stock antes de eliminar
     if(v&&v.items&&v.items.length){
-      const newInv={..._inv};let changed=false;
+      const stockDeltas={};
       for(const it of v.items){
         if(it.esPromo){
           const promo=_promociones.find(p=>p.id===it.refId);
-          if(promo){for(const comp of promo.componentes){if(newInv[comp.producto]){newInv[comp.producto]={...newInv[comp.producto],stock:(newInv[comp.producto].stock||0)+comp.cantidad*parseFloat(it.cant)};changed=true;}}}
+          if(promo){for(const comp of promo.componentes){if(_inv[comp.producto]){stockDeltas[comp.producto]=(stockDeltas[comp.producto]||0)+comp.cantidad*parseFloat(it.cant);}}}
         } else {
-          if(newInv[it.nom]){newInv[it.nom]={...newInv[it.nom],stock:(newInv[it.nom].stock||0)+parseFloat(it.cant)};changed=true;}
+          if(_inv[it.nom]){stockDeltas[it.nom]=(stockDeltas[it.nom]||0)+parseFloat(it.cant);}
         }
       }
-      if(changed)await setDoc(doc(db,'inventario',INV_ID()),newInv);
+      if(Object.keys(stockDeltas).length)await invUpdateStock(stockDeltas);
     }
     await deleteDoc(LDOC('ventas',id));
     toast('Venta eliminada');logAuditoria('eliminó','venta','Venta eliminada: '+id,'','');
@@ -10615,6 +10709,22 @@ input[type=number]{width:90px;padding:4px 6px;border:1px solid #ccc;border-radiu
   ${margenPct!==null?`<div class="margen-badge" style="background:${margenColor}20;color:${margenColor}">Margen estimado: ${margenPct}%</div>`:''}
 </div>
 
+<div class="card no-print">
+  <h3 style="margin-bottom:10px">📦 Cargar stock</h3>
+  <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+    <div>
+      <div style="font-size:11px;color:#888;margin-bottom:3px">Cantidad</div>
+      <input type="text" inputmode="decimal" id="ficha-stock-cant" placeholder="Ej: 24" style="width:90px;padding:6px 8px;border:1.5px solid #D85A30;border-radius:6px;font-size:13px;font-weight:600"/>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;margin-bottom:3px">Costo unitario</div>
+      <input type="text" inputmode="numeric" id="ficha-stock-costo" placeholder="${lastCosto>0?'Último: $'+lastCosto.toLocaleString('es-AR'):'$0'}" value="${lastCosto>0?lastCosto:''}" style="width:110px;padding:6px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px"/>
+    </div>
+    <button id="ficha-stock-btn" style="background:#1D9E75;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer">✓ Cargar</button>
+  </div>
+  <div id="ficha-stock-msg" style="display:none;margin-top:8px;padding:8px 12px;border-radius:6px;font-size:12px"></div>
+</div>
+
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
     <h3 style="margin:0">🏭 Proveedor</h3>
@@ -10995,6 +11105,36 @@ document.addEventListener('DOMContentLoaded',function(){
       btn.closest('div[style]')?.remove();
       return;
     }
+    // Botón Cargar stock desde ficha
+    if(btn.id==='ficha-stock-btn'){
+      e.preventDefault();
+      const cantVal=document.getElementById('ficha-stock-cant')?.value;
+      const costoVal=document.getElementById('ficha-stock-costo')?.value;
+      const cant=parseFloat(String(cantVal).replace(',','.'))||0;
+      const costo=parseInt(costoVal)||0;
+      if(!cant||cant<=0){alert('Ingresá una cantidad válida');return;}
+      btn.disabled=true;btn.textContent='Guardando...';
+      const msg=document.getElementById('ficha-stock-msg');
+      try{
+        localStorage.setItem('crm-stock-add',JSON.stringify({
+          prodId:'${id}',prodNombre:'${nom.replace(/'/g,"\\'")}',
+          cantidad:cant,costoUnitario:costo,
+          proveedor:'${(prod.proveedor||'').replace(/'/g,"\\'")}',
+          ts:Date.now()
+        }));
+        if(msg){
+          msg.style.display='block';
+          msg.style.background='rgba(29,158,117,0.1)';msg.style.color='#1D9E75';
+          msg.textContent='✅ +'+cant+' ${uni} cargados'+(costo?' (costo: $'+costo.toLocaleString('es-AR')+')':'')+'. El stock se actualizará en el CRM.';
+        }
+        document.getElementById('ficha-stock-cant').value='';
+        setTimeout(function(){btn.disabled=false;btn.textContent='✓ Cargar';},2000);
+      }catch(err){
+        alert('Error: '+err.message);
+        btn.disabled=false;btn.textContent='✓ Cargar';
+      }
+      return;
+    }
     // Botón Cerrar
     if(btn.id==='btn-close'){
       e.preventDefault();
@@ -11033,12 +11173,9 @@ window.editarEntradaStock=async function(docId, prodNombre, nuevaCant, nuevoCost
       totalCosto:nuevoCosto>0?nuevoCosto*nuevaCant:null,
       editado:true,editadoTs:Date.now(),editadoPor:CU
     });
-    // Adjust inventory stock by the difference
+    // Adjust inventory stock by the difference (atomic)
     if(diff!==0){
-      const newInv={..._inv};
-      if(!newInv[prodNombre])newInv[prodNombre]={stock:0,alerta:5};
-      newInv[prodNombre]={...newInv[prodNombre],stock:Math.max(0,(newInv[prodNombre].stock||0)+diff)};
-      await setDoc(doc(db,'inventario',INV_ID()),newInv);
+      await invUpdateStock({[prodNombre]:diff});
     }
     toast(prodNombre+': entrada de stock actualizada ('+( diff>=0?'+':'')+diff+' unidades)');
     logAuditoria('editó','stock','Stock-historial '+prodNombre+': cant '+cantAnterior+'→'+nuevaCant,'','');
@@ -11116,6 +11253,32 @@ window.addEventListener('storage', async function(e){
         else if(cmd.tipo==='requiereElaboracion')await guardarRequiereElaboracion(cmd.prodId,!!cmd.valor);
       }
     }catch(err){console.warn('crm-elaboracion-edit',err);}
+    return;
+  }
+  // Stock ADD from ficha
+  if(e.key==='crm-stock-add'&&e.newValue){
+    try{
+      const cmd=JSON.parse(e.newValue);
+      try{localStorage.removeItem('crm-stock-add');}catch{}
+      if(!cmd.prodNombre||!cmd.cantidad)return;
+      const txId='stockadd_'+String(cmd.ts||Date.now());
+      // Update inventory (atomic)
+      await invUpdateStock({[cmd.prodNombre]:cmd.cantidad});
+      // Stock historial
+      const histEntry={producto:cmd.prodNombre,cantidad:cmd.cantidad,tipo:'compra',fecha:today(),ts:cmd.ts||Date.now()};
+      if(cmd.costoUnitario>0){histEntry.costoUnitario=cmd.costoUnitario;histEntry.totalCosto=cmd.costoUnitario*cmd.cantidad;}
+      if(cmd.proveedor)histEntry.proveedor=cmd.proveedor;
+      await setDoc(LDOC('stock-historial',txId),histEntry);
+      // FIFO lote
+      if(cmd.costoUnitario>0){
+        const lotes=_lotes[cmd.prodNombre]||[];
+        lotes.push({qty:cmd.cantidad,costo:cmd.costoUnitario,fecha:today(),ts:cmd.ts||Date.now()});
+        _lotes[cmd.prodNombre]=lotes;
+        await setDoc(doc(db,'lotes',STORE),_lotes);
+      }
+      toast('📦 Stock cargado desde ficha: +'+cmd.cantidad+' '+cmd.prodNombre+(cmd.costoUnitario?' ($'+cmd.costoUnitario.toLocaleString('es-AR')+'/u.)':''));
+      logAuditoria('cargó','stock','Stock desde ficha: +'+cmd.cantidad+' '+cmd.prodNombre,'','');
+    }catch(err){console.warn('crm-stock-add',err);}
     return;
   }
   if(e.key!=='crm-stock-edit'||!e.newValue)return;
