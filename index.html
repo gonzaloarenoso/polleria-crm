@@ -1015,7 +1015,10 @@ tr:hover td{background:#fafaf8}
           <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
               <h3 style="margin:0">Movimientos del mes</h3>
-              <select id="cg-mes-sel" onchange="renderCajaGrande()" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)"></select>
+              <div style="display:flex;gap:6px;align-items:center">
+                <button class="btn bs bsm" onclick="printGastosCajaGrande()">🖨 Imprimir</button>
+                <select id="cg-mes-sel" onchange="renderCajaGrande()" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)"></select>
+              </div>
             </div>
             <div id="cg-lista"><div class="empty">Sin movimientos</div></div>
             <div id="cg-total" style="font-weight:700;margin-top:10px;padding-top:10px;border-top:2px solid var(--border)"></div>
@@ -1052,7 +1055,10 @@ tr:hover td{background:#fafaf8}
           <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
               <h3 style="margin:0">Pagos del mes</h3>
-              <select id="gp-mes-sel" onchange="renderPagosProveedores()" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)"></select>
+              <div style="display:flex;gap:6px;align-items:center">
+                <button class="btn bs bsm" onclick="printGastosProveedores()">🖨 Imprimir</button>
+                <select id="gp-mes-sel" onchange="renderPagosProveedores()" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)"></select>
+              </div>
             </div>
             <div id="gp-lista"><div class="empty">Sin pagos registrados</div></div>
             <div id="gp-total" style="font-weight:700;margin-top:10px;padding-top:10px;border-top:2px solid var(--border)"></div>
@@ -1085,7 +1091,10 @@ tr:hover td{background:#fafaf8}
           <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
               <h3 style="margin:0">Gastos de personal del mes</h3>
-              <select id="gs-mes-sel" onchange="renderSueldosGastos()" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)"></select>
+              <div style="display:flex;gap:6px;align-items:center">
+                <button class="btn bs bsm" onclick="printGastosSueldos()">🖨 Imprimir</button>
+                <select id="gs-mes-sel" onchange="renderSueldosGastos()" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)"></select>
+              </div>
             </div>
             <div id="gs-lista"><div class="empty">Sin registros</div></div>
             <div id="gs-total" style="font-weight:700;margin-top:10px;padding-top:10px;border-top:2px solid var(--border)"></div>
@@ -2631,7 +2640,7 @@ window.showSec=function(id,btn){
   if(id==='produccion-ordenes')renderOrdenesProduccion();
   if(id==='gastos'){
     initMesSel('cg-mes-sel');initMesSel('cb-mes-sel');initMesSel('gp-mes-sel');initMesSel('gs-mes-sel');
-    renderCajaGrande();renderCuentaBancaria();renderProvSel();
+    renderCajaGrande();renderCuentaBancaria();renderProvSel();renderGastoEmpleadoSel();
   }
   if(id==='caja'){renderCaja();setTimeout(checkRecepcionTurno,500);}
   if(id==='clientes'){renderClientes();renderTiposClienteSel('c-tipo','tradicional');}
@@ -6987,15 +6996,24 @@ async function cargarFondoAnteriorEnCierre(efVentas){
 // ── SECCIÓN GASTOS ────────────────────────────────────────────────────────
 
 function initMesSel(elId){
-  const sel=document.getElementById(elId);if(!sel||sel.options.length>1)return;
+  const sel=document.getElementById(elId);if(!sel)return;
+  const currentVal=sel.value||'';
   const now=new Date();
+  const currentMonth=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  // Only rebuild if the current month isn't in the options or selector is empty
+  const hasCurrentMonth=[...sel.options].some(o=>o.value===currentMonth);
+  if(sel.options.length>1&&hasCurrentMonth)return;
+  // Rebuild options
+  sel.innerHTML='';
   const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   for(let i=0;i<12;i++){
     const d=new Date(now.getFullYear(),now.getMonth()-i,1);
     const val=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
     const opt=document.createElement('option');
     opt.value=val;opt.textContent=meses[d.getMonth()]+' '+d.getFullYear();
-    if(i===0)opt.selected=true;
+    // Select: previously selected value if still valid, otherwise current month
+    if(currentVal&&val===currentVal)opt.selected=true;
+    else if(!currentVal&&i===0)opt.selected=true;
     sel.appendChild(opt);
   }
 }
@@ -7248,6 +7266,143 @@ window.eliminarGastoEmpleado=async function(id){
   if(!confirm('¿Eliminar?'))return;
   try{await deleteDoc(doc(db,'users',STORE,'gastos-empleados',id));renderSueldosGastos();toast('Eliminado');}
   catch(e){alert('Error: '+e.message);}
+};
+
+// ── IMPRESIÓN TICKET GASTOS ──────────────────────────────────────────────
+function ticketWindow(title,lines){
+  const neg=_cfgNegocio||{};
+  const localeActual=ACTIVE_LOCALE?_locales.find(l=>l.id===ACTIVE_LOCALE):null;
+  const dir=localeActual?.direccion||neg.dir||'';
+  const W=48;
+  const center=s=>{const p=Math.max(0,Math.floor((W-s.length)/2));return ' '.repeat(p)+s;};
+  const pad=(l,r)=>{const sp=Math.max(1,W-l.length-r.length);return l+' '.repeat(sp)+r;};
+  const sep=()=>'─'.repeat(W);
+  const dsep=()=>'═'.repeat(W);
+  const all=[
+    center(neg.nombre||'GRANJA LOS ABUELOS'),
+    dir?center(dir):'',
+    center(title),
+    sep(),
+    ...lines,
+    '',sep(),
+    center(new Date().toLocaleString('es-AR')),
+  ].filter(Boolean).join('\n');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
+<style>@media print{button{display:none!important}}body{margin:0;padding:8px}pre{font-family:'Courier New',monospace;font-size:12px;white-space:pre-wrap;margin:0}</style></head><body>
+<button onclick="window.print()" style="margin-bottom:8px;padding:6px 16px;font-size:12px;cursor:pointer;border:1px solid #ccc;border-radius:6px">🖨 Imprimir</button>
+<pre>${all}</pre></body></html>`;
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  window.open(url,'_blank');
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
+}
+
+window.printGastosCajaGrande=async function(){
+  const mes=document.getElementById('cg-mes-sel')?.value||today().substring(0,7);
+  const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const [a,m]=mes.split('-');const mesLabel=meses[parseInt(m)-1]+' '+a;
+  const W=48;
+  const pad=(l,r)=>{const sp=Math.max(1,W-l.length-r.length);return l+' '.repeat(sp)+r;};
+  const sep=()=>'─'.repeat(W);
+  const fmtN=n=>'$'+Math.round(n).toLocaleString('es-AR');
+  try{
+    const [snapCG,snapG]=await Promise.all([
+      getDocs(collection(db,'users',STORE,'caja-grande')),
+      getDocs(collection(db,'users',STORE,'gastos'))
+    ]);
+    const movsCG=snapCG.docs.map(d=>({id:d.id,...d.data(),origen:'caja-grande'}));
+    const movsG=snapG.docs.map(d=>({id:d.id,...d.data(),tipo:'gasto',monto:Math.abs(d.data().monto||0),concepto:(d.data().descripcion||d.data().categoria||'Gasto'),origen:'historico'}));
+    const todos=[...movsCG,...movsG].filter(m=>m.fecha&&m.fecha.startsWith(mes)).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    const totalIng=todos.filter(m=>['ingreso','pase-caja-chica'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
+    const totalEgr=todos.filter(m=>!['ingreso','pase-caja-chica','retiro-socios'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
+    const totalSoc=todos.filter(m=>m.tipo==='retiro-socios').reduce((a,m)=>a+(m.monto||0),0);
+    const typeLabel={ingreso:'Ingreso','pase-caja-chica':'Desde caja chica','pago-proveedor':'Pago prov.',sueldo:'Sueldo','retiro-socios':'Retiro socios',retiro:'Retiro',gasto:'Gasto'};
+    const lines=[pad('CAJA GRANDE',mesLabel),'',sep()];
+    todos.forEach(m=>{
+      const label=(typeLabel[m.tipo]||m.tipo).substring(0,8);
+      const concepto=(m.concepto||label).substring(0,30);
+      const esIng=['ingreso','pase-caja-chica'].includes(m.tipo);
+      lines.push(m.fecha+' '+label);
+      lines.push(pad('  '+concepto,(esIng?'+':'-')+fmtN(m.monto||0)));
+    });
+    lines.push(sep());
+    lines.push(pad('Total ingresos:','+'+fmtN(totalIng)));
+    lines.push(pad('Total egresos:','-'+fmtN(totalEgr)));
+    if(totalSoc>0)lines.push(pad('Retiros socios:',fmtN(totalSoc)));
+    lines.push('═'.repeat(W));
+    lines.push(pad('SALDO:',fmtN(totalIng-totalEgr-totalSoc)));
+    ticketWindow('CAJA GRANDE — '+mesLabel,lines);
+  }catch(e){alert('Error: '+e.message);}
+};
+
+window.printGastosProveedores=async function(){
+  const mes=document.getElementById('gp-mes-sel')?.value||today().substring(0,7);
+  const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const [a,m]=mes.split('-');const mesLabel=meses[parseInt(m)-1]+' '+a;
+  const W=48;
+  const pad=(l,r)=>{const sp=Math.max(1,W-l.length-r.length);return l+' '.repeat(sp)+r;};
+  const sep=()=>'─'.repeat(W);
+  const fmtN=n=>'$'+Math.round(n).toLocaleString('es-AR');
+  try{
+    const snap=await getDocs(collection(db,'users',STORE,'pagos-proveedores'));
+    const pagos=snap.docs.map(d=>({id:d.id,...d.data()})).filter(p=>p.fecha&&p.fecha.startsWith(mes)).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    const total=pagos.reduce((a,p)=>a+(p.monto||0),0);
+    // Group by proveedor
+    const porProv={};
+    pagos.forEach(p=>{if(!porProv[p.proveedor])porProv[p.proveedor]=0;porProv[p.proveedor]+=p.monto||0;});
+    const lines=[pad('PAGOS A PROVEEDORES',mesLabel),'',sep()];
+    pagos.forEach(p=>{
+      lines.push(pad(p.fecha+' '+p.proveedor.substring(0,20),fmtN(p.monto||0)));
+      if(p.concepto)lines.push('  '+p.concepto.substring(0,44));
+      if(p.localeId)lines.push('  📍 '+nombreLocal(p.localeId));
+    });
+    lines.push(sep());
+    lines.push('RESUMEN POR PROVEEDOR:');
+    Object.entries(porProv).sort((a,b)=>b[1]-a[1]).forEach(([prov,monto])=>{
+      lines.push(pad('  '+prov.substring(0,30),fmtN(monto)));
+    });
+    lines.push('═'.repeat(W));
+    lines.push(pad('TOTAL PAGADO:',fmtN(total)));
+    ticketWindow('PROVEEDORES — '+mesLabel,lines);
+  }catch(e){alert('Error: '+e.message);}
+};
+
+window.printGastosSueldos=async function(){
+  const mes=document.getElementById('gs-mes-sel')?.value||today().substring(0,7);
+  const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const [a,m]=mes.split('-');const mesLabel=meses[parseInt(m)-1]+' '+a;
+  const W=48;
+  const pad=(l,r)=>{const sp=Math.max(1,W-l.length-r.length);return l+' '.repeat(sp)+r;};
+  const sep=()=>'─'.repeat(W);
+  const fmtN=n=>'$'+Math.round(n).toLocaleString('es-AR');
+  try{
+    const [snapP,snapG]=await Promise.all([
+      getDocs(collection(db,'users',STORE,'pagos-empleados')),
+      getDocs(collection(db,'users',STORE,'gastos-empleados'))
+    ]);
+    const sueldos=snapP.docs.map(d=>({id:d.id,...d.data(),origen:'sueldo'})).filter(p=>(p.mes||p.fecha?.substring(0,7))===mes);
+    const gastos=snapG.docs.map(d=>({id:d.id,...d.data(),origen:'gasto'})).filter(p=>p.fecha?.startsWith(mes));
+    const todos=[...sueldos,...gastos].sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+    const total=todos.reduce((a,p)=>a+parseInt(p.monto||0),0);
+    const tipoLabel={sueldo:'Sueldo',adelanto:'Adelanto','cargas-sociales':'Cargas soc.','otro':'Otro'};
+    // Group by empleado
+    const porEmp={};
+    todos.forEach(p=>{const k=p.empleadoNombre||'—';if(!porEmp[k])porEmp[k]=0;porEmp[k]+=parseInt(p.monto||0);});
+    const lines=[pad('GASTOS DE PERSONAL',mesLabel),'',sep()];
+    todos.forEach(p=>{
+      const tipo=tipoLabel[p.tipo]||p.origen||'—';
+      lines.push(pad((p.fecha||'—')+' '+(p.empleadoNombre||'—').substring(0,18),fmtN(p.monto||0)));
+      lines.push('  '+(tipo+(p.concepto||p.obs?' — '+(p.concepto||p.obs):'')).substring(0,44));
+    });
+    lines.push(sep());
+    lines.push('RESUMEN POR EMPLEADO:');
+    Object.entries(porEmp).sort((a,b)=>b[1]-a[1]).forEach(([emp,monto])=>{
+      lines.push(pad('  '+emp.substring(0,30),fmtN(monto)));
+    });
+    lines.push('═'.repeat(W));
+    lines.push(pad('TOTAL PERSONAL:',fmtN(total)));
+    ticketWindow('PERSONAL — '+mesLabel,lines);
+  }catch(e){alert('Error: '+e.message);}
 };
 
 
