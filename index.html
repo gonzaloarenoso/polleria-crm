@@ -4777,7 +4777,8 @@ window.confirmar=async function(){
   // (el descuento manual reemplaza por completo cualquier ajuste/descuento automático del método de pago,
   // igual que ya se respeta en pantalla con checkAndApplyAutoDiscount/renderTotales).
   const metodoPagoGuardar=(_metodosPago||[]).find(m=>m.nombre===pagoSelGuardar);
-  const ajustePctGuardar=(_descManual?.pct>0)?0:(metodoPagoGuardar?.ajuste||0);
+  const _pausadoGuardar=window._ajustesPausados?.has(pagoSelGuardar);
+  const ajustePctGuardar=(_descManual?.pct>0||_pausadoGuardar)?0:(metodoPagoGuardar?.ajuste||0);
   const totalConAjuste=ajustePctGuardar!==0?Math.round(finalTotal*(1+ajustePctGuardar/100)):finalTotal;
   const totalGuardar=pagoSelGuardar.toLowerCase()==='efectivo'&&totalConAjuste>0
     ?Math.floor(totalConAjuste/50)*50:totalConAjuste;
