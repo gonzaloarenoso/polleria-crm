@@ -2367,11 +2367,6 @@ async function invUpdateStock(changes){
       await setDoc(invRef,initial,{merge:true});
     } else throw e;
   }
-  // Update local _inv immediately so ficha/UI reads correct value without waiting for onSnapshot
-  for(const [prod,delta] of Object.entries(changes)){
-    if(!_inv[prod])_inv[prod]={stock:0,alerta:5};
-    _inv[prod]={..._inv[prod],stock:Math.round(((_inv[prod].stock||0)+delta)*1000)/1000};
-  }
 }
 // Set absolute stock value for a product (used when we need exact value, not delta)
 async function invSetStock(prod,absoluteValue,extraFields){
@@ -2380,9 +2375,6 @@ async function invSetStock(prod,absoluteValue,extraFields){
   if(extraFields){for(const[k,v]of Object.entries(extraFields))upd[`${prod}.${k}`]=v;}
   try{await updateDoc(invRef,upd);}
   catch(e){if(e.code==='not-found'){await setDoc(invRef,{[prod]:{stock:absoluteValue,alerta:5,...(extraFields||{})}},{merge:true});}else throw e;}
-  // Update local _inv immediately
-  if(!_inv[prod])_inv[prod]={stock:0,alerta:5};
-  _inv[prod]={..._inv[prod],stock:absoluteValue,...(extraFields||{})};
 }
 function nombreLocal(id){
   const l=_locales.find(x=>x.id===id);
