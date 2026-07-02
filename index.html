@@ -7269,41 +7269,45 @@ window.eliminarGastoEmpleado=async function(id){
 };
 
 // ── IMPRESIÓN TICKET GASTOS ──────────────────────────────────────────────
+// ── IMPRESIÓN TICKET GASTOS ──────────────────────────────────────────────
 function ticketWindow(title,lines){
   const neg=_cfgNegocio||{};
   const localeActual=ACTIVE_LOCALE?_locales.find(l=>l.id===ACTIVE_LOCALE):null;
   const dir=localeActual?.direccion||neg.dir||'';
-  const W=48;
+  const W=28;
   const center=s=>{const p=Math.max(0,Math.floor((W-s.length)/2));return ' '.repeat(p)+s;};
-  const pad=(l,r)=>{const sp=Math.max(1,W-l.length-r.length);return l+' '.repeat(sp)+r;};
-  const sep=()=>'─'.repeat(W);
-  const dsep=()=>'═'.repeat(W);
   const all=[
     center(neg.nombre||'GRANJA LOS ABUELOS'),
     dir?center(dir):'',
+    '-'.repeat(W),
     center(title),
-    sep(),
+    '-'.repeat(W),
     ...lines,
-    '',sep(),
+    '','-'.repeat(W),
     center(new Date().toLocaleString('es-AR')),
+    center(neg.nombre||'Granja Los Abuelos'),
   ].filter(Boolean).join('\n');
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
-<style>@media print{button{display:none!important}}body{margin:0;padding:8px}pre{font-family:'Courier New',monospace;font-size:12px;white-space:pre-wrap;margin:0}</style></head><body>
-<button onclick="window.print()" style="margin-bottom:8px;padding:6px 16px;font-size:12px;cursor:pointer;border:1px solid #ccc;border-radius:6px">🖨 Imprimir</button>
-<pre>${all}</pre></body></html>`;
-  const blob=new Blob([html],{type:'text/html'});
-  const url=URL.createObjectURL(blob);
-  window.open(url,'_blank');
-  setTimeout(()=>URL.revokeObjectURL(url),10000);
+  const w=window.open('','_ticket_gastos','width=400,height=600');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
+<style>
+@page{size:57mm auto;margin:0}
+body{margin:0;padding:2mm 3mm;font-family:'Courier New',Courier,monospace;font-size:15px;line-height:1.4;font-weight:bold}
+pre{margin:0;padding:0;white-space:pre;font-family:inherit;font-size:inherit}
+@media print{button{display:none!important}.no-print{display:none!important}body{padding:1mm 2mm}}
+</style></head><body>
+<div class="no-print" style="margin-bottom:8px"><button onclick="window.print()" style="padding:8px 20px;font-size:14px;cursor:pointer;border-radius:6px;border:1px solid #ccc">&#128424; Imprimir</button></div>
+<pre>${all}</pre>
+</body></html>`);
+  w.document.close();
 }
 
 window.printGastosCajaGrande=async function(){
   const mes=document.getElementById('cg-mes-sel')?.value||today().substring(0,7);
   const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const [a,m]=mes.split('-');const mesLabel=meses[parseInt(m)-1]+' '+a;
-  const W=48;
+  const W=28;
   const pad=(l,r)=>{const sp=Math.max(1,W-l.length-r.length);return l+' '.repeat(sp)+r;};
-  const sep=()=>'─'.repeat(W);
+  const div=()=>'-'.repeat(W);const ddiv=()=>'='.repeat(W);
   const fmtN=n=>'$'+Math.round(n).toLocaleString('es-AR');
   try{
     const [snapCG,snapG]=await Promise.all([
@@ -7316,22 +7320,21 @@ window.printGastosCajaGrande=async function(){
     const totalIng=todos.filter(m=>['ingreso','pase-caja-chica'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
     const totalEgr=todos.filter(m=>!['ingreso','pase-caja-chica','retiro-socios'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
     const totalSoc=todos.filter(m=>m.tipo==='retiro-socios').reduce((a,m)=>a+(m.monto||0),0);
-    const typeLabel={ingreso:'Ingreso','pase-caja-chica':'Desde caja chica','pago-proveedor':'Pago prov.',sueldo:'Sueldo','retiro-socios':'Retiro socios',retiro:'Retiro',gasto:'Gasto'};
-    const lines=[pad('CAJA GRANDE',mesLabel),'',sep()];
+    const lines=[];
     todos.forEach(m=>{
-      const label=(typeLabel[m.tipo]||m.tipo).substring(0,8);
-      const concepto=(m.concepto||label).substring(0,30);
       const esIng=['ingreso','pase-caja-chica'].includes(m.tipo);
-      lines.push(m.fecha+' '+label);
-      lines.push(pad('  '+concepto,(esIng?'+':'-')+fmtN(m.monto||0)));
+      lines.push(m.fecha);
+      lines.push((m.concepto||m.tipo||'').substring(0,W));
+      lines.push(pad('',(esIng?'+':'-')+fmtN(m.monto||0)));
+      lines.push(div());
     });
-    lines.push(sep());
-    lines.push(pad('Total ingresos:','+'+fmtN(totalIng)));
-    lines.push(pad('Total egresos:','-'+fmtN(totalEgr)));
-    if(totalSoc>0)lines.push(pad('Retiros socios:',fmtN(totalSoc)));
-    lines.push('═'.repeat(W));
+    lines.push(ddiv());
+    lines.push(pad('Ingresos:','+'+fmtN(totalIng)));
+    lines.push(pad('Egresos:','-'+fmtN(totalEgr)));
+    if(totalSoc>0)lines.push(pad('Ret.socios:',fmtN(totalSoc)));
+    lines.push(ddiv());
     lines.push(pad('SALDO:',fmtN(totalIng-totalEgr-totalSoc)));
-    ticketWindow('CAJA GRANDE — '+mesLabel,lines);
+    ticketWindow('CAJA GRANDE '+mesLabel,lines);
   }catch(e){alert('Error: '+e.message);}
 };
 
@@ -7339,31 +7342,31 @@ window.printGastosProveedores=async function(){
   const mes=document.getElementById('gp-mes-sel')?.value||today().substring(0,7);
   const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const [a,m]=mes.split('-');const mesLabel=meses[parseInt(m)-1]+' '+a;
-  const W=48;
+  const W=28;
   const pad=(l,r)=>{const sp=Math.max(1,W-l.length-r.length);return l+' '.repeat(sp)+r;};
-  const sep=()=>'─'.repeat(W);
+  const div=()=>'-'.repeat(W);const ddiv=()=>'='.repeat(W);
   const fmtN=n=>'$'+Math.round(n).toLocaleString('es-AR');
   try{
     const snap=await getDocs(collection(db,'users',STORE,'pagos-proveedores'));
     const pagos=snap.docs.map(d=>({id:d.id,...d.data()})).filter(p=>p.fecha&&p.fecha.startsWith(mes)).sort((a,b)=>a.fecha.localeCompare(b.fecha));
     const total=pagos.reduce((a,p)=>a+(p.monto||0),0);
-    // Group by proveedor
     const porProv={};
     pagos.forEach(p=>{if(!porProv[p.proveedor])porProv[p.proveedor]=0;porProv[p.proveedor]+=p.monto||0;});
-    const lines=[pad('PAGOS A PROVEEDORES',mesLabel),'',sep()];
+    const lines=[];
     pagos.forEach(p=>{
-      lines.push(pad(p.fecha+' '+p.proveedor.substring(0,20),fmtN(p.monto||0)));
-      if(p.concepto)lines.push('  '+p.concepto.substring(0,44));
-      if(p.localeId)lines.push('  📍 '+nombreLocal(p.localeId));
+      lines.push(p.fecha);
+      lines.push(pad(p.proveedor.substring(0,16),fmtN(p.monto||0)));
+      if(p.concepto)lines.push(p.concepto.substring(0,W));
+      lines.push(div());
     });
-    lines.push(sep());
-    lines.push('RESUMEN POR PROVEEDOR:');
+    lines.push(ddiv());
+    lines.push('POR PROVEEDOR:');
     Object.entries(porProv).sort((a,b)=>b[1]-a[1]).forEach(([prov,monto])=>{
-      lines.push(pad('  '+prov.substring(0,30),fmtN(monto)));
+      lines.push(pad(prov.substring(0,16),fmtN(monto)));
     });
-    lines.push('═'.repeat(W));
-    lines.push(pad('TOTAL PAGADO:',fmtN(total)));
-    ticketWindow('PROVEEDORES — '+mesLabel,lines);
+    lines.push(ddiv());
+    lines.push(pad('TOTAL:',fmtN(total)));
+    ticketWindow('PROVEEDORES '+mesLabel,lines);
   }catch(e){alert('Error: '+e.message);}
 };
 
@@ -7371,9 +7374,9 @@ window.printGastosSueldos=async function(){
   const mes=document.getElementById('gs-mes-sel')?.value||today().substring(0,7);
   const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const [a,m]=mes.split('-');const mesLabel=meses[parseInt(m)-1]+' '+a;
-  const W=48;
+  const W=28;
   const pad=(l,r)=>{const sp=Math.max(1,W-l.length-r.length);return l+' '.repeat(sp)+r;};
-  const sep=()=>'─'.repeat(W);
+  const div=()=>'-'.repeat(W);const ddiv=()=>'='.repeat(W);
   const fmtN=n=>'$'+Math.round(n).toLocaleString('es-AR');
   try{
     const [snapP,snapG]=await Promise.all([
@@ -7384,29 +7387,26 @@ window.printGastosSueldos=async function(){
     const gastos=snapG.docs.map(d=>({id:d.id,...d.data(),origen:'gasto'})).filter(p=>p.fecha?.startsWith(mes));
     const todos=[...sueldos,...gastos].sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
     const total=todos.reduce((a,p)=>a+parseInt(p.monto||0),0);
-    const tipoLabel={sueldo:'Sueldo',adelanto:'Adelanto','cargas-sociales':'Cargas soc.','otro':'Otro'};
-    // Group by empleado
     const porEmp={};
-    todos.forEach(p=>{const k=p.empleadoNombre||'—';if(!porEmp[k])porEmp[k]=0;porEmp[k]+=parseInt(p.monto||0);});
-    const lines=[pad('GASTOS DE PERSONAL',mesLabel),'',sep()];
+    todos.forEach(p=>{const k=p.empleadoNombre||'-';if(!porEmp[k])porEmp[k]=0;porEmp[k]+=parseInt(p.monto||0);});
+    const tipoLabel={sueldo:'Sueldo',adelanto:'Adelanto','cargas-sociales':'Cargas','otro':'Otro'};
+    const lines=[];
     todos.forEach(p=>{
-      const tipo=tipoLabel[p.tipo]||p.origen||'—';
-      lines.push(pad((p.fecha||'—')+' '+(p.empleadoNombre||'—').substring(0,18),fmtN(p.monto||0)));
-      lines.push('  '+(tipo+(p.concepto||p.obs?' — '+(p.concepto||p.obs):'')).substring(0,44));
+      lines.push(p.fecha||'-');
+      lines.push(pad((p.empleadoNombre||'-').substring(0,16),fmtN(p.monto||0)));
+      lines.push((tipoLabel[p.tipo]||p.origen||'-').substring(0,W));
+      lines.push(div());
     });
-    lines.push(sep());
-    lines.push('RESUMEN POR EMPLEADO:');
+    lines.push(ddiv());
+    lines.push('POR EMPLEADO:');
     Object.entries(porEmp).sort((a,b)=>b[1]-a[1]).forEach(([emp,monto])=>{
-      lines.push(pad('  '+emp.substring(0,30),fmtN(monto)));
+      lines.push(pad(emp.substring(0,16),fmtN(monto)));
     });
-    lines.push('═'.repeat(W));
-    lines.push(pad('TOTAL PERSONAL:',fmtN(total)));
-    ticketWindow('PERSONAL — '+mesLabel,lines);
+    lines.push(ddiv());
+    lines.push(pad('TOTAL:',fmtN(total)));
+    ticketWindow('PERSONAL '+mesLabel,lines);
   }catch(e){alert('Error: '+e.message);}
 };
-
-
-// ── PRODUCCIÓN ────────────────────────────────────────────────────────────
 
 // Global delegation for elaboracion checkbox (CSP-safe)
 document.addEventListener('change',function(e){
