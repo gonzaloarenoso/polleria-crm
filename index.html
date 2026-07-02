@@ -9985,8 +9985,33 @@ async function loadCierresMensuales(){
   }
   if(regenBtn)regenBtn.style.display='';
   try{
-    const snap=await getDocs(LCOL('cierres'));
-    const cierres=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.ts-a.ts);
+    // Search cierres in all possible paths (pre-locale, __none__, and active locale)
+    const paths=[LCOL('cierres')];
+    // Also check pre-locale path
+    const prePath=collection(db,'users',STORE,'cierres');
+    if(prePath.path!==LCOL('cierres').path)paths.push(prePath);
+    // Also check __none__ locale
+    if(_locales.length>0){
+      const nonePath=collection(db,'users',STORE,'locales','__none__','cierres');
+      if(!paths.some(p=>p.path===nonePath.path))paths.push(nonePath);
+    }
+    const allDocs=[];
+    const seenIds=new Set();
+    for(const colRef of paths){
+      try{
+        const snap=await getDocs(colRef);
+        snap.docs.forEach(d=>{
+          // Deduplicate by date+hora to avoid copies from migration
+          const data=d.data();
+          const key=data.fecha+'|'+data.hora;
+          if(!seenIds.has(key)){
+            seenIds.add(key);
+            allDocs.push({id:d.id,...data,_colPath:colRef.path});
+          }
+        });
+      }catch(e){}
+    }
+    const cierres=allDocs.sort((a,b)=>b.ts-a.ts);
     if(!cierres.length){el.innerHTML='<div class="empty">Sin cierres mensuales guardados</div>';return;}
     el.innerHTML=cierres.map(ci=>`
       <div class="pr">
@@ -10012,9 +10037,27 @@ async function loadCierresMensuales(){
 
 window.printCierre=async function(id){
   try{
-    // Load all cierres
-    const snap=await getDocs(LCOL('cierres'));
-    const allCierres=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+    // Load all cierres from all possible paths
+    const paths=[LCOL('cierres')];
+    const prePath=collection(db,'users',STORE,'cierres');
+    if(prePath.path!==LCOL('cierres').path)paths.push(prePath);
+    if(_locales.length>0){
+      const nonePath=collection(db,'users',STORE,'locales','__none__','cierres');
+      if(!paths.some(p=>p.path===nonePath.path))paths.push(nonePath);
+    }
+    let allCierres=[];
+    const seenKeys=new Set();
+    for(const colRef of paths){
+      try{
+        const snap=await getDocs(colRef);
+        snap.docs.forEach(d=>{
+          const data=d.data();
+          const key=data.fecha+'|'+data.hora;
+          if(!seenKeys.has(key)){seenKeys.add(key);allCierres.push({id:d.id,...data});}
+        });
+      }catch{}
+    }
+    allCierres=allCierres.sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
     const ci=allCierres.find(d=>d.id===id);
     if(!ci){toast('No se encontró el cierre','error');return;}
     // Previous cierre for comparison + fondo
@@ -10115,8 +10158,27 @@ window.regenerarTodosCierres=async function(){
     alert('Elegí un local específico para ver sus cierres de caja.');return;
   }
   try{
-    const snap=await getDocs(LCOL('cierres'));
-    const cierres=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+    // Search all possible paths for cierres
+    const paths=[LCOL('cierres')];
+    const prePath=collection(db,'users',STORE,'cierres');
+    if(prePath.path!==LCOL('cierres').path)paths.push(prePath);
+    if(_locales.length>0){
+      const nonePath=collection(db,'users',STORE,'locales','__none__','cierres');
+      if(!paths.some(p=>p.path===nonePath.path))paths.push(nonePath);
+    }
+    let cierres=[];
+    const seenKeys=new Set();
+    for(const colRef of paths){
+      try{
+        const snap=await getDocs(colRef);
+        snap.docs.forEach(d=>{
+          const data=d.data();
+          const key=data.fecha+'|'+data.hora;
+          if(!seenKeys.has(key)){seenKeys.add(key);cierres.push({id:d.id,...data});}
+        });
+      }catch{}
+    }
+    cierres=cierres.sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
     if(!cierres.length){toast('No hay cierres guardados','error');return;}
     toast('Generando '+cierres.length+' resúmenes...');
     for(let i=0;i<cierres.length;i++){
