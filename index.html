@@ -7062,22 +7062,40 @@ async function renderCajaGrande(){
     const movsG=snapG.docs.map(d=>({id:d.id,...d.data(),tipo:'gasto',
       monto:Math.abs(d.data().monto||0),
       concepto:(d.data().descripcion||d.data().categoria||'Gasto operativo'),origen:'historico'}));
-    const allMovs=[...movsCG,...movsG].filter(m=>m.fecha);
-    // Calculate balance from ALL months before the selected month
-    const movsAnteriores=allMovs.filter(m=>m.fecha.substring(0,7)<mes);
-    const ingAnt=movsAnteriores.filter(m=>['ingreso','pase-caja-chica'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
-    const egrAnt=movsAnteriores.filter(m=>!['ingreso','pase-caja-chica','retiro-socios'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
-    const socAnt=movsAnteriores.filter(m=>m.tipo==='retiro-socios').reduce((a,m)=>a+(m.monto||0),0);
-    const saldoAnterior=ingAnt-egrAnt-socAnt;
-    // Current month movements
+    // Add non-cash sales (tarjeta + transferencia) from _ventas
+    const ventasNoCash=(_ventas||[]).filter(v=>v.pago&&v.pago!=='Efectivo'&&v.pago!=='Cuenta corriente')
+      .map(v=>({id:v.id,tipo:'venta-no-efectivo',monto:v.total||0,
+        concepto:'Venta '+v.pago+(v.cliente&&v.cliente!=='Mostrador'?' - '+v.cliente:''),
+        fecha:v.fecha,origen:'ventas',pago:v.pago}));
+    const allMovs=[...movsCG,...movsG,...ventasNoCash].filter(m=>m.fecha);
+
+    // Helper: calculate balance for a set of movements
+    function calcBalance(movs){
+      const ing=movs.filter(m=>['ingreso','pase-caja-chica','venta-no-efectivo'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
+      const egr=movs.filter(m=>!['ingreso','pase-caja-chica','retiro-socios','venta-no-efectivo'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
+      const soc=movs.filter(m=>m.tipo==='retiro-socios').reduce((a,m)=>a+(m.monto||0),0);
+      return {ing,egr,soc,saldo:ing-egr-soc};
+    }
+
+    // Saldo anterior (all months before selected)
+    const prevBalance=calcBalance(allMovs.filter(m=>m.fecha.substring(0,7)<mes));
+    const saldoAnterior=prevBalance.saldo;
+
+    // Current month
     const todos=allMovs.filter(m=>m.fecha.startsWith(mes)).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    const curBalance=calcBalance(todos);
+
     const typeLabel={ingreso:'\u2191 Ingreso','pase-caja-chica':'\u2191 Desde caja chica',
       'pago-proveedor':'Pago proveedor',sueldo:'Sueldo',
-      'retiro-socios':'\ud83d\udcbc Retiro socios',retiro:'Retiro',gasto:'Gasto'};
+      'retiro-socios':'\ud83d\udcbc Retiro socios',retiro:'Retiro',gasto:'Gasto',
+      'venta-no-efectivo':'\ud83d\udcb3 Venta no-efectivo'};
     const typeColor={ingreso:'var(--success)','pase-caja-chica':'var(--success)',
       'pago-proveedor':'var(--danger)',sueldo:'var(--danger)',
-      'retiro-socios':'#7f8c8d',retiro:'var(--danger)',gasto:'var(--danger)'};
+      'retiro-socios':'#7f8c8d',retiro:'var(--danger)',gasto:'var(--danger)',
+      'venta-no-efectivo':'#378ADD'};
+
     let html='';
+    // Saldo anterior banner
     if(saldoAnterior!==0){
       const colorSaldo=saldoAnterior>=0?'var(--success)':'var(--danger)';
       html+=`<div style="padding:10px 14px;background:rgba(55,138,221,0.08);border-radius:8px;margin-bottom:12px;font-size:13px">
@@ -7098,18 +7116,22 @@ async function renderCajaGrande(){
         ${m.origen==='caja-grande'?`<button onclick="eliminarCajaGrande('${m.id}')" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:13px">\u2715</button>`:''}
       </div></div>`).join('');
     el.innerHTML=html;
-    const totalEgresos=todos.filter(m=>!['ingreso','pase-caja-chica','retiro-socios'].includes(m.tipo)).reduce((a,m)=>a+m.monto,0);
-    const totalIngresos=todos.filter(m=>['ingreso','pase-caja-chica'].includes(m.tipo)).reduce((a,m)=>a+m.monto,0);
-    const totalSocios=todos.filter(m=>m.tipo==='retiro-socios').reduce((a,m)=>a+m.monto,0);
-    const saldoMes=totalIngresos-totalEgresos-totalSocios;
-    const saldoActual=saldoAnterior+saldoMes;
+
+    // Totals display - show ALL components
+    const saldoActual=saldoAnterior+curBalance.saldo;
+    // Break down ingresos: cash ingresos vs non-cash sales
+    const ingCash=todos.filter(m=>['ingreso','pase-caja-chica'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
+    const ingNoCash=todos.filter(m=>m.tipo==='venta-no-efectivo').reduce((a,m)=>a+(m.monto||0),0);
     if(totEl){
-      let totHTML=`Ingresos: <span style="color:var(--success)">$${Math.round(totalIngresos).toLocaleString('es-AR')}</span> \u00b7 Egresos: <span style="color:var(--danger)">$${Math.round(totalEgresos).toLocaleString('es-AR')}</span>`;
-      if(totalSocios>0)totHTML+=` \u00b7 Retiros: <span style="color:#7f8c8d">$${Math.round(totalSocios).toLocaleString('es-AR')}</span>`;
-      totHTML+=`<br><strong style="margin-top:6px;display:inline-block">Saldo actual: <span style="color:${saldoActual>=0?'var(--success)':'var(--danger)'}">$${Math.round(saldoActual).toLocaleString('es-AR')}</span></strong>`;
+      let totHTML='';
+      if(ingCash>0)totHTML+=`Ingresos efectivo: <span style="color:var(--success)">$${Math.round(ingCash).toLocaleString('es-AR')}</span><br>`;
+      if(ingNoCash>0)totHTML+=`Ventas tarjeta/transf: <span style="color:#378ADD">$${Math.round(ingNoCash).toLocaleString('es-AR')}</span><br>`;
+      if(curBalance.egr>0)totHTML+=`Egresos: <span style="color:var(--danger)">$${Math.round(curBalance.egr).toLocaleString('es-AR')}</span><br>`;
+      if(curBalance.soc>0)totHTML+=`Retiros socios: <span style="color:#7f8c8d">$${Math.round(curBalance.soc).toLocaleString('es-AR')}</span><br>`;
+      totHTML+=`<strong style="margin-top:4px;display:inline-block">Saldo actual: <span style="color:${saldoActual>=0?'var(--success)':'var(--danger)'}">$${Math.round(saldoActual).toLocaleString('es-AR')}</span></strong>`;
       totEl.innerHTML=totHTML;
     }
-  }catch(e){el.innerHTML='<div class="empty">Error al cargar</div>';}
+  }catch(e){el.innerHTML='<div class="empty">Error al cargar: '+e.message+'</div>';}
 }
 window.eliminarCajaGrande=async function(id){
   if(!confirm('¿Eliminar este movimiento?'))return;
