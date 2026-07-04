@@ -7062,30 +7062,55 @@ async function renderCajaGrande(){
     const movsG=snapG.docs.map(d=>({id:d.id,...d.data(),tipo:'gasto',
       monto:Math.abs(d.data().monto||0),
       concepto:(d.data().descripcion||d.data().categoria||'Gasto operativo'),origen:'historico'}));
-    const todos=[...movsCG,...movsG]
-      .filter(m=>m.fecha&&m.fecha.startsWith(mes))
-      .sort((a,b)=>b.fecha.localeCompare(a.fecha));
-    if(!todos.length){el.innerHTML='<div class="empty">Sin movimientos en este mes</div>';if(totEl)totEl.textContent='';return;}
-    const typeLabel={ingreso:'↑ Ingreso','pase-caja-chica':'↑ Desde caja chica',
+    const allMovs=[...movsCG,...movsG].filter(m=>m.fecha);
+    // Calculate balance from ALL months before the selected month
+    const movsAnteriores=allMovs.filter(m=>m.fecha.substring(0,7)<mes);
+    const ingAnt=movsAnteriores.filter(m=>['ingreso','pase-caja-chica'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
+    const egrAnt=movsAnteriores.filter(m=>!['ingreso','pase-caja-chica','retiro-socios'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
+    const socAnt=movsAnteriores.filter(m=>m.tipo==='retiro-socios').reduce((a,m)=>a+(m.monto||0),0);
+    const saldoAnterior=ingAnt-egrAnt-socAnt;
+    // Current month movements
+    const todos=allMovs.filter(m=>m.fecha.startsWith(mes)).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    const typeLabel={ingreso:'\u2191 Ingreso','pase-caja-chica':'\u2191 Desde caja chica',
       'pago-proveedor':'Pago proveedor',sueldo:'Sueldo',
-      'retiro-socios':'💼 Retiro socios',retiro:'Retiro',gasto:'Gasto'};
+      'retiro-socios':'\ud83d\udcbc Retiro socios',retiro:'Retiro',gasto:'Gasto'};
     const typeColor={ingreso:'var(--success)','pase-caja-chica':'var(--success)',
       'pago-proveedor':'var(--danger)',sueldo:'var(--danger)',
       'retiro-socios':'#7f8c8d',retiro:'var(--danger)',gasto:'var(--danger)'};
-    el.innerHTML=todos.map(m=>`<div class="pr">
-      <div><div style="font-weight:600">${m.concepto||typeLabel[m.tipo]||m.tipo}${m.origen==='historico'?' <span style="font-size:10px;color:#aaa">(histórico)</span>':''}</div>
-      <div style="font-size:11px;color:#888">${m.fecha} · <span style="color:${typeColor[m.tipo]||'#888'}">${typeLabel[m.tipo]||m.tipo}</span></div></div>
+    let html='';
+    if(saldoAnterior!==0){
+      const colorSaldo=saldoAnterior>=0?'var(--success)':'var(--danger)';
+      html+=`<div style="padding:10px 14px;background:rgba(55,138,221,0.08);border-radius:8px;margin-bottom:12px;font-size:13px">
+        \ud83d\udcb0 Saldo anterior: <strong style="color:${colorSaldo}">$${Math.round(saldoAnterior).toLocaleString('es-AR')}</strong>
+      </div>`;
+    }
+    if(!todos.length&&saldoAnterior===0){el.innerHTML='<div class="empty">Sin movimientos en este mes</div>';if(totEl)totEl.textContent='';return;}
+    if(!todos.length){
+      el.innerHTML=html;
+      if(totEl)totEl.innerHTML=`Saldo actual: <strong style="color:${saldoAnterior>=0?'var(--success)':'var(--danger)'}">$${Math.round(saldoAnterior).toLocaleString('es-AR')}</strong>`;
+      return;
+    }
+    html+=todos.map(m=>`<div class="pr">
+      <div><div style="font-weight:600">${m.concepto||typeLabel[m.tipo]||m.tipo}${m.origen==='historico'?' <span style="font-size:10px;color:#aaa">(hist\u00f3rico)</span>':''}</div>
+      <div style="font-size:11px;color:#888">${m.fecha} \u00b7 <span style="color:${typeColor[m.tipo]||'#888'}">${typeLabel[m.tipo]||m.tipo}</span></div></div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-weight:700;color:${typeColor[m.tipo]||'var(--text)'}">$${Math.round(m.monto).toLocaleString('es-AR')}</span>
-        ${m.origen==='caja-grande'?`<button onclick="eliminarCajaGrande('${m.id}')" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:13px">✕</button>`:''}
+        ${m.origen==='caja-grande'?`<button onclick="eliminarCajaGrande('${m.id}')" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:13px">\u2715</button>`:''}
       </div></div>`).join('');
+    el.innerHTML=html;
     const totalEgresos=todos.filter(m=>!['ingreso','pase-caja-chica','retiro-socios'].includes(m.tipo)).reduce((a,m)=>a+m.monto,0);
     const totalIngresos=todos.filter(m=>['ingreso','pase-caja-chica'].includes(m.tipo)).reduce((a,m)=>a+m.monto,0);
     const totalSocios=todos.filter(m=>m.tipo==='retiro-socios').reduce((a,m)=>a+m.monto,0);
-    if(totEl)totEl.innerHTML=`Ingresos: <span style="color:var(--success)">$${Math.round(totalIngresos).toLocaleString('es-AR')}</span> · Egresos: <span style="color:var(--danger)">$${Math.round(totalEgresos).toLocaleString('es-AR')}</span>${totalSocios>0?` · Retiros socios: <span style="color:#7f8c8d">$${Math.round(totalSocios).toLocaleString('es-AR')}</span>`:''}`;
+    const saldoMes=totalIngresos-totalEgresos-totalSocios;
+    const saldoActual=saldoAnterior+saldoMes;
+    if(totEl){
+      let totHTML=`Ingresos: <span style="color:var(--success)">$${Math.round(totalIngresos).toLocaleString('es-AR')}</span> \u00b7 Egresos: <span style="color:var(--danger)">$${Math.round(totalEgresos).toLocaleString('es-AR')}</span>`;
+      if(totalSocios>0)totHTML+=` \u00b7 Retiros: <span style="color:#7f8c8d">$${Math.round(totalSocios).toLocaleString('es-AR')}</span>`;
+      totHTML+=`<br><strong style="margin-top:6px;display:inline-block">Saldo actual: <span style="color:${saldoActual>=0?'var(--success)':'var(--danger)'}">$${Math.round(saldoActual).toLocaleString('es-AR')}</span></strong>`;
+      totEl.innerHTML=totHTML;
+    }
   }catch(e){el.innerHTML='<div class="empty">Error al cargar</div>';}
 }
-
 window.eliminarCajaGrande=async function(id){
   if(!confirm('¿Eliminar este movimiento?'))return;
   try{await deleteDoc(doc(db,'users',STORE,'caja-grande',id));renderCajaGrande();toast('Eliminado');}
@@ -7332,8 +7357,20 @@ window.printGastosCajaGrande=async function(){
     lines.push(pad('Ingresos:','+'+fmtN(totalIng)));
     lines.push(pad('Egresos:','-'+fmtN(totalEgr)));
     if(totalSoc>0)lines.push(pad('Ret.socios:',fmtN(totalSoc)));
+    // Calculate saldo anterior for ticket
+    const allMovs2=[...movsCG,...movsG].filter(m=>m.fecha);
+    const movsAnt=allMovs2.filter(m=>m.fecha.substring(0,7)<mes);
+    const ingAnt=movsAnt.filter(m=>['ingreso','pase-caja-chica'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
+    const egrAnt=movsAnt.filter(m=>!['ingreso','pase-caja-chica','retiro-socios'].includes(m.tipo)).reduce((a,m)=>a+(m.monto||0),0);
+    const socAnt=movsAnt.filter(m=>m.tipo==='retiro-socios').reduce((a,m)=>a+(m.monto||0),0);
+    const saldoAnt=ingAnt-egrAnt-socAnt;
+    if(saldoAnt!==0){
+      lines.unshift(div());
+      lines.unshift(pad('Saldo ant:',fmtN(saldoAnt)));
+    }
+    const saldoFinal=saldoAnt+(totalIng-totalEgr-totalSoc);
     lines.push(ddiv());
-    lines.push(pad('SALDO:',fmtN(totalIng-totalEgr-totalSoc)));
+    lines.push(pad('SALDO:',fmtN(saldoFinal)));
     ticketWindow('CAJA GRANDE '+mesLabel,lines);
   }catch(e){alert('Error: '+e.message);}
 };
