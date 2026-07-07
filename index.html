@@ -2311,7 +2311,7 @@ tr:hover td{background:#fafaf8}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, updateDoc, where, getDocs, writeBatch, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, updateDoc, where, getDocs, writeBatch, increment, FieldPath } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAYvWsAYcC4H5Givd44jsAX34MubjWfnRY",
@@ -2357,17 +2357,16 @@ function INV_ID(){
 }
 // Atomic stock update: only touches the specified product(s), never overwrites other products
 async function invUpdateStock(changes){
-  // changes: { "ProductA": +5, "ProductB": -2 } or { "ProductA": 10 } (absolute)
-  // Uses increment for safe concurrent updates
-  const updates={};
+  // changes: { "ProductA": +5, "ProductB": -2 }
+  // Uses FieldPath + increment for safe concurrent updates (handles / ~ * [ ] in product names)
+  const args=[];
   for(const [prod,delta] of Object.entries(changes)){
-    updates[`${prod}.stock`]=increment(delta);
+    args.push(new FieldPath(prod,'stock'),increment(delta));
   }
   const invRef=doc(db,'inventario',INV_ID());
   try{
-    await updateDoc(invRef,updates);
+    await updateDoc(invRef,...args);
   }catch(e){
-    // Document might not exist yet; create it then retry
     if(e.code==='not-found'){
       const initial={};
       for(const [prod,delta] of Object.entries(changes)){
@@ -2380,9 +2379,9 @@ async function invUpdateStock(changes){
 // Set absolute stock value for a product (used when we need exact value, not delta)
 async function invSetStock(prod,absoluteValue,extraFields){
   const invRef=doc(db,'inventario',INV_ID());
-  const upd={[`${prod}.stock`]:absoluteValue};
-  if(extraFields){for(const[k,v]of Object.entries(extraFields))upd[`${prod}.${k}`]=v;}
-  try{await updateDoc(invRef,upd);}
+  const args=[new FieldPath(prod,'stock'),absoluteValue];
+  if(extraFields){for(const[k,v]of Object.entries(extraFields))args.push(new FieldPath(prod,k),v);}
+  try{await updateDoc(invRef,...args);}
   catch(e){if(e.code==='not-found'){await setDoc(invRef,{[prod]:{stock:absoluteValue,alerta:5,...(extraFields||{})}},{merge:true});}else throw e;}
 }
 function nombreLocal(id){
@@ -5390,9 +5389,9 @@ window.updStock=async function(){
     const delta=modoAjuste?-cant:cant;
     const nuevoStock=Math.max(0,Math.round((stockActualProd+delta)*1000)/1000);
     // Atomic update: only touches this product's fields
-    const upd={[`${prod}.stock`]:increment(delta)};
-    if(nuevaAlerta>0)upd[`${prod}.alerta`]=nuevaAlerta;
-    try{await updateDoc(doc(db,'inventario',INV_ID()),upd);}
+    const args=[new FieldPath(prod,'stock'),increment(delta)];
+    if(nuevaAlerta>0)args.push(new FieldPath(prod,'alerta'),nuevaAlerta);
+    try{await updateDoc(doc(db,'inventario',INV_ID()),...args);}
     catch(e){if(e.code==='not-found'){await setDoc(doc(db,'inventario',INV_ID()),{[prod]:{stock:Math.max(0,delta),alerta:nuevaAlerta||5}},{merge:true});}else throw e;}
     // Si es ajuste, guardar en stock-historial con tipo ajuste (sin costo)
     if(modoAjuste){
@@ -6707,7 +6706,7 @@ function renderDescuentosAuto(){
   const el=document.getElementById('dc-auto-lista');if(!el)return;
   if(!_descuentosAuto.length){el.innerHTML='<div class="empty">Sin descuentos automáticos</div>';return;}
   const dias=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-  el.innerHTML=_descuentosAuto.map(d=>{const horario=d.horaDesde&&d.horaHasta?d.horaDesde+' a '+d.horaHasta:'Todo el día';return`<div class="pr"><div><div style="font-weight:600;font-size:13px">${d.nombre}</div><div style="font-size:11px;color:#888">${d.dias.map(n=>diasN[n]).join(', ')} · ${d.pago||'Cualquier pago'} · ${d.porcentaje}% · ${horario}</div></div><div style="display:flex;gap:4px"><button class="btn bs bsm" style="font-size:11px" onclick="toggleDcAutoVisible(this.dataset.id,${!d.visible})" data-id="${d.id}" title="${d.visible!==false?'Ocultar del portal':'Mostrar en portal'}">${d.visible!==false?'👁 Visible':'🙈 Oculto'}</button><button class="btn bd bsm" onclick="deleteDescuentoAuto(this.dataset.id)" data-id="${d.id}">Eliminar</button></div></div>`;}).join('');
+  el.innerHTML=_descuentosAuto.map(d=>{const horario=d.horaDesde&&d.horaHasta?d.horaDesde+' a '+d.horaHasta:'Todo el día';return`<div class="pr"><div><div style="font-weight:600;font-size:13px">${d.nombre}</div><div style="font-size:11px;color:#888">${d.dias.map(n=>dias[n]).join(', ')} · ${d.pago||'Cualquier pago'} · ${d.porcentaje}% · ${horario}</div></div><div style="display:flex;gap:4px"><button class="btn bs bsm" style="font-size:11px" onclick="toggleDcAutoVisible(this.dataset.id,${!d.visible})" data-id="${d.id}" title="${d.visible!==false?'Ocultar del portal':'Mostrar en portal'}">${d.visible!==false?'👁 Visible':'🙈 Oculto'}</button><button class="btn bd bsm" onclick="deleteDescuentoAuto(this.dataset.id)" data-id="${d.id}">Eliminar</button></div></div>`;}).join('');
 }
 
 window.toggleDcAutoVisible=async function(id,visible){
@@ -7597,7 +7596,7 @@ document.addEventListener('change', function(e){
     const nom = el.dataset.prodNom;
     const alerta = parseDecimal(el.value);
     if(!nom || isNaN(alerta)) return;
-    updateDoc(doc(db,'inventario',INV_ID()), {[`${nom}.alerta`]:alerta})
+    updateDoc(doc(db,'inventario',INV_ID()), new FieldPath(nom,'alerta'),alerta)
       .then(()=>toast('Alerta actualizada: '+alerta))
       .catch(e=>alert('Error: '+e.message));
     return;
@@ -7619,7 +7618,7 @@ window.guardarAlertaInline=async function(nom, val){
   const alerta = parseDecimal(val);
   if(isNaN(alerta)) return;
   try{
-    await updateDoc(doc(db,'inventario',INV_ID()), {[`${nom}.alerta`]:alerta});
+    await updateDoc(doc(db,'inventario',INV_ID()), new FieldPath(nom,'alerta'),alerta);
     toast('Alerta actualizada: '+alerta);
   }catch(e){alert('Error: '+e.message);}
 };
