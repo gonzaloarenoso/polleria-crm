@@ -1413,7 +1413,7 @@ tr:hover td{background:#fafaf8}
             <input type="text" id="dc-motivo" placeholder="Ej: Amigo del dueño"/>
             <label>Porcentaje (%)</label>
             <input type="number" id="dc-pct" placeholder="Ej: 30" min="1" max="100"/>
-            <div class="row"><button class="btn bp" id="dc-btn" onclick="addDescuento()">Agregar descuento</button></div>
+            <div class="row"><button class="btn bp" id="dc-btn-legacy" onclick="addDescuento()">Agregar descuento</button></div>
           </div>
           <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0">Descuentos activos</h3><label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin:0"><input type="checkbox" id="toggle-dc-lista-legacy" checked onchange="document.getElementById('dc-lista-legacy').style.display=this.checked?'block':'none'"/> Visible</label></div>
@@ -1427,7 +1427,7 @@ tr:hover td{background:#fafaf8}
             <div style="background:#f5f4f0;border-radius:8px;padding:12px;margin-bottom:10px">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px">
                 <span style="color:#888">Los</span>
-                <div style="display:flex;gap:6px;flex-wrap:wrap" id="dc-auto-dias">
+                <div style="display:flex;gap:6px;flex-wrap:wrap" id="dc-auto-dias-legacy">
                   <label style="display:flex;align-items:center;gap:3px;margin:0;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:12px"><input type="checkbox" value="1" style="width:12px"/> Lun</label>
                   <label style="display:flex;align-items:center;gap:3px;margin:0;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:12px"><input type="checkbox" value="2" style="width:12px"/> Mar</label>
                   <label style="display:flex;align-items:center;gap:3px;margin:0;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:12px"><input type="checkbox" value="3" style="width:12px"/> Mié</label>
@@ -1437,28 +1437,28 @@ tr:hover td{background:#fafaf8}
                   <label style="display:flex;align-items:center;gap:3px;margin:0;cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:12px"><input type="checkbox" value="0" style="width:12px"/> Dom</label>
                 </div>
                 <span style="color:#888">+ pago:</span>
-                <select id="dc-auto-pago" style="width:140px;font-size:12px;padding:4px 8px">
+                <select id="dc-auto-pago-legacy" style="width:140px;font-size:12px;padding:4px 8px">
                   <option value="">Cualquier método</option>
                   <option>Efectivo</option><option>Transferencia</option>
                   <option>Tarjeta débito</option><option>Tarjeta crédito</option>
                 </select>
                 <span style="color:#888">= descuento de</span>
-                <input type="number" id="dc-auto-pct" placeholder="%" min="1" max="100" style="width:60px;font-size:13px;padding:4px 8px"/>
+                <input type="number" id="dc-auto-pct-legacy" placeholder="%" min="1" max="100" style="width:60px;font-size:13px;padding:4px 8px"/>
                 <span style="color:#888">%</span>
               </div>
               <div style="margin-top:10px">
-                <input type="text" id="dc-auto-nombre" placeholder="Nombre del descuento (ej: Transferencia lunes)" style="font-size:12px"/>
+                <input type="text" id="dc-auto-nombre-legacy" placeholder="Nombre del descuento (ej: Transferencia lunes)" style="font-size:12px"/>
               </div>
               <div style="margin-top:10px">
                 <label style="font-size:12px;color:#888;font-weight:600">Horario (opcional — vacío = todo el día)</label>
                 <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
-                  <input type="time" id="dc-auto-hora-desde" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px"/>
+                  <input type="time" id="dc-auto-hora-desde-legacy" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px"/>
                   <span style="font-size:12px;color:#888">a</span>
-                  <input type="time" id="dc-auto-hora-hasta" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px"/>
+                  <input type="time" id="dc-auto-hora-hasta-legacy" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:8px"/>
                 </div>
               </div>
             </div>
-            <button class="btn bp bsm" id="dc-auto-btn" onclick="addDescuentoAuto()">+ Agregar</button>
+            <button class="btn bp bsm" id="dc-auto-btn-legacy" onclick="addDescuentoAuto()">+ Agregar</button>
           </div>
           <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0">Descuentos automáticos activos</h3><label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin:0"><input type="checkbox" id="toggle-dc-auto-lista-legacy" checked onchange="document.getElementById('dc-auto-lista-legacy').style.display=this.checked?'block':'none'"/> Visible</label></div>
