@@ -6696,6 +6696,9 @@ window.addDescuentoAuto=async function(){
     document.getElementById('dc-auto-pct').value='';document.getElementById('dc-auto-nombre').value='';
     document.querySelectorAll('#dc-auto-dias input').forEach(i=>i.checked=false);
     toast('Descuento automático guardado');
+    // Re-render the list (onSnapshot will update _descuentosAuto, but we render immediately too)
+    _descuentosAuto=newList;
+    renderDescuentosAutoList();renderDescuentosAuto();
   }catch(e){alert('Error: '+e.message);}
   setBtn('dc-auto-btn',false,'Agregar descuento automático');
 };
@@ -6713,6 +6716,8 @@ window.toggleDcAutoVisible=async function(id,visible){
     const ex=snap.exists()?snap.data():{};
     const updated=_descuentosAuto.map(d=>d.id===id?{...d,visible}:d);
     await setDoc(doc(db,'config',STORE),{...ex,descuentosAuto:updated});
+    _descuentosAuto=updated;
+    renderDescuentosAutoList();renderDescuentosAuto();
     toast(visible?'Descuento visible en el portal':'Descuento oculto del portal');
   }catch(e){alert('Error: '+e.message);}
 };
@@ -6724,6 +6729,8 @@ window.deleteDescuentoAuto=async function(id){
     const cfgSnap=await getDoc(doc(db,'config',STORE));
     const existing=cfgSnap.exists()?cfgSnap.data():{};
     await setDoc(doc(db,'config',STORE),{...existing,descuentosAuto:newList});
+    _descuentosAuto=newList;
+    renderDescuentosAutoList();renderDescuentosAuto();
     toast('Descuento eliminado');
   }catch(e){alert('Error: '+e.message);}
 };
