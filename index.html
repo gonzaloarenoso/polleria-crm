@@ -385,8 +385,6 @@ tr:hover td{background:#fafaf8}
           <div><label>Pago</label>
             <select id="vd-pago-fil" onchange="renderVentasDia()" style="width:130px">
               <option value="">Todos</option>
-              <option>Efectivo</option><option>Transferencia</option>
-              <option>Tarjeta débito</option><option>Tarjeta crédito</option>
             </select>
           </div>
           <button class="btn bs bsm" onclick="clearVentasFilter()">Limpiar</button>
@@ -3812,6 +3810,26 @@ function renderDashCharts(){
 }
 
 window.renderVentasDia=function(){
+  // Populate payment filter from configured methods
+  const pagoSel=document.getElementById('vd-pago-fil');
+  if(pagoSel&&_metodosPago&&_metodosPago.length){
+    const curVal=pagoSel.value;
+    const hasOptions=pagoSel.options.length>1;
+    if(!hasOptions){
+      (_metodosPago||[]).filter(m=>m.activo!==false).forEach(m=>{
+        const opt=document.createElement('option');
+        opt.value=m.nombre;opt.textContent=m.nombre;
+        pagoSel.appendChild(opt);
+      });
+      // Also add "Cuenta corriente" if not already there
+      if(!_metodosPago.some(m=>m.nombre==='Cuenta corriente')){
+        const opt=document.createElement('option');
+        opt.value='Cuenta corriente';opt.textContent='Cuenta corriente';
+        pagoSel.appendChild(opt);
+      }
+    }
+    if(curVal)pagoSel.value=curVal;
+  }
   const isAdmin=USER_ROLE==='admin';
   const wrapDesde=document.getElementById('vd-fecha-wrap-desde');
   const wrapHasta=document.getElementById('vd-fecha-wrap-hasta');
