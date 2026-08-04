@@ -1383,6 +1383,7 @@ tr:hover td{background:#fafaf8}
             </div>
             <div class="row" style="margin-top:12px"><button class="btn bp" id="cfg-neg-btn" onclick="saveCfgNegocio()">Guardar datos</button></div>
           </div>
+          
           <div class="card">
             <h3>📱 Código QR del portal</h3>
             <div style="font-size:13px;color:#888;margin-bottom:12px">Mostralo en el mostrador, bolsas o tarjetas para que tus clientes accedan al portal. Es el mismo para todos los locales — el cliente elige su sucursal al registrarse.</div>
@@ -4967,12 +4968,8 @@ img.logo{width:80%;max-width:46mm;display:block;margin:0 auto 4px auto}
 };
 
 window.printTicketAmbos=function(v){
-  // Imprimir ticket original automáticamente
+  // Imprimir solo ticket del cliente (el resumen de cierre reemplaza el ticket del local)
   printTicket(v,'cliente');
-  // Imprimir duplicado automáticamente 5 segundos después
-  setTimeout(()=>{
-    printTicket(v,'local');
-  },5000);
 };
 
 function generateTicketContent(v,tipo){}
@@ -7680,6 +7677,11 @@ window.toggleElaboracion=async function(id,val){
   toast(val?'Marcado para producción':'Removido de producción');
 };
 
+
+// ── INSUMOS DE PRODUCCIÓN ──
+// ── DERIVACIÓN DE MERCADERÍA ──
+
+
 function renderLocalIndicatorProduccion(){
   const html=ACTIVE_LOCALE
     ?`<div style="background:rgba(29,158,117,0.1);color:#1D9E75;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600">📍 Operando en: ${nombreLocal(ACTIVE_LOCALE)}</div>`
@@ -7690,7 +7692,7 @@ function renderLocalIndicatorProduccion(){
 
 window.renderProdInv=function(){
   renderLocalIndicatorProduccion();
-  const el=document.getElementById('prod-inv-lista');if(!el)return;
+    const el=document.getElementById('prod-inv-lista');if(!el)return;
   const prods=(_productos||[]).filter(p=>p.requiereElaboracion&&p.activo!==false);
   if(!prods.length){el.innerHTML='<div class="empty">No hay productos marcados para producción. El admin los configura desde Inventario → Productos.</div>';return;}
   el.innerHTML=`<table style="width:100%;border-collapse:collapse">
@@ -7710,7 +7712,7 @@ window.renderProdInv=function(){
       <tr id="addstock-row-${p.id}" style="display:none;background:var(--bg)">
         <td colspan="6" style="padding:10px">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <span style="font-size:12px;color:#888">Agregar stock de <strong>${p.nombre}</strong> (sin OT — ej: produjiste de más):</span>
+            <span style="font-size:12px;color:#888">Agregar stock de <strong>${p.nombre}</strong>:</span>
             <input type="text" id="addstock-cant-${p.id}" inputmode="decimal" placeholder="Cantidad" style="width:90px;padding:5px 8px;border-radius:6px;border:1px solid var(--border)"/>
             <span style="font-size:12px;color:#888">${p.unidad||'unid.'}</span>
             <button onclick="confirmarAddStockProd('${p.id}','${p.nombre.replace(/'/g,"\\'")}')" style="background:var(--success);color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer">✓ Agregar</button>
@@ -7882,9 +7884,7 @@ window.confirmarOrden=async function(ordenId,prodNombre,unidad,numero){
   const btn=cantEl?.parentElement?.querySelector('button');
   if(btn){btn.disabled=true;btn.textContent='Guardando...';}
   try{
-    // Add to stock (atomic)
     await invUpdateStock({[prodNombre]:cant});
-    // Save to stock-historial
     await addDoc(LCOL('stock-historial'),{
       producto:prodNombre,cantidad:cant,tipo:'elaboracion',
       obs:'OT #'+numero+' — Producción interna',fecha:today(),ts:Date.now()
