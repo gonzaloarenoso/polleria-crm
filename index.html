@@ -7847,8 +7847,13 @@ function renderLocalIndicatorProduccion(){
   const el2=document.getElementById('prod-local-indicator2');if(el2)el2.innerHTML=html;
 }
 
-window.renderProdInv=function(){
+window.renderProdInv=async function(){
   renderLocalIndicatorProduccion();
+  // Load OTs to know which products have pending orders
+  try{
+    const otSnap=await getDocs(LCOL('ordenes-trabajo'));
+    window._ordenesTrabajo=otSnap.docs.map(d=>({id:d.id,...d.data()})).filter(o=>o.estado==='abierta'||o.estado==='pendiente');
+  }catch(e){window._ordenesTrabajo=[];}
     const el=document.getElementById('prod-inv-lista');if(!el)return;
   const prods=(_productos||[]).filter(p=>p.requiereElaboracion&&p.activo!==false);
   const sortMode=window._prodInvSort||'alpha';
@@ -7925,6 +7930,8 @@ window.renderOrdenesProduccion=async function(){
   try{
     const snap=await getDocs(LCOL('ordenes-trabajo'));
     existingOrders=snap.docs.map(d=>({id:d.id,...d.data()})).filter(o=>o.estado==='abierta');
+    // Store globally for renderProdInv OT blocking
+    window._ordenesTrabajo=snap.docs.map(d=>({id:d.id,...d.data()})).filter(o=>o.estado==='abierta'||o.estado==='pendiente');
   }catch(e){}
 
   // Auto-close orders where stock is now above alert
