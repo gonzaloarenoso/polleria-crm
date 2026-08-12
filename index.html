@@ -3263,7 +3263,7 @@ window.enterAsRole=function(role){
 let _tokenInterval=null;
 let _tokenUnlocks={};// {tabName: unlockedUntilTimestamp}
 const TOKEN_PROTECTED_TABS=['clientes','inventario','caja'];
-const TOKEN_UNLOCK_MINUTES=5;
+const TOKEN_UNLOCK_SECONDS=90;
 
 function generateToken(){
   return String(Math.floor(100000+Math.random()*900000));
@@ -3339,7 +3339,7 @@ window.validateToken=async function(tabId){
     const currentToken=cfgSnap.exists()?cfgSnap.data().currentToken:'';
     if(typed===currentToken){
       // Token valid - unlock tab for 5 minutes
-      _tokenUnlocks[tabId]=Date.now()+(TOKEN_UNLOCK_MINUTES*60*1000);
+      _tokenUnlocks[tabId]=Date.now()+(TOKEN_UNLOCK_SECONDS*1000);
       document.getElementById('token-overlay').style.display='none';
       // Consume token by generating a new one immediately
       const newToken=generateToken();
@@ -3349,7 +3349,7 @@ window.validateToken=async function(tabId){
       if(display)display.textContent=newToken;
       // Show the tab
       switchTab(tabId);
-      toast('🔓 '+tabId.charAt(0).toUpperCase()+tabId.slice(1)+' desbloqueado por '+TOKEN_UNLOCK_MINUTES+' minutos');
+      toast('🔓 '+tabId.charAt(0).toUpperCase()+tabId.slice(1)+' desbloqueado por '+TOKEN_UNLOCK_SECONDS+' segundos');
     } else {
       errEl.textContent='Token incorrecto. Pedí uno nuevo al administrador.';
       errEl.style.display='block';
@@ -3479,6 +3479,15 @@ function startListeners(){
       _cfgNegocio=d.negocio||{};
       _cfgPedidos=d.pedidos||{};
       _descuentosAuto=d.descuentosAuto||[];
+      // Sync token display if admin has it open
+      if(d.currentToken&&USER_ROLE==='admin'){
+        const tokenDisp=document.getElementById('token-display');
+        if(tokenDisp&&tokenDisp.textContent!==d.currentToken){
+          tokenDisp.textContent=d.currentToken;
+          const statusEl=document.getElementById('token-status');
+          if(statusEl)statusEl.textContent='Token actualizado (consumido por empleado)';
+        }
+      }
       const defaultCats=[
         {nombre:'Pollos y presas',emoji:'🐔'},
         {nombre:'Milanesas',emoji:'🥩'},
@@ -12686,10 +12695,9 @@ window.addCajaChica=async function(){
         localeId:ACTIVE_LOCALE||null
       });
     }
-    _cajaChica.unshift({id:docRef.id,tipo,monto:esEgreso?-Math.abs(monto):Math.abs(monto),montoAbs:Math.abs(monto),esEgreso,detalle,fecha:today(),hora:ftime(),creadoPor:CU,ts:Date.now()});
+    // onSnapshot handles _cajaChica update and renderCajaChica() automatically
     document.getElementById('cc-monto').value='';
     document.getElementById('cc-detalle').value='';
-    renderCajaChica();
     toast('Movimiento registrado');
   }catch(e){alert('Error: '+e.message);}
 };
@@ -12730,8 +12738,6 @@ window.deleteMovCC=async function(id){
   if(!confirm('¿Eliminar este movimiento de caja chica?'))return;
   try{
     await deleteDoc(LDOC('caja-chica',id));
-    _cajaChica=_cajaChica.filter(x=>x.id!==id);
-    renderCajaChica();
     logAuditoria('eliminó','caja-chica','Movimiento eliminado: '+id,'','');
     toast('Movimiento eliminado');
   }catch(e){alert('Error: '+e.message);}
