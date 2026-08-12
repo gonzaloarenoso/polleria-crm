@@ -525,7 +525,7 @@ tr:hover td{background:#fafaf8}
           <div id="v-items"><div class="empty">Agregá productos al pedido</div></div>
           <div class="divl"></div>
           <div id="v-totales">
-            <div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px"><span>Total</span><span id="v-total">$0</span></div>
+            <div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px"><span>Total</span><span id="v-total-legacy">$0</span></div>
           </div>
           <div id="v-cc-indicator" style="display:none;margin-bottom:6px"></div>
           <label style="margin-top:14px">Medio de pago</label>
@@ -832,10 +832,10 @@ tr:hover td{background:#fafaf8}
         <div class="card">
           <h3>Franjas horarias de entrega</h3>
           <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-            <div><label>Nueva franja</label><input type="text" id="franja-input" placeholder="Ej: 10-12hs" style="width:140px"/></div>
+            <div><label>Nueva franja</label><input type="text" id="franja-input-legacy" placeholder="Ej: 10-12hs" style="width:140px"/></div>
             <button class="btn bs bsm" onclick="addFranja()">+ Agregar</button>
           </div>
-          <div id="franjas-lista" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"></div>
+          <div id="franjas-lista-legacy" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"></div>
         </div>
       </div>
       <div class="card">
@@ -1615,12 +1615,12 @@ tr:hover td{background:#fafaf8}
             <div class="card">
               <h3>Niveles de fidelización</h3>
               <div style="font-size:12px;color:#888;margin-bottom:10px">Compras promedio por mes para alcanzar cada nivel.</div>
-              <div id="cfg-niveles-lista" style="margin-bottom:10px"></div>
+              <div id="cfg-niveles-lista-legacy" style="margin-bottom:10px"></div>
               <div style="display:grid;grid-template-columns:2fr 60px 1fr 1fr auto;gap:6px;align-items:flex-end;margin-bottom:8px">
-                <div><label style="font-size:11px;color:#888">Nombre</label><input type="text" id="cfg-nv-nombre" placeholder="Ej: VIP" style="font-size:12px"/></div>
-                <div><label style="font-size:11px;color:#888">Emoji</label><input type="text" id="cfg-nv-emoji" placeholder="🥇" style="font-size:14px;text-align:center"/></div>
-                <div><label style="font-size:11px;color:#888">Compras/mes</label><input type="number" id="cfg-nv-umbral" placeholder="4" min="0" style="font-size:12px"/></div>
-                <div><label style="font-size:11px;color:#888">Dto %</label><input type="number" id="cfg-nv-dto" placeholder="5" min="0" max="50" style="font-size:12px"/></div>
+                <div><label style="font-size:11px;color:#888">Nombre</label><input type="text" id="cfg-nv-nombre-legacy" placeholder="Ej: VIP" style="font-size:12px"/></div>
+                <div><label style="font-size:11px;color:#888">Emoji</label><input type="text" id="cfg-nv-emoji-legacy" placeholder="🥇" style="font-size:14px;text-align:center"/></div>
+                <div><label style="font-size:11px;color:#888">Compras/mes</label><input type="number" id="cfg-nv-umbral-legacy" placeholder="4" min="0" style="font-size:12px"/></div>
+                <div><label style="font-size:11px;color:#888">Dto %</label><input type="number" id="cfg-nv-dto-legacy" placeholder="5" min="0" max="50" style="font-size:12px"/></div>
                 <div><button class="btn bp bsm" onclick="addNivel()" style="margin-top:16px">+</button></div>
               </div>
             </div>
@@ -1638,20 +1638,20 @@ tr:hover td{background:#fafaf8}
                 </label>
               </div>
               <label>Compras acumuladas para reclamar cupón ($)</label>
-              <input type="number" id="cfg-fid-cada" value="50000"/>
+              <input type="number" id="cfg-fid-cada-legacy" value="50000"/>
               <label>Descuento del cupón (%)</label>
-              <input type="number" id="cfg-fid-pct" value="5" min="1" max="50"/>
+              <input type="number" id="cfg-fid-pct-legacy" value="5" min="1" max="50"/>
               <label>Descuento máximo ($)</label>
-              <input type="number" id="cfg-fid-maxdto" value="2500"/>
+              <input type="number" id="cfg-fid-maxdto-legacy" value="2500"/>
               <label>Compra mínima para usar cupón ($)</label>
-              <input type="number" id="cfg-fid-mincompra" value="20000"/>
+              <input type="number" id="cfg-fid-mincompra-legacy" value="20000"/>
               <label>Días de vigencia del cupón</label>
-              <input type="number" id="cfg-fid-dias" value="30" min="1" max="365"/>
+              <input type="number" id="cfg-fid-dias-legacy" value="30" min="1" max="365"/>
               <label>Descuento de bienvenida para clientes nuevos (%)</label>
-              <input type="number" id="cfg-fid-bienvenida" placeholder="Ej: 10" min="0" max="50"/>
+              <input type="number" id="cfg-fid-bienvenida-legacy" placeholder="Ej: 10" min="0" max="50"/>
               <div style="font-size:11px;color:#888;margin-top:2px">0 = desactivado.</div>
               <div class="row" style="margin-top:12px">
-                <button class="btn bp" id="cfg-fid-btn" onclick="saveCfgFidelizacion()">Guardar</button>
+                <button class="btn bp" id="cfg-fid-btn-legacy" onclick="saveCfgFidelizacion()">Guardar</button>
               </div>
             </div>
           </div>
@@ -1660,7 +1660,7 @@ tr:hover td{background:#fafaf8}
               <h3 style="margin-bottom:0">Cupones activos</h3>
               <button class="btn bs bsm" onclick="loadCuponesAdmin()">Actualizar</button>
             </div>
-            <div id="cfg-cupones-lista"><div class="empty">Sin cupones activos</div></div>
+            <div id="cfg-cupones-lista-legacy"><div class="empty">Sin cupones activos</div></div>
           </div>
         </div>
 
@@ -1670,26 +1670,26 @@ tr:hover td{background:#fafaf8}
             <div class="card">
               <h3>Parámetros del sistema</h3>
               <label>Días de inactividad para recordatorio</label>
-              <input type="number" id="cfg-dias-inactividad" value="10" min="1" max="365"/>
+              <input type="number" id="cfg-dias-inactividad-legacy" value="10" min="1" max="365"/>
               <label style="margin-top:12px;font-weight:600">Alertas de vencimiento</label>
               <div style="font-size:12px;color:#888;margin-bottom:6px">Configurá dos niveles de alerta antes del vencimiento.</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                <div><label>Alerta 1 — Días antes</label><input type="number" id="cfg-venc-dias1" value="10" min="1" max="365"/></div>
-                <div><label>Color alerta 1</label><input type="color" id="cfg-venc-color1" value="#FAC775"/></div>
-                <div><label>Alerta 2 — Días antes</label><input type="number" id="cfg-venc-dias2" value="3" min="1" max="365"/></div>
-                <div><label>Color alerta 2</label><input type="color" id="cfg-venc-color2" value="#E24B4A"/></div>
+                <div><label>Alerta 1 — Días antes</label><input type="number" id="cfg-venc-dias1-legacy" value="10" min="1" max="365"/></div>
+                <div><label>Color alerta 1</label><input type="color" id="cfg-venc-color1-legacy" value="#FAC775"/></div>
+                <div><label>Alerta 2 — Días antes</label><input type="number" id="cfg-venc-dias2-legacy" value="3" min="1" max="365"/></div>
+                <div><label>Color alerta 2</label><input type="color" id="cfg-venc-color2-legacy" value="#E24B4A"/></div>
               </div>
               <label>Días máximos para pedido programado</label>
-              <input type="number" id="cfg-max-dias-programar" value="5" min="1" max="30"/>
+              <input type="number" id="cfg-max-dias-programar-legacy" value="5" min="1" max="30"/>
               <label>Color principal del sistema</label>
               <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
-                <input type="color" id="cfg-color-primary" value="#D85A30" style="width:50px;height:36px;padding:2px;border-radius:6px;cursor:pointer"/>
-                <input type="text" id="cfg-color-primary-hex" value="#D85A30" placeholder="#D85A30" style="width:100px"/>
+                <input type="color" id="cfg-color-primary-legacy" value="#D85A30" style="width:50px;height:36px;padding:2px;border-radius:6px;cursor:pointer"/>
+                <input type="text" id="cfg-color-primary-hex-legacy" value="#D85A30" placeholder="#D85A30" style="width:100px"/>
               </div>
               <label>Límite de ítems por pedido</label>
-              <input type="number" id="cfg-max-items" value="20" min="1" max="100"/>
+              <input type="number" id="cfg-max-items-legacy" value="20" min="1" max="100"/>
               <div class="row" style="margin-top:14px">
-                <button class="btn bp" id="cfg-avz-btn" onclick="saveCfgAvanzado()">Guardar</button>
+                <button class="btn bp" id="cfg-avz-btn-legacy" onclick="saveCfgAvanzado()">Guardar</button>
               </div>
             </div>
           </div>
@@ -1781,21 +1781,21 @@ tr:hover td{background:#fafaf8}
           <div class="card" style="margin-top:12px">
             <h3>Mensajes de WhatsApp por estado</h3>
             <div style="font-size:12px;color:#888;margin-bottom:12px">Usá <strong>[nombre]</strong> para el nombre del cliente y <strong>[local]</strong> para el nombre del local.</div>
-            <label>✅ Pedido confirmado</label><textarea id="wa-confirmado" rows="2" placeholder="Buenas noticias [nombre]!..."></textarea>
-            <label>🚚 En camino (envío)</label><textarea id="wa-envio-camino" rows="2" placeholder="[nombre], tu pedido está en camino..."></textarea>
-            <label>📦 Entregado (envío)</label><textarea id="wa-envio-entregado" rows="2" placeholder="Tu pedido llegó!..."></textarea>
-            <label>🏪 Pedido recibido (retiro)</label><textarea id="wa-retiro-recibido" rows="2" placeholder="[nombre], recibimos tu pedido..."></textarea>
-            <label>✅ Listo para retirar</label><textarea id="wa-retiro-listo" rows="2" placeholder="[nombre], ya podés pasar a retirar..."></textarea>
-            <label>🎉 Retirado</label><textarea id="wa-retiro-retirado" rows="2" placeholder="[nombre], gracias por tu compra..."></textarea>
-            <label>❌ Cancelado</label><textarea id="wa-cancelado" rows="2" placeholder="[nombre], lamentablemente tu pedido fue cancelado..."></textarea>
+            <label>✅ Pedido confirmado</label><textarea id="wa-confirmado-legacy" rows="2" placeholder="Buenas noticias [nombre]!..."></textarea>
+            <label>🚚 En camino (envío)</label><textarea id="wa-envio-camino-legacy" rows="2" placeholder="[nombre], tu pedido está en camino..."></textarea>
+            <label>📦 Entregado (envío)</label><textarea id="wa-envio-entregado-legacy" rows="2" placeholder="Tu pedido llegó!..."></textarea>
+            <label>🏪 Pedido recibido (retiro)</label><textarea id="wa-retiro-recibido-legacy" rows="2" placeholder="[nombre], recibimos tu pedido..."></textarea>
+            <label>✅ Listo para retirar</label><textarea id="wa-retiro-listo-legacy" rows="2" placeholder="[nombre], ya podés pasar a retirar..."></textarea>
+            <label>🎉 Retirado</label><textarea id="wa-retiro-retirado-legacy" rows="2" placeholder="[nombre], gracias por tu compra..."></textarea>
+            <label>❌ Cancelado</label><textarea id="wa-cancelado-legacy" rows="2" placeholder="[nombre], lamentablemente tu pedido fue cancelado..."></textarea>
             <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px">
               <h3 style="margin-bottom:8px">Mensajes de recontacto por nivel</h3>
-              <label>🥉 Mensaje para clientes (nivel base)</label><textarea id="wa-rec-cliente" rows="2" placeholder="Hola [nombre]! Te extrañamos en [local]..."></textarea>
-              <label>🥈 Mensaje para clientes frecuentes</label><textarea id="wa-rec-frecuente" rows="2" placeholder="Hola [nombre]! Hace unos días que no sabemos de vos..."></textarea>
-              <label>🥇 Mensaje para clientes VIP</label><textarea id="wa-rec-vip" rows="2" placeholder="Hola [nombre]! Te deseamos una excelente semana..."></textarea>
+              <label>🥉 Mensaje para clientes (nivel base)</label><textarea id="wa-rec-cliente-legacy" rows="2" placeholder="Hola [nombre]! Te extrañamos en [local]..."></textarea>
+              <label>🥈 Mensaje para clientes frecuentes</label><textarea id="wa-rec-frecuente-legacy" rows="2" placeholder="Hola [nombre]! Hace unos días que no sabemos de vos..."></textarea>
+              <label>🥇 Mensaje para clientes VIP</label><textarea id="wa-rec-vip-legacy" rows="2" placeholder="Hola [nombre]! Te deseamos una excelente semana..."></textarea>
             </div>
             <div class="row" style="margin-top:12px">
-              <button class="btn bp" id="cfg-wa-btn" onclick="saveCfgMensajes()">Guardar mensajes</button>
+              <button class="btn bp" id="cfg-wa-btn-legacy" onclick="saveCfgMensajes()">Guardar mensajes</button>
               <button class="btn bs" onclick="resetCfgMensajes()">Restaurar por defecto</button>
             </div>
           </div>
@@ -2086,7 +2086,26 @@ tr:hover td{background:#fafaf8}
 </div>
 
 <!-- CLIENTE PORTAL (MOD 9) -->
-<div id="cliente-screen">
+<div 
+    <!-- TOKEN ADMIN -->
+    <div id="sec-token" class="sec">
+      <div style="max-width:600px;margin:0 auto;padding:16px;text-align:center">
+        <h2 style="margin-bottom:8px">🔑 Token de Autorización</h2>
+        <div style="font-size:13px;color:#888;margin-bottom:24px">Compartilo con el empleado que lo necesite. Cambia cada 60 segundos y se consume al usarse.</div>
+        <div class="card" style="padding:32px">
+          <div style="font-size:48px;font-weight:900;letter-spacing:12px;font-family:monospace;color:var(--primary)" id="token-display">------</div>
+          <div style="margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px">
+            <div style="width:200px;height:6px;background:#eee;border-radius:3px;overflow:hidden">
+              <div id="token-timer-bar" style="height:100%;background:var(--primary);border-radius:3px;transition:width 1s linear;width:100%"></div>
+            </div>
+            <span id="token-timer-text" style="font-size:12px;color:#888;min-width:30px">60s</span>
+          </div>
+          <div style="margin-top:16px;font-size:12px;color:#aaa" id="token-status">Token activo</div>
+        </div>
+      </div>
+    </div>
+
+id="cliente-screen">
   <!-- PROMPT DE SUCURSAL (clientes viejos sin local asignado) -->
   <div id="sucursal-prompt-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:3000;align-items:center;justify-content:center;padding:20px">
     <div style="background:#fff;border-radius:16px;padding:28px;max-width:440px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.3)">
@@ -2566,7 +2585,7 @@ function statusClass(s){
 }
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
-const ADMIN_TABS=[['dashboard','Panel'],['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['ventas-dia','Ventas'],['caja','Caja'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['configuracion','⚙ Configuración']];
+const ADMIN_TABS=[['dashboard','Panel'],['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['ventas-dia','Ventas'],['caja','Caja'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['configuracion','⚙ Configuración'],['token','🔑 Token']];
 const ADMIN_TABS_GLOBAL=[['dashboard','Panel'],['calendario','📅 Calendario'],['informes','Informes'],['empleados','Usuarios'],['gastos','💰 Gastos'],['configuracion','⚙ Configuración']];
 const VEND_TABS=[['ventas','Nueva venta'],['clientes','Clientes'],['inventario','Inventario'],['pedidos-online','Pedidos online'],['caja','Caja'],['calendario','📅 Calendario']];
 const PROD_TABS=[['produccion-inv','Inventario'],['produccion-ordenes','Elaborar']];
@@ -2591,6 +2610,8 @@ function buildNav(role){
 }
 
 window.showSec=function(id,btn){
+  // Token check for protected tabs (vendedor only)
+  if(!checkTokenRequired(id))return;
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
   const secEl=document.getElementById('sec-'+id);
@@ -2636,6 +2657,7 @@ window.showSec=function(id,btn){
   }
   if(id==='produccion-inv')renderProdInv();
   if(id==='produccion-ordenes')renderOrdenesProduccion();
+  if(id==='token'&&USER_ROLE==='admin'){startTokenTimer();}
   if(id==='gastos'){
     initMesSel('cg-mes-sel');initMesSel('cb-mes-sel');initMesSel('gp-mes-sel');initMesSel('gs-mes-sel');
     renderCajaGrande();renderCuentaBancaria();renderProvSel();renderGastoEmpleadoSel();
@@ -3235,6 +3257,126 @@ window.enterAsRole=function(role){
     }
   }
 };
+
+
+// ── SISTEMA DE TOKEN OTP ──────────────────────────────────────────────────
+let _tokenInterval=null;
+let _tokenUnlocks={};// {tabName: unlockedUntilTimestamp}
+const TOKEN_PROTECTED_TABS=['clientes','inventario','caja'];
+const TOKEN_UNLOCK_MINUTES=5;
+
+function generateToken(){
+  return String(Math.floor(100000+Math.random()*900000));
+}
+function startTokenTimer(){
+  if(_tokenInterval)clearInterval(_tokenInterval);
+  let remaining=60;
+  async function refreshToken(){
+    const newToken=generateToken();
+    try{
+      await setDoc(doc(db,'config',STORE),{currentToken:newToken,tokenTs:Date.now()},{merge:true});
+    }catch{}
+    const display=document.getElementById('token-display');
+    if(display)display.textContent=newToken;
+    remaining=60;
+    updateTokenBar();
+  }
+  function updateTokenBar(){
+    const bar=document.getElementById('token-timer-bar');
+    const txt=document.getElementById('token-timer-text');
+    if(bar)bar.style.width=Math.round(remaining/60*100)+'%';
+    if(txt)txt.textContent=remaining+'s';
+    remaining--;
+    if(remaining<0)refreshToken();
+  }
+  refreshToken();
+  _tokenInterval=setInterval(updateTokenBar,1000);
+}
+function checkTokenRequired(tabId){
+  if(USER_ROLE==='admin')return true;// Admin never needs token
+  if(USER_ROLE!=='vendedor')return true;// Only vendedores need token
+  if(!TOKEN_PROTECTED_TABS.includes(tabId))return true;// Tab not protected
+  // Check if tab is unlocked
+  const unlockUntil=_tokenUnlocks[tabId]||0;
+  if(Date.now()<unlockUntil)return true;// Still unlocked
+  // Show token prompt
+  showTokenPrompt(tabId);
+  return false;
+}
+function showTokenPrompt(tabId){
+  const tabNames={clientes:'Clientes',inventario:'Inventario',caja:'Caja'};
+  // Create overlay
+  let overlay=document.getElementById('token-overlay');
+  if(!overlay){
+    overlay=document.createElement('div');
+    overlay.id='token-overlay';
+    overlay.style.cssText='position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display='flex';
+  overlay.innerHTML=`<div style="background:#fff;border-radius:16px;padding:32px;max-width:360px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+    <div style="font-size:36px;margin-bottom:10px">🔑</div>
+    <div style="font-size:18px;font-weight:700;margin-bottom:6px">Token requerido</div>
+    <div style="font-size:13px;color:#666;margin-bottom:20px">Para acceder a <strong>${tabNames[tabId]||tabId}</strong> necesitás un token. Pedilo al administrador.</div>
+    <input type="text" id="token-input" inputmode="numeric" maxlength="6" placeholder="Ingresá el token de 6 dígitos" style="width:100%;padding:14px;text-align:center;font-size:24px;font-weight:700;letter-spacing:8px;font-family:monospace;border:2px solid var(--border);border-radius:10px;margin-bottom:12px"/>
+    <div id="token-error" style="display:none;color:#e74c3c;font-size:12px;margin-bottom:10px"></div>
+    <button onclick="validateToken('${tabId}')" id="token-validate-btn" style="width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:8px">Validar</button>
+    <button onclick="document.getElementById('token-overlay').style.display='none'" style="width:100%;padding:10px;background:none;border:1px solid var(--border);border-radius:10px;font-size:13px;cursor:pointer;color:#888">Cancelar</button>
+  </div>`;
+  setTimeout(()=>document.getElementById('token-input')?.focus(),100);
+  // Allow Enter key
+  document.getElementById('token-input').onkeydown=function(ev){if(ev.key==='Enter')validateToken(tabId);};
+}
+window.validateToken=async function(tabId){
+  const input=document.getElementById('token-input');
+  const errEl=document.getElementById('token-error');
+  const btn=document.getElementById('token-validate-btn');
+  const typed=input?.value.trim();
+  if(!typed||typed.length!==6){errEl.textContent='Ingresá los 6 dígitos';errEl.style.display='block';return;}
+  btn.disabled=true;btn.textContent='Validando...';
+  try{
+    const cfgSnap=await getDoc(doc(db,'config',STORE));
+    const currentToken=cfgSnap.exists()?cfgSnap.data().currentToken:'';
+    if(typed===currentToken){
+      // Token valid - unlock tab for 5 minutes
+      _tokenUnlocks[tabId]=Date.now()+(TOKEN_UNLOCK_MINUTES*60*1000);
+      document.getElementById('token-overlay').style.display='none';
+      // Consume token by generating a new one immediately
+      const newToken=generateToken();
+      await setDoc(doc(db,'config',STORE),{currentToken:newToken,tokenTs:Date.now()},{merge:true});
+      // Update admin display if visible
+      const display=document.getElementById('token-display');
+      if(display)display.textContent=newToken;
+      // Show the tab
+      switchTab(tabId);
+      toast('🔓 '+tabId.charAt(0).toUpperCase()+tabId.slice(1)+' desbloqueado por '+TOKEN_UNLOCK_MINUTES+' minutos');
+    } else {
+      errEl.textContent='Token incorrecto. Pedí uno nuevo al administrador.';
+      errEl.style.display='block';
+      btn.disabled=false;btn.textContent='Validar';
+    }
+  }catch(e){
+    errEl.textContent='Error al validar: '+e.message;
+    errEl.style.display='block';
+    btn.disabled=false;btn.textContent='Validar';
+  }
+};
+// Auto-lock check: re-lock tabs when time expires (check every 30s)
+setInterval(function(){
+  if(USER_ROLE!=='vendedor')return;
+  TOKEN_PROTECTED_TABS.forEach(tab=>{
+    const unlockUntil=_tokenUnlocks[tab]||0;
+    if(unlockUntil>0&&Date.now()>=unlockUntil){
+      _tokenUnlocks[tab]=0;
+      // If currently viewing this tab, show lock overlay
+      const secEl=document.getElementById('sec-'+tab);
+      if(secEl&&secEl.classList.contains('active')){
+        showTokenPrompt(tab);
+        toast('🔒 Sesión de '+tab+' expirada. Solicitá un nuevo token.',3000);
+      }
+    }
+  });
+},30000);
 
 window.doLogout=function(){
   _unsubs.forEach(f=>f());_unsubs=[];
@@ -5396,6 +5538,12 @@ window.updStock=async function(){
   const pvCheck=parseInt(document.getElementById('s-precio-venta')?.value)||0;
   const alertaCheck=parseInt(document.getElementById('s-alerta')?.value)||0;
   if(!cant&&!pvCheck&&!alertaCheck){alert('Ingresá al menos una cantidad, precio de venta o alerta de stock');return;}
+  if(cant>0){
+    const modoCheck=document.getElementById('s-modo')?.value==='ajustar';
+    const stockPrev=_inv[prod]?.stock||0;
+    const stockAfter=Math.max(0,Math.round((stockPrev+(modoCheck?-cant:cant))*1000)/1000);
+    if(!confirm(prod+':\n\nStock actual: '+stockPrev+'\n'+(modoCheck?'Ajustar: -':'Agregar: +')+cant+'\nStock resultante: '+stockAfter+'\n\n\u00bfConfirmar?')){setBtn('s-btn',false,'Actualizar stock');return;}
+  }
   setBtn('s-btn',true,'Actualizar stock');setSyncDot('syncing');
   try{
     const modoAjuste=document.getElementById('s-modo')?.value==='ajustar';
@@ -6529,12 +6677,12 @@ function renderDescuentosAutoList(){
   // Re-render the auto discounts list
   const el=document.getElementById('dc-auto-lista');
   if(el&&_descuentosAuto){
-    const diasN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    const dias=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
     if(!_descuentosAuto.length){el.innerHTML='<div class="empty">Sin descuentos automáticos</div>';return;}
     el.innerHTML=_descuentosAuto.map(d=>{
       const horario=d.horaDesde&&d.horaHasta?d.horaDesde+' a '+d.horaHasta:'Todo el día';
       return'<div class="pr"><div><div style="font-weight:600;font-size:13px">'+d.nombre+'</div>'+
-        '<div style="font-size:11px;color:#888">'+d.dias.map(n=>diasN[n]).join(', ')+' · '+(d.pago||'Cualquier pago')+' · '+d.porcentaje+'% · '+horario+'</div></div>'+
+        '<div style="font-size:11px;color:#888">'+d.dias.map(n=>dias[n]).join(', ')+' · '+(d.pago||'Cualquier pago')+' · '+d.porcentaje+'% · '+horario+'</div></div>'+
         '<div style="display:flex;gap:4px"><button class="btn bs bsm" style="font-size:11px" onclick="toggleDcAutoVisible(this.dataset.id,'+(!0)+')" data-id="'+d.id+'">'+(d.visible!==false?'👁':'🙈')+'</button>'+
         '<button class="btn bd bsm" onclick="deleteDescuentoAuto(this.dataset.id)" data-id="'+d.id+'">Eliminar</button></div></div>';
     }).join('');
@@ -7108,8 +7256,8 @@ async function renderCajaGrande(){
 
     const typeLabel={ingreso:'\u2191 Ingreso','pase-caja-chica':'\u2191 Desde caja chica',
       'pago-proveedor':'Pago proveedor',sueldo:'Sueldo',
-      'retiro-socios':'\ud83d\udcbc Retiro socios',retiro:'Retiro',gasto:'Gasto',
-      'venta-no-efectivo':'\ud83d\udcb3 Venta no-efectivo'};
+      'retiro-socios':'💼 Retiro socios',retiro:'Retiro',gasto:'Gasto',
+      'venta-no-efectivo':'💳 Venta no-efectivo'};
     const typeColor={ingreso:'var(--success)','pase-caja-chica':'var(--success)',
       'pago-proveedor':'var(--danger)',sueldo:'var(--danger)',
       'retiro-socios':'#7f8c8d',retiro:'var(--danger)',gasto:'var(--danger)',
@@ -7120,7 +7268,7 @@ async function renderCajaGrande(){
     if(saldoAnterior!==0){
       const colorSaldo=saldoAnterior>=0?'var(--success)':'var(--danger)';
       html+=`<div style="padding:10px 14px;background:rgba(55,138,221,0.08);border-radius:8px;margin-bottom:12px;font-size:13px">
-        \ud83d\udcb0 Saldo anterior: <strong style="color:${colorSaldo}">$${Math.round(saldoAnterior).toLocaleString('es-AR')}</strong>
+        💰 Saldo anterior: <strong style="color:${colorSaldo}">$${Math.round(saldoAnterior).toLocaleString('es-AR')}</strong>
       </div>`;
     }
     if(!todos.length&&saldoAnterior===0){el.innerHTML='<div class="empty">Sin movimientos en este mes</div>';if(totEl)totEl.textContent='';return;}
@@ -7694,6 +7842,9 @@ window.renderProdInv=function(){
   renderLocalIndicatorProduccion();
     const el=document.getElementById('prod-inv-lista');if(!el)return;
   const prods=(_productos||[]).filter(p=>p.requiereElaboracion&&p.activo!==false);
+  const sortMode=window._prodInvSort||'alpha';
+  if(sortMode==='stock'){prods.sort((a,b)=>((_inv[a.nombre]?.stock||0))-(_inv[b.nombre]?.stock||0));}
+  else{prods.sort((a,b)=>a.nombre.localeCompare(b.nombre));}
   if(!prods.length){el.innerHTML='<div class="empty">No hay productos marcados para producción. El admin los configura desde Inventario → Productos.</div>';return;}
   el.innerHTML=`<table style="width:100%;border-collapse:collapse">
     <thead><tr style="background:var(--bg)"><th style="padding:10px;text-align:left">Producto</th><th style="padding:10px;text-align:left">Código</th><th style="padding:10px;text-align:right">Stock actual</th><th style="padding:10px;text-align:right">Alerta mínima</th><th style="padding:10px;text-align:center">Estado</th><th style="padding:10px;text-align:center"></th></tr></thead>
@@ -7707,7 +7858,7 @@ window.renderProdInv=function(){
         <td style="padding:10px;text-align:right">${stock} ${p.unidad||'unid.'}</td>
         <td style="padding:10px;text-align:right">${alerta} ${p.unidad||'unid.'}</td>
         <td style="padding:10px;text-align:center"><span style="padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;background:${ok?'rgba(29,158,117,0.1)':'rgba(232,68,34,0.1)'};color:${ok?'#1D9E75':'#e74c3c'}">${ok?'OK':'⚠ BAJO'}</span></td>
-        <td style="padding:10px;text-align:center"><button onclick="abrirAddStockProd('${p.id}','${p.nombre.replace(/'/g,"\\'")}','${(p.unidad||'unid.').replace(/'/g,"\\'")}')" style="background:var(--primary);color:#fff;border:none;border-radius:6px;width:26px;height:26px;font-size:16px;font-weight:700;cursor:pointer;line-height:1">+</button></td>
+        <td style="padding:10px;text-align:center"><button onclick="abrirAddStockProd('${p.id}','${p.nombre.replace(/'/g,"\\'")}','${(p.unidad||'unid.').replace(/'/g,"\\'")}')" style="background:${(window._ordenesTrabajo||[]).some(o=>o.productoNombre===p.nombre&&o.estado==='pendiente')?'#ccc':'var(--primary)'};color:#fff;border:none;border-radius:6px;width:26px;height:26px;font-size:16px;font-weight:700;cursor:pointer;line-height:1" ${(window._ordenesTrabajo||[]).some(o=>o.productoNombre===p.nombre&&o.estado==='pendiente')?'disabled title="Tenés una OT pendiente para este producto. Usá la pestaña Elaborar."':''}>${(window._ordenesTrabajo||[]).some(o=>o.productoNombre===p.nombre&&o.estado==='pendiente')?'○':'+'}</button></td>
       </tr>
       <tr id="addstock-row-${p.id}" style="display:none;background:var(--bg)">
         <td colspan="6" style="padding:10px">
@@ -11641,6 +11792,8 @@ window.addEventListener('storage', async function(e){
   }
   if(e.key!=='crm-stock-edit'||!e.newValue)return;
   try{
+    // Immediately consume to prevent other tabs from processing
+    try{localStorage.removeItem('crm-stock-edit');}catch{}
     const cmd=JSON.parse(e.newValue);
     if(!cmd.docId||!cmd.nom||!cmd.cant)return;
     await editarEntradaStock(cmd.docId, cmd.nom, cmd.cant, cmd.costo||0);
@@ -13348,7 +13501,12 @@ window.registrarTurno=async function(){
     <div style="max-width:900px;margin:0 auto;padding:16px">
       <div id="prod-local-indicator" style="margin-bottom:12px"></div>
       <h2 style="margin-bottom:16px">🔧 Inventario de producción</h2>
-      <div id="prod-inv-lista"><div class="empty">Cargando...</div></div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center">
+            <span style="font-size:12px;color:#888">Ordenar:</span>
+            <button class="btn bs bsm" onclick="window._prodInvSort='alpha';renderProdInv()" style="font-size:11px">🔠 Alfabético</button>
+            <button class="btn bs bsm" onclick="window._prodInvSort='stock';renderProdInv()" style="font-size:11px">📦 Menos stock</button>
+          </div>
+          <div id="prod-inv-lista"><div class="empty">Cargando...</div></div>
     </div>
   </div>
   <div id="sec-produccion-ordenes" class="sec">
