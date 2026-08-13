@@ -7988,30 +7988,27 @@ window.confirmarAddStockProd=async function(prodId,nombre){
   const cantEl=document.getElementById('addstock-cant-'+prodId);
   const cant=parseDecimal(cantEl?.value);
   if(!cant||isNaN(cant)||cant<=0){alert('Ingresá una cantidad válida');return;}
-  // Read current stock at this exact moment
   const stockAhora=Math.round((_inv[nombre]?.stock||0)*1000)/1000;
   const stockFinal=Math.round((stockAhora+cant)*1000)/1000;
   if(!confirm('Confirmar carga de stock:\n\n'+nombre+'\n• Stock actual: '+stockAhora+'\n• Sumar: +'+cant+'\n• Stock resultante: '+stockFinal+'\n\n¿Es correcto?'))return;
-  // Ask for PIN to identify who is loading
+  // PIN identification
   const btnsAll=cantEl?.parentElement?.querySelectorAll('button');
   if(btnsAll)btnsAll.forEach(b=>{b.disabled=true;});
   showPinPrompt('Cargar +'+cant+' '+nombre,async function(authUser){
-  // Disable button to prevent double-click
-  const btns=cantEl?.parentElement?.querySelectorAll('button');
-  if(btns)btns.forEach(b=>{b.disabled=true;});
-  try{
-    await invUpdateStock({[nombre]:cant});
-    await addDoc(LCOL('stock-historial'),{
-      producto:nombre,cantidad:cant,tipo:'elaboracion',
-      obs:'Carga manual sin OT | Cargó: '+(authUser?.nombre||CU),fecha:today(),ts:Date.now()
-    });
-    toast('+'+cant+' '+nombre+' agregado al stock ('+stockAhora+' → '+Math.round((stockAhora+cant)*1000)/1000+')');
-    logAuditoria('cargó','produccion','+'+cant+' '+nombre+' (producción)','','');
-    document.getElementById('addstock-row-'+prodId).style.display='none';
-    });// end PIN callback\n  }catch(e){alert('Error: '+e.message);if(btns)btns.forEach(b=>{b.disabled=false;}
-  if(btnsAll)btnsAll.forEach(b=>{b.disabled=false;});
-  });// end PIN callback);}
+    try{
+      await invUpdateStock({[nombre]:cant});
+      await addDoc(LCOL('stock-historial'),{
+        producto:nombre,cantidad:cant,tipo:'elaboracion',
+        obs:'Carga manual sin OT | Cargó: '+(authUser?.nombre||CU),fecha:today(),ts:Date.now()
+      });
+      toast('+'+cant+' '+nombre+' ('+stockAhora+' → '+stockFinal+') - Cargó: '+authUser.nombre);
+      logAuditoria('cargó','produccion','['+authUser.nombre+'] +'+cant+' '+nombre,'Stock: '+stockAhora,'Stock: '+stockFinal);
+      document.getElementById('addstock-row-'+prodId).style.display='none';
+    }catch(e){alert('Error: '+e.message);}
+    if(btnsAll)btnsAll.forEach(b=>{b.disabled=false;});
+  });
 };
+
 
 // ── ÓRDENES DE TRABAJO ────────────────────────────────────────────────────
 window.renderOrdenesProduccion=async function(){
@@ -8142,29 +8139,25 @@ window.confirmarOrden=async function(ordenId,prodNombre,unidad,numero){
   if(!cant){alert('Ingresá la cantidad que elaboraste');return;}
   const stockAhora=Math.round((_inv[prodNombre]?.stock||0)*1000)/1000;
   const stockFinal=Math.round((stockAhora+cant)*1000)/1000;
-  if(!confirm(`OT #${numero} — ${prodNombre}\n\n• Stock actual: ${stockAhora} ${unidad}\n• Sumar: +${cant} ${unidad}\n• Stock resultante: ${stockFinal} ${unidad}\n\n¿Confirmar?`))return;
-  // PIN identification for OT completion
-  const otBtnEl=btn||cantEl?.parentElement?.querySelector('button');
-  if(otBtnEl){otBtnEl.disabled=true;otBtnEl.textContent='...';}
+  if(!confirm(`OT #\${numero} — \${prodNombre}\n\n• Stock actual: \${stockAhora} \${unidad}\n• Sumar: +\${cant} \${unidad}\n• Stock resultante: \${stockFinal} \${unidad}\n\n¿Confirmar?`))return;
+  const otBtn=cantEl?.parentElement?.querySelector('button');
+  if(otBtn){otBtn.disabled=true;otBtn.textContent='...';}
   showPinPrompt('Completar OT #'+numero+': +'+cant+' '+prodNombre,async function(authUser){
-  // Disable button
-  const btn=cantEl?.parentElement?.querySelector('button');
-  if(btn){btn.disabled=true;btn.textContent='Guardando...';}
-  try{
-    await invUpdateStock({[prodNombre]:cant});
-    await addDoc(LCOL('stock-historial'),{
-      producto:prodNombre,cantidad:cant,tipo:'elaboracion',
-      obs:'OT #'+numero+' | Completó: '+(authUser?.nombre||CU),fecha:today(),ts:Date.now()
-    });
-    // Close order
-    await updateDoc(LDOC('ordenes-trabajo',ordenId),{
-      estado:'completada',cantidadRealizada:cant,fechaCompletada:today(),horaCompletada:ftime()
-    });
-    toast('OT #'+numero+' completada: +'+cant+' '+unidad+' de '+prodNombre+' ('+stockAhora+' → '+stockFinal+')');
-    logAuditoria('completó','produccion','['+(authUser?.nombre||CU)+'] OT #'+numero+': +'+cant+' '+prodNombre,'','');
-    renderOrdenesProduccion();
-  }catch(e){alert('Error: '+e.message);if(btn){btn.disabled=false;btn.textContent='✓ Confirmar elaboración';}
-  });// end PIN callback OT}
+    try{
+      await invUpdateStock({[prodNombre]:cant});
+      await addDoc(LCOL('stock-historial'),{
+        producto:prodNombre,cantidad:cant,tipo:'elaboracion',
+        obs:'OT #'+numero+' | Completó: '+(authUser?.nombre||CU),fecha:today(),ts:Date.now()
+      });
+      await updateDoc(LDOC('ordenes-trabajo',ordenId),{
+        estado:'completada',cantidadRealizada:cant,fechaCompletada:today(),horaCompletada:ftime()
+      });
+      toast('OT #'+numero+': +'+cant+' '+prodNombre+' - Completó: '+authUser.nombre);
+      logAuditoria('completó','produccion','['+authUser.nombre+'] OT #'+numero+': +'+cant+' '+prodNombre,'Stock: '+stockAhora,'Stock: '+stockFinal);
+      renderOrdenesProduccion();
+    }catch(e){alert('Error: '+e.message);}
+    if(otBtn){otBtn.disabled=false;otBtn.textContent='✓ Confirmar elaboración';}
+  });
 };
 
 window.switchOTTab=function(tab,btn){
