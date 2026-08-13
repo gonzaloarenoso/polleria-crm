@@ -8139,7 +8139,7 @@ window.confirmarOrden=async function(ordenId,prodNombre,unidad,numero){
   if(!cant){alert('Ingresá la cantidad que elaboraste');return;}
   const stockAhora=Math.round((_inv[prodNombre]?.stock||0)*1000)/1000;
   const stockFinal=Math.round((stockAhora+cant)*1000)/1000;
-  if(!confirm(`OT #\${numero} — \${prodNombre}\n\n• Stock actual: \${stockAhora} \${unidad}\n• Sumar: +\${cant} \${unidad}\n• Stock resultante: \${stockFinal} \${unidad}\n\n¿Confirmar?`))return;
+  if(!confirm(`OT #${numero} — ${prodNombre}\n\n• Stock actual: ${stockAhora} ${unidad}\n• Sumar: +${cant} ${unidad}\n• Stock resultante: ${stockFinal} ${unidad}\n\n¿Confirmar?`))return;
   const otBtn=cantEl?.parentElement?.querySelector('button');
   if(otBtn){otBtn.disabled=true;otBtn.textContent='...';}
   showPinPrompt('Completar OT #'+numero+': +'+cant+' '+prodNombre,async function(authUser){
