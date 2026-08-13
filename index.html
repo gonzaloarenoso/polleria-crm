@@ -2033,14 +2033,35 @@ tr:hover td{background:#fafaf8}
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <select id="audit-fil-usuario" style="font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--border)" onchange="loadAuditoria()"><option value="">Todos los usuarios</option></select>
             <select id="audit-fil-tipo" style="font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--border)" onchange="loadAuditoria()">
-              <option value="">Todas las acciones</option>
+              <option value="">Todas las secciones</option>
               <option value="venta">Ventas</option>
-              <option value="edicion">Ediciones</option>
+              <option value="stock">Stock</option>
               <option value="caja">Caja</option>
               <option value="cliente">Clientes</option>
-              <option value="inventario">Inventario</option>
+              <option value="producto">Productos</option>
+              <option value="usuario">Usuarios</option>
+              <option value="sistema">Sistema</option>
+              <option value="caja-chica">Caja chica</option>
+              <option value="cuenta-corriente">Cuenta corriente</option>
             </select>
+            <select id="audit-fil-accion" style="font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--border)" onchange="loadAuditoria()">
+              <option value="">Todas las acciones</option>
+              <option value="creó">Creó</option>
+              <option value="editó">Editó</option>
+              <option value="eliminó">Eliminó</option>
+              <option value="cargó">Cargó</option>
+              <option value="registró">Registró</option>
+              <option value="confirmó">Confirmó</option>
+              <option value="cerró">Cerró</option>
+              <option value="renombró">Renombró</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:8px">
+            <div><label style="font-size:11px">Desde</label><input type="date" id="audit-fil-desde" onchange="loadAuditoria()" style="font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--border)"/></div>
+            <div><label style="font-size:11px">Hasta</label><input type="date" id="audit-fil-hasta" onchange="loadAuditoria()" style="font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--border)"/></div>
+            <input type="text" id="audit-fil-texto" placeholder="🔍 Buscar en detalle..." oninput="loadAuditoria()" style="font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);min-width:180px"/>
             <button class="btn bs bsm" onclick="loadAuditoria()">Actualizar</button>
+            <button class="btn bs bsm" onclick="document.getElementById('audit-fil-usuario').value='';document.getElementById('audit-fil-tipo').value='';document.getElementById('audit-fil-accion').value='';document.getElementById('audit-fil-desde').value='';document.getElementById('audit-fil-hasta').value='';document.getElementById('audit-fil-texto').value='';loadAuditoria()">Limpiar</button>
           </div>
         </div>
         <div id="inf-auditoria-lista"><div class="empty">Sin registros de auditoría</div></div>
@@ -11381,14 +11402,31 @@ ${histPrecios.length?`<div class="card">
 </div>`:''}
 
 <div class="card">
-  <h3>🧾 Últimas ventas</h3>
-  ${ventasProd.length?`<table><thead><tr><th>Fecha</th><th>Cliente</th><th>Canal</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>
-  ${ventasProd.slice(0,20).map(v=>{const it=v.items.find(i=>i.nom===nom);return`<tr><td>${v.fecha||'—'}</td><td>${v.cliente||'Mostrador'}</td><td>${v.canal||'—'}</td><td>${it?.cant||0} ${uni}</td><td>${fmtARS(it?.precio||0)}</td><td>${fmtARS((it?.cant||0)*(it?.precio||0))}</td></tr>`;}).join('')}
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <h3 style="margin:0">🧾 Últimas ventas</h3>
+    <button id="btn-hist-ventas" style="background:none;border:1px solid var(--primary);color:var(--primary);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;font-weight:600">📅 Ver historial completo</button>
+  </div>
+  ${ventasProd.length?`<table><thead><tr><th>Fecha</th><th>Hora</th><th>Cliente</th><th>Canal</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>
+  ${ventasProd.slice(0,20).map(v=>{const it=v.items.find(i=>i.nom===nom);return`<tr><td>${v.fecha||'—'}</td><td style="color:#888">${v.hora||'—'}</td><td>${v.cliente||'Mostrador'}</td><td>${v.canal||'—'}</td><td>${it?.cant||0} ${uni}</td><td>${fmtARS(it?.precio||0)}</td><td>${fmtARS((it?.cant||0)*(it?.precio||0))}</td></tr>`;}).join('')}
   </tbody></table>`
   :`<p style="color:#888;text-align:center;padding:16px">Sin ventas registradas</p>`}
+  <div id="hist-ventas-full" style="display:none;margin-top:16px;border-top:2px solid var(--primary);padding-top:12px">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+      <strong style="font-size:13px">📅 Historial completo</strong>
+      <input type="date" id="hist-desde" style="font-size:12px;padding:4px 6px;border:1px solid #ccc;border-radius:6px"/>
+      <input type="date" id="hist-hasta" style="font-size:12px;padding:4px 6px;border:1px solid #ccc;border-radius:6px"/>
+      <button onclick="filtrarHistVentas()" style="background:var(--primary);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer">Filtrar</button>
+    </div>
+    <div id="hist-ventas-tabla"></div>
+  </div>
 </div>
 
 <script>
+// Datos para historial de ventas
+var allVentas=${JSON.stringify(ventasProd.map(v=>({fecha:v.fecha,hora:v.hora||'',cliente:v.cliente||'Mostrador',items:v.items})))};
+var prodNombre='${nom.replace(/'/g,"\\'")}';
+var prodUnidad='${uni}';
+
 // Estado edición actual
 let _editDocId=null;
 
@@ -11660,6 +11698,13 @@ document.addEventListener('DOMContentLoaded',function(){
       }
       return;
     }
+    // Botón historial ventas
+    if(btn.id==='btn-hist-ventas'){
+      e.preventDefault();
+      const panel=document.getElementById('hist-ventas-full');
+      if(panel)panel.style.display=panel.style.display==='none'?'block':'none';
+      return;
+    }
     // Botón Cerrar
     if(btn.id==='btn-close'){
       e.preventDefault();
@@ -11667,6 +11712,23 @@ document.addEventListener('DOMContentLoaded',function(){
       return;
     }
   });
+
+  // Historical ventas filter
+  window.filtrarHistVentas=function(){
+    const desde=document.getElementById('hist-desde')?.value||'';
+    const hasta=document.getElementById('hist-hasta')?.value||'';
+    const tabla=document.getElementById('hist-ventas-tabla');
+    if(!tabla)return;
+    let filtered=allVentas;
+    if(desde)filtered=filtered.filter(v=>v.fecha>=desde);
+    if(hasta)filtered=filtered.filter(v=>v.fecha<=hasta);
+    if(!filtered.length){tabla.innerHTML='<p style="color:#888;text-align:center">Sin ventas en ese período</p>';return;}
+    let totalCant=0,totalFac=0;
+    tabla.innerHTML='<table><thead><tr><th>Fecha</th><th>Hora</th><th>Cliente</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>'+
+    filtered.map(v=>{const it=v.items.find(i=>i.nom===prodNombre);const cant=it?.cant||0;const precio=it?.precio||0;totalCant+=parseFloat(cant);totalFac+=cant*precio;return'<tr><td>'+v.fecha+'</td><td style="color:#888">'+(v.hora||'—')+'</td><td>'+(v.cliente||'Mostrador')+'</td><td>'+cant+' '+(prodUnidad||'')+'</td><td>$'+(precio||0).toLocaleString('es-AR')+'</td><td>$'+Math.round(cant*precio).toLocaleString('es-AR')+'</td></tr>';}).join('')+
+    '</tbody></table>'+
+    '<div style="margin-top:8px;font-weight:700;font-size:13px">Total: '+Math.round(totalCant*1000)/1000+' '+(prodUnidad||'')+' \u00b7 $'+Math.round(totalFac).toLocaleString('es-AR')+'</div>';
+  };
 });
 <\/script>
 </body></html>`;
@@ -13286,29 +13348,32 @@ window.loadAuditoria=async function(){
   el.innerHTML='<div class="empty">Cargando...</div>';
   try{
     const snap=await getDocs(collection(db,'users',STORE,'auditoria'));
-    let registros=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.ts-a.ts).slice(0,200);
+    let registros=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.ts-a.ts);
+    // Populate user filter dynamically
+    const usuarios=[...new Set(registros.map(r=>r.usuario).filter(Boolean))].sort();
+    const selU=document.getElementById('audit-fil-usuario');
+    if(selU){const cur=selU.value;selU.innerHTML='<option value="">Todos los usuarios</option>'+usuarios.map(u=>'<option value="'+u+'">'+u+'</option>').join('');selU.value=cur;}
+    // Apply filters
     const filUser=document.getElementById('audit-fil-usuario')?.value||'';
     const filTipo=document.getElementById('audit-fil-tipo')?.value||'';
-    // Populate user filter
-    const selU=document.getElementById('audit-fil-usuario');
-    if(selU){
-      const allUsers=[...new Set(registros.map(r=>r.usuario).filter(Boolean))];
-      const curVal=selU.value;
-      selU.innerHTML='<option value="">Todos los usuarios</option>'+allUsers.map(u=>'<option value="'+u+'"'+(curVal===u?' selected':'')+'>'+u+'</option>').join('');
-    }
+    const filAccion=document.getElementById('audit-fil-accion')?.value||'';
+    const filDesde=document.getElementById('audit-fil-desde')?.value||'';
+    const filHasta=document.getElementById('audit-fil-hasta')?.value||'';
+    const filTexto=(document.getElementById('audit-fil-texto')?.value||'').toLowerCase().trim();
     if(filUser)registros=registros.filter(r=>r.usuario===filUser);
     if(filTipo)registros=registros.filter(r=>r.tipo===filTipo);
-    // Populate user filter
-    const usuarios=[...new Set(snap.docs.map(d=>d.data().usuario).filter(Boolean))];
-    const sel=document.getElementById('audit-fil-usuario');
-    if(sel){const cur=sel.value;sel.innerHTML='<option value="">Todos los usuarios</option>'+usuarios.map(u=>'<option value="'+u+'">'+u+'</option>').join('');sel.value=cur;}
-    if(!registros.length){el.innerHTML='<div class="empty">Sin registros</div>';return;}
-    const colores={creó:'#EAF3DE',modificó:'#FFF3CD',eliminó:'#FCEBEB',cerró:'#EAF3DE'};
-    el.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
-      '<thead><tr style="background:#1a1a1a;color:#fff"><th style="padding:7px 10px;text-align:left">Fecha</th><th style="padding:7px 10px;text-align:left">Usuario</th><th style="padding:7px 10px;text-align:left">Acción</th><th style="padding:7px 10px;text-align:left">Detalle</th><th style="padding:7px 10px;text-align:left">Anterior</th><th style="padding:7px 10px;text-align:left">Nuevo</th></tr></thead>'+
-      '<tbody>'+registros.map(r=>'<tr style="border-bottom:1px solid #f0ede8"><td style="padding:6px 10px">'+r.fecha+' '+r.hora+'</td><td style="padding:6px 10px;font-weight:600">'+r.usuario+'</td><td style="padding:6px 10px"><span style="background:'+(colores[r.accion]||'#f0ede8')+';padding:2px 8px;border-radius:10px">'+r.accion+' '+r.tipo+'</span></td><td style="padding:6px 10px">'+r.detalle+'</td><td style="padding:6px 10px;color:#888">'+r.valorAnterior+'</td><td style="padding:6px 10px">'+r.valorNuevo+'</td></tr>').join('')+
+    if(filAccion)registros=registros.filter(r=>r.accion===filAccion);
+    if(filDesde)registros=registros.filter(r=>r.fecha>=filDesde);
+    if(filHasta)registros=registros.filter(r=>r.fecha<=filHasta);
+    if(filTexto)registros=registros.filter(r=>(r.detalle||'').toLowerCase().includes(filTexto)||(r.tipo||'').toLowerCase().includes(filTexto)||(r.accion||'').toLowerCase().includes(filTexto));
+    registros=registros.slice(0,500);
+    if(!registros.length){el.innerHTML='<div class="empty">Sin registros con estos filtros</div>';return;}
+    const colores={creó:'#EAF3DE',editó:'#FFF3CD',eliminó:'#FCEBEB',cerró:'#EAF3DE',cargó:'#E8F4FD',registró:'#EAF3DE',confirmó:'#EAF3DE',renombró:'#FFF3CD',habilitó:'#E8F4FD'};
+    el.innerHTML='<div style="font-size:12px;color:#888;margin-bottom:8px">Mostrando '+registros.length+' registros</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
+      '<thead><tr style="background:#1a1a1a;color:#fff"><th style="padding:7px 10px;text-align:left">Fecha y hora</th><th style="padding:7px 10px;text-align:left">Usuario</th><th style="padding:7px 10px;text-align:left">Acción</th><th style="padding:7px 10px;text-align:left">Detalle</th></tr></thead>'+
+      '<tbody>'+registros.map(r=>'<tr style="border-bottom:1px solid #f0ede8"><td style="padding:6px 10px;white-space:nowrap"><strong>'+r.fecha+'</strong> <span style="color:#888">'+r.hora+'</span></td><td style="padding:6px 10px;font-weight:600">'+r.usuario+'</td><td style="padding:6px 10px"><span style="background:'+(colores[r.accion]||'#f0ede8')+';padding:2px 8px;border-radius:10px;font-size:11px">'+r.accion+' '+r.tipo+'</span></td><td style="padding:6px 10px;max-width:400px;overflow:hidden;text-overflow:ellipsis">'+r.detalle+'</td></tr>').join('')+
       '</tbody></table></div>';
-  }catch(e){el.innerHTML='<div class="empty">Error cargando auditoría</div>';}
+  }catch(e){el.innerHTML='<div class="empty">Error cargando auditoría: '+e.message+'</div>';}
 };
 
 // Load auditoria when informes tab opens
