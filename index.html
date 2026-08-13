@@ -3262,7 +3262,7 @@ window.enterAsRole=function(role){
 // ── SISTEMA DE TOKEN OTP ──────────────────────────────────────────────────
 let _tokenInterval=null;
 let _tokenUnlocks={};// {tabName: unlockedUntilTimestamp}
-const TOKEN_PROTECTED_TABS=['clientes','inventario','caja'];
+const TOKEN_PROTECTED_TABS=['clientes','inventario'];
 const TOKEN_UNLOCK_SECONDS=90;
 
 function generateToken(){
