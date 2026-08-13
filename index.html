@@ -5047,7 +5047,7 @@ window.confirmar=async function(){
     if(cliSel)await checkFidelizacion(cliSel.usuario||selectedClienteId,cliSel.nombre,finalTotal);
     limpiar();
     toast('Venta registrada');
-    logAuditoria('confirmó','venta','$'+finalTotal.toLocaleString('es-AR')+' - '+(selectedClienteNombre||'Mostrador')+' - '+(pagoSelGuardar||'?')+' - '+items.map(i=>i.nom+' x'+i.cant).join(', '),'','Items: '+items.length+' | Pago: '+(pagoSelGuardar||'?')+' | Total: $'+finalTotal);
+    logAuditoria('confirmó','venta','$'+finalTotal.toLocaleString('es-AR')+' - '+((document.getElementById('v-cli-ok-nom')?.textContent||'Mostrador'))+' - '+(pagoSelGuardar||'?')+' - '+items.map(i=>i.nom+' x'+i.cant).join(', '),'','Items: '+items.length+' | Pago: '+(pagoSelGuardar||'?')+' | Total: $'+finalTotal);
   }catch(e){alert('Error: '+e.message);}
   setBtn('v-btn',false,'Confirmar venta');
 };
@@ -7918,6 +7918,72 @@ window.abrirAddStockProd=function(prodId,nombre,unidad){
   if(row){row.style.display='table-row';document.getElementById('addstock-cant-'+prodId)?.focus();}
 };
 
+// ── IDENTIFICACIÓN POR CLAVE EN PRODUCCIÓN ──
+window._prodAuthCache={};// Cache user lookup
+async function identificarPorClave(usuario,clave){
+  if(!usuario||!clave)return null;
+  const h=hash(clave);
+  const cacheKey=usuario+'_'+h;
+  if(window._prodAuthCache[cacheKey])return window._prodAuthCache[cacheKey];
+  try{
+    const snap=await getDoc(doc(db,'users',usuario));
+    if(snap.exists()){
+      const data=snap.data();
+      if(data.passHash===h&&(data.parentAdmin===STORE||usuario===STORE)){
+        const result={usuario:usuario,nombre:data.nombre||usuario};
+        window._prodAuthCache[cacheKey]=result;
+        return result;
+      }
+    }
+  }catch(e){console.error('Auth error:',e);}
+  return null;
+}
+
+function showPinPrompt(titulo,callback){
+  let overlay=document.getElementById('pin-overlay');
+  if(!overlay){
+    overlay=document.createElement('div');
+    overlay.id='pin-overlay';
+    overlay.style.cssText='position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display='flex';
+  overlay.innerHTML=`<div style="background:#fff;border-radius:16px;padding:28px;max-width:340px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+    <div style="font-size:32px;margin-bottom:8px">🔐</div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:6px">\${titulo}</div>
+    <div style="font-size:13px;color:#666;margin-bottom:16px">Identificá quién está cargando</div>
+    <input type="text" id="pin-user" placeholder="Usuario" autocomplete="off" style="width:100%;padding:10px;font-size:14px;border:2px solid var(--border);border-radius:10px;margin-bottom:8px"/>
+    <input type="password" id="pin-input" placeholder="Clave" style="width:100%;padding:10px;text-align:center;font-size:18px;font-weight:700;letter-spacing:4px;border:2px solid var(--border);border-radius:10px;margin-bottom:10px"/>
+    <div id="pin-error" style="display:none;color:#e74c3c;font-size:12px;margin-bottom:8px"></div>
+    <button id="pin-confirm-btn" style="width:100%;padding:11px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:6px">Confirmar</button>
+    <button onclick="document.getElementById('pin-overlay').style.display='none'" style="width:100%;padding:9px;background:none;border:1px solid var(--border);border-radius:10px;font-size:13px;cursor:pointer;color:#888">Cancelar</button>
+  </div>`;
+  const userInput=document.getElementById('pin-user');
+  const passInput=document.getElementById('pin-input');
+  const btn=document.getElementById('pin-confirm-btn');
+  const errEl=document.getElementById('pin-error');
+  setTimeout(()=>userInput?.focus(),100);
+  async function doConfirm(){
+    const usuario=(userInput?.value||'').trim().toLowerCase();
+    const clave=passInput?.value;
+    if(!usuario||!clave){errEl.textContent='Ingresá usuario y clave';errEl.style.display='block';return;}
+    btn.disabled=true;btn.textContent='Verificando...';errEl.style.display='none';
+    const user=await identificarPorClave(usuario,clave);
+    if(user){
+      overlay.style.display='none';
+      callback(user);
+    } else {
+      errEl.textContent='Usuario o clave incorrectos. Intentá de nuevo.';
+      errEl.style.display='block';
+      btn.disabled=false;btn.textContent='Confirmar';
+      passInput.value='';passInput.focus();
+    }
+  }
+  btn.onclick=doConfirm;
+  passInput.onkeydown=function(ev){if(ev.key==='Enter')doConfirm();};
+  userInput.onkeydown=function(ev){if(ev.key==='Enter')passInput.focus();};
+}
+
 window.confirmarAddStockProd=async function(prodId,nombre){
   const cantEl=document.getElementById('addstock-cant-'+prodId);
   const cant=parseDecimal(cantEl?.value);
@@ -7926,6 +7992,10 @@ window.confirmarAddStockProd=async function(prodId,nombre){
   const stockAhora=Math.round((_inv[nombre]?.stock||0)*1000)/1000;
   const stockFinal=Math.round((stockAhora+cant)*1000)/1000;
   if(!confirm('Confirmar carga de stock:\n\n'+nombre+'\n• Stock actual: '+stockAhora+'\n• Sumar: +'+cant+'\n• Stock resultante: '+stockFinal+'\n\n¿Es correcto?'))return;
+  // Ask for PIN to identify who is loading
+  const btnsAll=cantEl?.parentElement?.querySelectorAll('button');
+  if(btnsAll)btnsAll.forEach(b=>{b.disabled=true;});
+  showPinPrompt('Cargar +'+cant+' '+nombre,async function(authUser){
   // Disable button to prevent double-click
   const btns=cantEl?.parentElement?.querySelectorAll('button');
   if(btns)btns.forEach(b=>{b.disabled=true;});
@@ -7933,12 +8003,14 @@ window.confirmarAddStockProd=async function(prodId,nombre){
     await invUpdateStock({[nombre]:cant});
     await addDoc(LCOL('stock-historial'),{
       producto:nombre,cantidad:cant,tipo:'elaboracion',
-      obs:'Carga manual sin OT — producción',fecha:today(),ts:Date.now()
+      obs:'Carga manual sin OT | Cargó: '+(authUser?.nombre||CU),fecha:today(),ts:Date.now()
     });
     toast('+'+cant+' '+nombre+' agregado al stock ('+stockAhora+' → '+Math.round((stockAhora+cant)*1000)/1000+')');
     logAuditoria('cargó','produccion','+'+cant+' '+nombre+' (producción)','','');
     document.getElementById('addstock-row-'+prodId).style.display='none';
-  }catch(e){alert('Error: '+e.message);if(btns)btns.forEach(b=>{b.disabled=false;});}
+    });// end PIN callback\n  }catch(e){alert('Error: '+e.message);if(btns)btns.forEach(b=>{b.disabled=false;}
+  if(btnsAll)btnsAll.forEach(b=>{b.disabled=false;});
+  });// end PIN callback);}
 };
 
 // ── ÓRDENES DE TRABAJO ────────────────────────────────────────────────────
@@ -8071,6 +8143,10 @@ window.confirmarOrden=async function(ordenId,prodNombre,unidad,numero){
   const stockAhora=Math.round((_inv[prodNombre]?.stock||0)*1000)/1000;
   const stockFinal=Math.round((stockAhora+cant)*1000)/1000;
   if(!confirm(`OT #${numero} — ${prodNombre}\n\n• Stock actual: ${stockAhora} ${unidad}\n• Sumar: +${cant} ${unidad}\n• Stock resultante: ${stockFinal} ${unidad}\n\n¿Confirmar?`))return;
+  // PIN identification for OT completion
+  const otBtnEl=btn||cantEl?.parentElement?.querySelector('button');
+  if(otBtnEl){otBtnEl.disabled=true;otBtnEl.textContent='...';}
+  showPinPrompt('Completar OT #'+numero+': +'+cant+' '+prodNombre,async function(authUser){
   // Disable button
   const btn=cantEl?.parentElement?.querySelector('button');
   if(btn){btn.disabled=true;btn.textContent='Guardando...';}
@@ -8078,16 +8154,17 @@ window.confirmarOrden=async function(ordenId,prodNombre,unidad,numero){
     await invUpdateStock({[prodNombre]:cant});
     await addDoc(LCOL('stock-historial'),{
       producto:prodNombre,cantidad:cant,tipo:'elaboracion',
-      obs:'OT #'+numero+' — Producción interna',fecha:today(),ts:Date.now()
+      obs:'OT #'+numero+' | Completó: '+(authUser?.nombre||CU),fecha:today(),ts:Date.now()
     });
     // Close order
     await updateDoc(LDOC('ordenes-trabajo',ordenId),{
       estado:'completada',cantidadRealizada:cant,fechaCompletada:today(),horaCompletada:ftime()
     });
     toast('OT #'+numero+' completada: +'+cant+' '+unidad+' de '+prodNombre+' ('+stockAhora+' → '+stockFinal+')');
-    logAuditoria('completó','produccion','OT #'+numero+': +'+cant+' '+prodNombre,'','');
+    logAuditoria('completó','produccion','['+(authUser?.nombre||CU)+'] OT #'+numero+': +'+cant+' '+prodNombre,'','');
     renderOrdenesProduccion();
-  }catch(e){alert('Error: '+e.message);if(btn){btn.disabled=false;btn.textContent='✓ Confirmar elaboración';}}
+  }catch(e){alert('Error: '+e.message);if(btn){btn.disabled=false;btn.textContent='✓ Confirmar elaboración';}
+  });// end PIN callback OT}
 };
 
 window.switchOTTab=function(tab,btn){
