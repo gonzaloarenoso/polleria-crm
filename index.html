@@ -133,24 +133,7 @@ tr:hover td{background:#fafaf8}
   .prod-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
 }
 
-body.hide-montos .kpi-v,
-body.hide-montos .mc strong,
-body.hide-montos #sec-dashboard .card strong,
-body.hide-montos #sec-dashboard .card .kpi-v,
-body.hide-montos #sec-ventas-dia td:last-child,
-body.hide-montos #sec-ventas-dia .pr span[style*="font-weight"],
-body.hide-montos #sec-caja strong,
-body.hide-montos #sec-caja .pr span[style*="font-weight"],
-body.hide-montos #sec-inventario .card strong,
-body.hide-montos #sec-inventario input[data-action="save-precio"],
-body.hide-montos #sec-gastos strong,
-body.hide-montos #sec-gastos .pr span[style*="font-weight"],
-body.hide-montos #sec-informes strong,
-body.hide-montos #cg-total,
-body.hide-montos #cj-ef,body.hide-montos #cj-tr,body.hide-montos #cj-ta,body.hide-montos #cj-tot,
-body.hide-montos #cj-cc,body.hide-montos #cj-ccobros,body.hide-montos #cj-desc{
-  filter:blur(10px)!important;user-select:none;transition:filter 0.2s;
-}
+.monto-blur{filter:blur(10px)!important;user-select:none!important;transition:filter 0.2s;}
 </style>
 </head>
 <body>
@@ -3420,12 +3403,39 @@ setInterval(function(){
   });
 },30000);
 
+window._montosOcultos=false;
 window.toggleMontos=function(){
-  document.body.classList.toggle('hide-montos');
+  window._montosOcultos=!window._montosOcultos;
   const btn=document.getElementById('toggle-montos-btn');
-  const hidden=document.body.classList.contains('hide-montos');
-  if(btn)btn.textContent=hidden?'🙈':'👁';
-  if(btn)btn.title=hidden?'Montos ocultos — click para mostrar':'Click para ocultar montos';
+  if(btn){btn.textContent=window._montosOcultos?'🙈':'👁';btn.title=window._montosOcultos?'Montos ocultos — click para mostrar':'Click para ocultar montos';}
+  // Find all elements containing $ amounts and blur/unblur them
+  const mainScreen=document.getElementById('main-screen');
+  if(!mainScreen)return;
+  if(window._montosOcultos){
+    // Blur: find all text nodes with $, and key elements
+    // 1. KPI values
+    mainScreen.querySelectorAll('.kpi-v').forEach(el=>el.classList.add('monto-blur'));
+    // 2. All elements with $ in their text (direct children text)
+    const walker=document.createTreeWalker(mainScreen,NodeFilter.SHOW_ELEMENT,{
+      acceptNode:function(node){
+        if(node.children.length===0||node.tagName==='SPAN'||node.tagName==='STRONG'||node.tagName==='TD'){
+          const txt=node.textContent||'';
+          if(txt.match(/\$[\d.,]+/)&&txt.length<50)return NodeFilter.FILTER_ACCEPT;
+        }
+        return NodeFilter.FILTER_SKIP;
+      }
+    });
+    let node;while(node=walker.nextNode()){node.classList.add('monto-blur');}
+    // 3. Price inputs
+    mainScreen.querySelectorAll('input[data-action="save-precio"]').forEach(el=>el.classList.add('monto-blur'));
+    // 4. Specific known IDs
+    ['cj-ef','cj-tr','cj-ta','cj-tot','cj-cc','cj-ccobros','cj-desc','cg-total'].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.classList.add('monto-blur');
+    });
+  } else {
+    // Unblur all
+    mainScreen.querySelectorAll('.monto-blur').forEach(el=>el.classList.remove('monto-blur'));
+  }
 };
 
 window.doLogout=function(){
