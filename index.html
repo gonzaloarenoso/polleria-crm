@@ -259,7 +259,7 @@ tr:hover td{background:#fafaf8}
       <div class="nav" id="nav"></div>
       <select id="locale-selector" onchange="cambiarLocal(this.value)" style="display:none;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:13px;font-weight:600;max-width:200px"></select>
       <span id="rbadge" class="rbadge"></span>
-      <button id="toggle-montos-btn" onclick="toggleMontos()" style="background:none;border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:8px;padding:4px 10px;font-size:16px;cursor:pointer;margin-right:6px" title="Mostrar/ocultar montos">👁</button><div class="user-pill" id="user-pill" onclick="doLogout()">cerrar sesión</div>
+      <button id="toggle-montos-btn" onclick="toggleMontos()" style="background:none;border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:8px;padding:4px 10px;font-size:16px;cursor:pointer;margin-right:6px;display:none" title="Mostrar/ocultar montos">👁</button><div class="user-pill" id="user-pill" onclick="doLogout()">cerrar sesión</div>
     </div>
   </div>
   <div class="content">
@@ -932,7 +932,21 @@ tr:hover td{background:#fafaf8}
       <!-- CAJA CHICA -->
       <div class="card" style="margin-top:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-          <h3 style="margin-bottom:0">Caja chica</h3>
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <h3 style="margin-bottom:0">Caja chica</h3>
+            <div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap">
+              <div><label style="font-size:11px">Desde</label><input type="date" id="cc-fil-desde" onchange="renderCajaChica()" style="font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid var(--border)"/></div>
+              <div><label style="font-size:11px">Hasta</label><input type="date" id="cc-fil-hasta" onchange="renderCajaChica()" style="font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid var(--border)"/></div>
+              <select id="cc-fil-rapido" onchange="ccFiltroRapido()" style="font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid var(--border)">
+                <option value="hoy" selected>Hoy</option>
+                <option value="semana">Esta semana</option>
+                <option value="mes">Este mes</option>
+                <option value="7dias">Últimos 7 días</option>
+                <option value="30dias">Últimos 30 días</option>
+                <option value="todo">Todo</option>
+              </select>
+            </div>
+          </div>
           <div style="display:flex;gap:6px;align-items:center">
             <div id="caja-chica-saldo" style="font-size:14px;font-weight:700"></div>
             <button class="btn bs bsm" onclick="toggleCfgCajaChica()" style="font-size:11px">⚙ Categorías</button>
@@ -2687,7 +2701,7 @@ window.showSec=function(id,btn){
     initMesSel('cg-mes-sel');initMesSel('cb-mes-sel');initMesSel('gp-mes-sel');initMesSel('gs-mes-sel');
     renderCajaGrande();renderCuentaBancaria();renderProvSel();renderGastoEmpleadoSel();
   }
-  if(id==='caja'){renderCaja();setTimeout(checkRecepcionTurno,500);}
+  if(id==='caja'){const ccDesdeEl=document.getElementById('cc-fil-desde');const ccHastaEl=document.getElementById('cc-fil-hasta');if(ccDesdeEl&&!ccDesdeEl.value)ccDesdeEl.value=today();if(ccHastaEl&&!ccHastaEl.value)ccHastaEl.value=today();renderCaja();setTimeout(checkRecepcionTurno,500);}
   if(id==='clientes'){renderClientes();renderTiposClienteSel('c-tipo','tradicional');}
   if(id==='empleados'){renderEmp();}
   if(id==='dashboard')renderDash();
@@ -3255,6 +3269,7 @@ async function loginSuccess(u,userData,roleOverride){
     }
     renderLocaleSelector();
     buildNav(USER_ROLE);setSyncDot('syncing');startListeners();
+    if(USER_ROLE==='admin'){const eyeBtn=document.getElementById('toggle-montos-btn');if(eyeBtn)eyeBtn.style.display='';}
     logAuditoria('inició sesión','sistema','Login: '+u,'','');
   }
 }
@@ -3404,37 +3419,33 @@ setInterval(function(){
 },30000);
 
 window._montosOcultos=false;
+const BLUR_SECTIONS=['sec-dashboard','sec-inventario','sec-ventas-dia','sec-caja'];
 window.toggleMontos=function(){
+  if(USER_ROLE!=='admin')return;
   window._montosOcultos=!window._montosOcultos;
   const btn=document.getElementById('toggle-montos-btn');
   if(btn){btn.textContent=window._montosOcultos?'🙈':'👁';btn.title=window._montosOcultos?'Montos ocultos — click para mostrar':'Click para ocultar montos';}
-  // Find all elements containing $ amounts and blur/unblur them
-  const mainScreen=document.getElementById('main-screen');
-  if(!mainScreen)return;
   if(window._montosOcultos){
-    // Blur: find all text nodes with $, and key elements
-    // 1. KPI values
-    mainScreen.querySelectorAll('.kpi-v').forEach(el=>el.classList.add('monto-blur'));
-    // 2. All elements with $ in their text (direct children text)
-    const walker=document.createTreeWalker(mainScreen,NodeFilter.SHOW_ELEMENT,{
-      acceptNode:function(node){
-        if(node.children.length===0||node.tagName==='SPAN'||node.tagName==='STRONG'||node.tagName==='TD'){
-          const txt=node.textContent||'';
-          if(txt.match(/\$[\d.,]+/)&&txt.length<50)return NodeFilter.FILTER_ACCEPT;
+    BLUR_SECTIONS.forEach(secId=>{
+      const sec=document.getElementById(secId);if(!sec)return;
+      sec.querySelectorAll('.kpi-v').forEach(el=>el.classList.add('monto-blur'));
+      const walker=document.createTreeWalker(sec,NodeFilter.SHOW_ELEMENT,{
+        acceptNode:function(node){
+          if(node.children.length===0||node.tagName==='SPAN'||node.tagName==='STRONG'||node.tagName==='TD'||node.tagName==='DIV'){
+            const txt=node.textContent||'';
+            if(txt.match(/\$[\d.,]+/)&&txt.length<50)return NodeFilter.FILTER_ACCEPT;
+          }
+          return NodeFilter.FILTER_SKIP;
         }
-        return NodeFilter.FILTER_SKIP;
-      }
+      });
+      let node;while(node=walker.nextNode()){node.classList.add('monto-blur');}
+      sec.querySelectorAll('input[data-action="save-precio"]').forEach(el=>el.classList.add('monto-blur'));
     });
-    let node;while(node=walker.nextNode()){node.classList.add('monto-blur');}
-    // 3. Price inputs
-    mainScreen.querySelectorAll('input[data-action="save-precio"]').forEach(el=>el.classList.add('monto-blur'));
-    // 4. Specific known IDs
-    ['cj-ef','cj-tr','cj-ta','cj-tot','cj-cc','cj-ccobros','cj-desc','cg-total'].forEach(id=>{
+    ['cj-ef','cj-tr','cj-ta','cj-tot','cj-cc','cj-ccobros','cj-desc'].forEach(id=>{
       const el=document.getElementById(id);if(el)el.classList.add('monto-blur');
     });
   } else {
-    // Unblur all
-    mainScreen.querySelectorAll('.monto-blur').forEach(el=>el.classList.remove('monto-blur'));
+    document.querySelectorAll('.monto-blur').forEach(el=>el.classList.remove('monto-blur'));
   }
 };
 
@@ -12893,6 +12904,32 @@ window.addCajaChica=async function(){
   }catch(e){alert('Error: '+e.message);}
 };
 
+window.ccFiltroRapido=function(){
+  const sel=document.getElementById('cc-fil-rapido')?.value||'hoy';
+  const desde=document.getElementById('cc-fil-desde');
+  const hasta=document.getElementById('cc-fil-hasta');
+  const hoy=today();
+  const now=new Date();
+  if(sel==='hoy'){if(desde)desde.value=hoy;if(hasta)hasta.value=hoy;}
+  else if(sel==='semana'){
+    const d=new Date();d.setDate(d.getDate()-d.getDay());
+    if(desde)desde.value=d.toISOString().split('T')[0];if(hasta)hasta.value=hoy;
+  }
+  else if(sel==='mes'){
+    if(desde)desde.value=hoy.substring(0,7)+'-01';if(hasta)hasta.value=hoy;
+  }
+  else if(sel==='7dias'){
+    const d=new Date();d.setDate(d.getDate()-7);
+    if(desde)desde.value=d.toISOString().split('T')[0];if(hasta)hasta.value=hoy;
+  }
+  else if(sel==='30dias'){
+    const d=new Date();d.setDate(d.getDate()-30);
+    if(desde)desde.value=d.toISOString().split('T')[0];if(hasta)hasta.value=hoy;
+  }
+  else if(sel==='todo'){if(desde)desde.value='';if(hasta)hasta.value='';}
+  renderCajaChica();
+};
+
 function renderCajaChica(){
   const el=document.getElementById('cc-lista');if(!el)return;
   // Saldo real de caja = fondo del último cierre + ventas en efectivo de hoy + movimientos manuales de hoy (ingresos - egresos)
@@ -12920,7 +12957,15 @@ function renderCajaChica(){
   }
   const tipos={retiro:'Retiro',adelanto:'Adelanto empleado',proveedor:'Pago proveedor',gasto:'Gasto menor',ingreso:'Ingreso extra',fondo:'Fondo de cambio'};
   // El vendedor solo ve los movimientos del día de hoy; el admin ve todo el historial.
-  const movsVisibles=USER_ROLE==='admin'?_cajaChica:ccHoy;
+  // Apply date filters for admin (default: today)
+  const ccFilDesde=document.getElementById('cc-fil-desde')?.value||'';
+  const ccFilHasta=document.getElementById('cc-fil-hasta')?.value||'';
+  const movsVisibles=USER_ROLE==='admin'?_cajaChica.filter(m=>{
+    if(!m.fecha)return true;
+    if(ccFilDesde&&m.fecha<ccFilDesde)return false;
+    if(ccFilHasta&&m.fecha>ccFilHasta)return false;
+    return true;
+  }):ccHoy;
   if(!movsVisibles.length){el.innerHTML='<div class="empty">Sin movimientos de caja chica hoy</div>';return;}
   el.innerHTML=movsVisibles.map(m=>'<div class="pr"><div><div style="font-size:13px;font-weight:600">'+(tipos[m.tipo]||m.tipo)+(m.detalle?' — '+m.detalle:'')+'</div><div style="font-size:11px;color:#888">'+fdate(m.fecha)+' '+m.hora+' · '+m.creadoPor+'</div></div><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:700;color:'+(m.esEgreso?'var(--danger)':'var(--success)')+'">'+( m.esEgreso?'-':'+')+''+fmt(m.montoAbs)+'</span><button class="btn bd bsm" onclick="deleteMovCC(\''+m.id+'\')" style="padding:3px 8px;font-size:11px">✕</button></div></div>').join('');
 }
