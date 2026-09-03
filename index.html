@@ -8093,7 +8093,6 @@ window._renderOTRunning=false;
 window.renderOrdenesProduccion=async function(){
   if(window._renderOTRunning)return;
   window._renderOTRunning=true;
-  try{
   renderLocalIndicatorProduccion();
   const el=document.getElementById('prod-ordenes-lista');if(!el)return;
   el.innerHTML='<div style="text-align:center;padding:20px;color:#888">⏳ Actualizando órdenes...</div>';
@@ -8199,7 +8198,8 @@ window.renderOrdenesProduccion=async function(){
       </div>
     </div>`;
   }).join('');
-};}finally{window._renderOTRunning=false;}
+  window._renderOTRunning=false;
+};
 
 window.toggleRecetaOT=function(otId){
   const el=document.getElementById('ot-receta-'+otId);
