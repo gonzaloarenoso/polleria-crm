@@ -8070,7 +8070,30 @@ window.confirmarAddStockProd=async function(prodId,nombre){
 
 
 // ── ÓRDENES DE TRABAJO ────────────────────────────────────────────────────
+window.limpiarOTsDuplicadas=async function(){
+  if(!confirm('\u00bfLimpiar OTs duplicadas? Se mantiene una por producto.'))return;
+  try{
+    const snap=await getDocs(LCOL('ordenes-trabajo'));
+    const all=snap.docs.map(d=>({id:d.id,...d.data()})).filter(o=>o.estado==='abierta'||o.estado==='pendiente');
+    const seen={};let deleted=0;
+    for(const o of all){
+      const key=o.productoNombre||o.productoId;
+      if(seen[key]){
+        await deleteDoc(LDOC('ordenes-trabajo',o.id));
+        deleted++;
+      } else {
+        seen[key]=true;
+      }
+    }
+    toast(deleted>0?'\U0001f9f9 '+deleted+' OTs duplicadas eliminadas':'Sin duplicadas');
+    renderOrdenesProduccion();
+  }catch(e){alert('Error: '+e.message);}
+};
+window._renderOTRunning=false;
 window.renderOrdenesProduccion=async function(){
+  if(window._renderOTRunning)return;
+  window._renderOTRunning=true;
+  try{
   renderLocalIndicatorProduccion();
   const el=document.getElementById('prod-ordenes-lista');if(!el)return;
   el.innerHTML='<div style="text-align:center;padding:20px;color:#888">⏳ Actualizando órdenes...</div>';
@@ -8113,21 +8136,23 @@ window.renderOrdenesProduccion=async function(){
   });
 
   // Create new orders for products below alert without an open order
+  // Use setDoc with deterministic ID to prevent duplicates on concurrent calls
   const usedNums=existingOrders.map(o=>o.numero).filter(Boolean);
   const getNextNum=()=>{let n=1;while(usedNums.includes(n))n++;usedNums.push(n);return n;};
 
   for(const p of prodsBajos){
-    const alreadyHas=existingOrders.find(o=>o.productoId===p.id);
+    const alreadyHas=existingOrders.find(o=>o.productoId===p.id||o.productoNombre===p.nombre);
     if(!alreadyHas){
+      const otId='ot_'+p.id;// Deterministic ID per product
       const num=getNextNum();
       try{
-        const ref=await addDoc(LCOL('ordenes-trabajo'),{
+        await setDoc(LDOC('ordenes-trabajo',otId),{
           numero:num,productoId:p.id,productoNombre:p.nombre,
           unidad:p.unidad||'unidad',
           cantidadPedida:p.cantidadElaborar||1,
           estado:'abierta',fechaCreacion:today(),ts:Date.now()
         });
-        existingOrders.push({id:ref.id,numero:num,productoId:p.id,
+        existingOrders.push({id:otId,numero:num,productoId:p.id,
           productoNombre:p.nombre,unidad:p.unidad||'unidad',
           cantidadPedida:p.cantidadElaborar||1,estado:'abierta'});
       }catch(e){}
@@ -8174,7 +8199,7 @@ window.renderOrdenesProduccion=async function(){
       </div>
     </div>`;
   }).join('');
-};
+};}finally{window._renderOTRunning=false;}
 
 window.toggleRecetaOT=function(otId){
   const el=document.getElementById('ot-receta-'+otId);
@@ -13760,7 +13785,7 @@ window.registrarTurno=async function(){
       <div id="prod-local-indicator2" style="margin-bottom:12px"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
         <h2 style="margin:0">📋 Órdenes de trabajo</h2>
-        <button class="btn bs bsm" id="prod-ot-refresh-btn" onclick="renderOrdenesProduccion()">🔄 Actualizar</button>
+        <button class="btn bs bsm" id="prod-ot-refresh-btn" onclick="renderOrdenesProduccion()">🔄 Actualizar</button> <button class="btn bs bsm" onclick="limpiarOTsDuplicadas()" style="color:#854F0B">🧹 Limpiar duplicadas</button>
       </div>
       <div class="tab-row" style="margin-bottom:16px;max-width:340px">
         <button class="tab-btn active" id="ot-tab-pend" onclick="switchOTTab('pend',this)">Pendientes</button>
