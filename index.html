@@ -4806,13 +4806,17 @@ window.updatePagoDivRow=function(idx,field,val){
 
 function renderPagoDivididoRows(){
   const el=document.getElementById('pago-dividido-rows');if(!el)return;
-  const metodos=(_metodosPago||[]).filter(m=>m.activo!==false);
+  // Read methods from v-pago select (always populated correctly)
+  const vpago=document.getElementById('v-pago');
+  const metodos=[];
+  if(vpago){for(const o of vpago.options){if(o.value&&!o.disabled)metodos.push({nombre:o.value,texto:o.textContent});}}
+  // Fallback to _metodosPago if v-pago is empty
+  if(!metodos.length)(_metodosPago||[]).forEach(m=>{if(m.activo!==false)metodos.push({nombre:m.nombre,texto:m.nombre+(m.ajuste?' ('+m.ajuste+'%)':'')});});
   let html='';
   window._pagoDivRows.forEach((r,i)=>{
     let opts='<option value="">Método...</option>';
     metodos.forEach(m=>{
-      const ajuste=m.ajuste?(' ('+(m.ajuste>0?'+':'')+m.ajuste+'%)'):' ';
-      opts+='<option value="'+m.nombre+'"'+(r.metodo===m.nombre?' selected':'')+'>'+m.nombre+ajuste+'</option>';
+      opts+='<option value="'+m.nombre+'"'+(r.metodo===m.nombre?' selected':'')+'>'+m.texto+'</option>';
     });
     html+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">';
     html+='<select onchange="updatePagoDivRow('+i+',this.dataset.f,this.value)" data-f="metodo" style="flex:1;font-size:12px;padding:5px">'+opts+'</select>';
