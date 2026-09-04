@@ -4764,6 +4764,7 @@ function recalcDescuentos(){
 }
 // ── PAGO DIVIDIDO ──────────────────────────────────────────────
 window._pagoDividido=false;
+window._splitDtoOff=false;
 
 window.togglePagoDividido=function(){
   window._pagoDividido=!window._pagoDividido;
@@ -4781,6 +4782,7 @@ window.togglePagoDividido=function(){
     wrap.style.display='none';
     pagoSel.style.display='';
     btn.textContent='✂ Dividir pago';
+    window._splitDtoOff=false;
     btn.style.color='#378ADD';btn.style.borderColor='#378ADD';
   }
   renderTotales();
@@ -4796,7 +4798,7 @@ window.calcPagoDividido=function(){
   // Calculate discount on cash (Efectivo)
   const metodoEfectivo=(_metodosPago||[]).find(m=>m.nombre==='Efectivo');
   const ajuste=metodoEfectivo?.ajuste||0;
-  const dto=ajuste<0?Math.round(efectivo*Math.abs(ajuste)/100):0;
+  const dto=(ajuste<0&&!window._splitDtoOff)?Math.round(efectivo*Math.abs(ajuste)/100):0;
   // Posnet = total - efectivo - dto
   const posnet=Math.max(0,Math.round(total-efectivo-dto));
   const totalCobrar=efectivo+posnet;
@@ -4806,7 +4808,8 @@ window.calcPagoDividido=function(){
     if(efectivo>0){
       let html='';
       html+='<div style="display:flex;justify-content:space-between;padding:3px 0"><span>💵 Efectivo:</span><strong>$'+efectivo.toLocaleString('es-AR')+'</strong></div>';
-      if(dto>0)html+='<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--success)"><span>Dto '+Math.abs(ajuste)+'% s/efectivo:</span><strong>-$'+dto.toLocaleString('es-AR')+'</strong></div>';
+      if(dto>0)html+='<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--success);align-items:center"><span>Dto '+Math.abs(ajuste)+'% s/efectivo:</span><span><strong>-$'+dto.toLocaleString('es-AR')+'</strong> <button onclick="window._splitDtoOff=true;calcPagoDividido()" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;padding:0 4px" title="Quitar descuento">✕</button></span></div>';
+      if(window._splitDtoOff&&ajuste<0)html+='<div style="display:flex;justify-content:space-between;padding:3px 0;color:#888;font-size:11px"><span>Dto desactivado</span><button onclick="window._splitDtoOff=false;calcPagoDividido()" style="background:none;border:1px solid var(--success);color:var(--success);border-radius:4px;padding:1px 8px;font-size:10px;cursor:pointer">Reactivar</button></div>';
       html+='<div style="display:flex;justify-content:space-between;padding:3px 0"><span>💳 Posnet:</span><strong>$'+posnet.toLocaleString('es-AR')+'</strong></div>';
       html+='<div style="display:flex;justify-content:space-between;border-top:2px solid var(--border);padding-top:5px;margin-top:5px;font-weight:700;font-size:14px"><span>Total a cobrar:</span><span>$'+totalCobrar.toLocaleString('es-AR')+'</span></div>';
       if(ahorro>0)html+='<div style="text-align:right;font-size:11px;color:var(--success);margin-top:2px">Ahorro: $'+ahorro.toLocaleString('es-AR')+'</div>';
@@ -4829,7 +4832,7 @@ function getPagoDivididoData(){
   if(!efectivo)return null;
   const metodoEfectivo=(_metodosPago||[]).find(m=>m.nombre==='Efectivo');
   const ajuste=metodoEfectivo?.ajuste||0;
-  const dto=ajuste<0?Math.round(efectivo*Math.abs(ajuste)/100):0;
+  const dto=(ajuste<0&&!window._splitDtoOff)?Math.round(efectivo*Math.abs(ajuste)/100):0;
   const posnet=Math.max(0,Math.round(total-efectivo-dto));
   return {
     pagos:[
