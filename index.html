@@ -533,11 +533,18 @@ tr:hover td{background:#fafaf8}
           <label style="margin-top:14px">Medio de pago</label>
           <select id="v-pago" onchange="checkAndApplyAutoDiscount();renderTotales();"><option value="" disabled selected style="color:#aaa">— Seleccioná método de pago —</option></select>
           <button type="button" id="btn-dividir-pago" onclick="togglePagoDividido()" style="margin-top:6px;background:none;border:1px solid #378ADD;color:#378ADD;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;font-weight:600">✂ Dividir pago</button>
-          <div id="pago-dividido-wrap" style="display:none;margin-top:8px;padding:10px;background:rgba(55,138,221,0.06);border:1px solid rgba(55,138,221,0.2);border-radius:8px">
-            <div style="font-size:12px;font-weight:600;color:#378ADD;margin-bottom:8px">✂ Pago dividido</div>
-            <div id="pago-dividido-rows"></div>
-            <button type="button" onclick="addPagoDivididoRow()" style="margin-top:6px;background:none;border:1px dashed #378ADD;color:#378ADD;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;width:100%">+ Agregar método</button>
-            <div id="pago-dividido-rest" style="margin-top:8px;font-size:13px;font-weight:700;text-align:right"></div>
+          <div id="pago-dividido-wrap" style="display:none;margin-top:8px;padding:12px;background:rgba(55,138,221,0.06);border:1px solid rgba(55,138,221,0.2);border-radius:8px">
+            <div style="font-size:12px;font-weight:600;color:#378ADD;margin-bottom:10px">✂ Pago dividido</div>
+            <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+              <select id="pd-metodo1" onchange="calcPagoDividido()" style="flex:1;font-size:13px;padding:6px"></select>
+              <input type="number" id="pd-monto1" placeholder="$0" oninput="calcPagoDividido()" style="width:110px;font-size:14px;padding:6px;font-weight:700;text-align:right;border-radius:6px;border:1.5px solid #378ADD"/>
+            </div>
+            <div id="pd-dto-line" style="display:none;font-size:12px;color:var(--success);margin-bottom:6px;text-align:right"></div>
+            <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+              <select id="pd-metodo2" onchange="calcPagoDividido()" style="flex:1;font-size:13px;padding:6px"></select>
+              <input type="number" id="pd-monto2" readonly style="width:110px;font-size:14px;padding:6px;font-weight:700;text-align:right;border-radius:6px;border:1px solid var(--border);background:#f5f4f0;color:var(--text)"/>
+            </div>
+            <div id="pd-resumen" style="margin-top:8px;padding:8px;background:#fff;border-radius:6px;font-size:12px"></div>
           </div>
           <div style="margin-top:10px">
             <label>Cupón de descuento (opcional)</label>
@@ -4762,7 +4769,6 @@ function recalcDescuentos(){
 }
 // ── PAGO DIVIDIDO ──────────────────────────────────────────────
 window._pagoDividido=false;
-window._pagoDivRows=[];
 
 window.togglePagoDividido=function(){
   window._pagoDividido=!window._pagoDividido;
@@ -4774,87 +4780,89 @@ window.togglePagoDividido=function(){
     pagoSel.style.display='none';
     btn.textContent='✖ Cancelar pago dividido';
     btn.style.color='#e74c3c';btn.style.borderColor='#e74c3c';
-    if(!window._pagoDivRows.length){addPagoDivididoRow();addPagoDivididoRow();}
-    renderPagoDivididoRows();
+    // Populate method selectors from v-pago options
+    const opts=[];
+    for(const o of pagoSel.options){if(o.value&&!o.disabled)opts.push(o);}
+    const sel1=document.getElementById('pd-metodo1');
+    const sel2=document.getElementById('pd-metodo2');
+    sel1.innerHTML=opts.map(o=>'<option value="'+o.value+'">'+o.textContent+'</option>').join('');
+    sel2.innerHTML=opts.map(o=>'<option value="'+o.value+'">'+o.textContent+'</option>').join('');
+    // Default: first = Efectivo, second = next available
+    const efIdx=[...sel1.options].findIndex(o=>o.value==='Efectivo');
+    if(efIdx>=0)sel1.selectedIndex=efIdx;
+    // For second, pick something different
+    const sel1Val=sel1.value;
+    for(let i=0;i<sel2.options.length;i++){if(sel2.options[i].value!==sel1Val){sel2.selectedIndex=i;break;}}
+    document.getElementById('pd-monto1').value='';
+    document.getElementById('pd-monto2').value='';
+    calcPagoDividido();
   } else {
     wrap.style.display='none';
     pagoSel.style.display='';
     btn.textContent='✂ Dividir pago';
     btn.style.color='#378ADD';btn.style.borderColor='#378ADD';
-    window._pagoDivRows=[];
   }
   renderTotales();
 };
 
-window.addPagoDivididoRow=function(){
-  window._pagoDivRows.push({metodo:'',monto:0});
-  renderPagoDivididoRows();
-};
-
-window.rmPagoDivididoRow=function(idx){
-  window._pagoDivRows.splice(idx,1);
-  renderPagoDivididoRows();
-  renderTotales();
-};
-
-window.updatePagoDivRow=function(idx,field,val){
-  if(field==='metodo')window._pagoDivRows[idx].metodo=val;
-  if(field==='monto')window._pagoDivRows[idx].monto=parseFloat(val)||0;
-  renderPagoDivRest();
-  renderTotales();
-};
-
-function renderPagoDivididoRows(){
-  const el=document.getElementById('pago-dividido-rows');if(!el)return;
-  // Read methods from v-pago select (always populated correctly)
-  const vpago=document.getElementById('v-pago');
-  const metodos=[];
-  if(vpago){for(const o of vpago.options){if(o.value&&!o.disabled)metodos.push({nombre:o.value,texto:o.textContent});}}
-  // Fallback to _metodosPago if v-pago is empty
-  if(!metodos.length)(_metodosPago||[]).forEach(m=>{if(m.activo!==false)metodos.push({nombre:m.nombre,texto:m.nombre+(m.ajuste?' ('+m.ajuste+'%)':'')});});
-  let html='';
-  window._pagoDivRows.forEach((r,i)=>{
-    let opts='<option value="">Método...</option>';
-    metodos.forEach(m=>{
-      opts+='<option value="'+m.nombre+'"'+(r.metodo===m.nombre?' selected':'')+'>'+m.texto+'</option>';
-    });
-    html+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">';
-    html+='<select onchange="updatePagoDivRow('+i+',this.dataset.f,this.value)" data-f="metodo" style="flex:1;font-size:12px;padding:5px">'+opts+'</select>';
-    html+='<input type="number" value="'+(r.monto||'')+'" placeholder="$0" onchange="updatePagoDivRow('+i+',this.dataset.f,this.value)" data-f="monto" style="width:100px;font-size:13px;padding:5px;font-weight:700;text-align:right;border-radius:6px;border:1px solid var(--border)"/>';
-    html+=window._pagoDivRows.length>2?'<button onclick="rmPagoDivididoRow('+i+')" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:16px">✕</button>':'<span style="width:20px"></span>';
-    html+='</div>';
-  });
-  el.innerHTML=html;
-  renderPagoDivRest();
-}
-
-function renderPagoDivRest(){
-  const el=document.getElementById('pago-dividido-rest');if(!el)return;
+window.calcPagoDividido=function(){
   const total=itemTotal||0;
-  const asignado=window._pagoDivRows.reduce((a,r)=>a+r.monto,0);
-  const rest=Math.round(total-asignado);
-  if(rest>0)el.innerHTML='Restante: <span style="color:var(--danger)">$'+rest.toLocaleString('es-AR')+'</span>';
-  else if(rest<0)el.innerHTML='Excedente: <span style="color:var(--danger)">$'+Math.abs(rest).toLocaleString('es-AR')+'</span>';
-  else el.innerHTML='<span style="color:var(--success)">✓ Monto completo</span>';
-}
+  const metodo1=document.getElementById('pd-metodo1')?.value||'';
+  const monto1=parseFloat(document.getElementById('pd-monto1')?.value)||0;
+  const metodo2=document.getElementById('pd-metodo2')?.value||'';
+  const dtoLine=document.getElementById('pd-dto-line');
+  const monto2El=document.getElementById('pd-monto2');
+  const resumen=document.getElementById('pd-resumen');
+  // Calculate discount on method 1
+  const m1=(_metodosPago||[]).find(m=>m.nombre===metodo1);
+  const ajuste1=m1?.ajuste||0;// negative = discount
+  const dto1=ajuste1<0?Math.round(monto1*Math.abs(ajuste1)/100):0;
+  // Method 2 gets the remainder: total - monto1 - dto1
+  const monto2=Math.max(0,Math.round(total-monto1-dto1));
+  if(monto2El)monto2El.value=monto2||'';
+  // Show discount line
+  if(dtoLine){
+    if(dto1>0){
+      dtoLine.style.display='block';
+      dtoLine.textContent='Dto '+Math.abs(ajuste1)+'% s/'+metodo1+': -$'+dto1.toLocaleString('es-AR');
+    } else dtoLine.style.display='none';
+  }
+  // Summary
+  if(resumen){
+    if(monto1>0){
+      const totalFinal=monto1+monto2-dto1;// What client actually pays
+      const m2=(_metodosPago||[]).find(m=>m.nombre===metodo2);
+      let html='<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>'+metodo1+':</span><strong>$'+monto1.toLocaleString('es-AR')+'</strong></div>';
+      if(dto1>0)html+='<div style="display:flex;justify-content:space-between;color:var(--success);margin-bottom:2px"><span>Dto '+Math.abs(ajuste1)+'% s/'+metodo1+':</span><strong>-$'+dto1.toLocaleString('es-AR')+'</strong></div>';
+      html+='<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>'+metodo2+':</span><strong>$'+monto2.toLocaleString('es-AR')+'</strong></div>';
+      html+='<div style="display:flex;justify-content:space-between;border-top:1.5px solid var(--border);padding-top:4px;margin-top:4px;font-weight:700"><span>Total a cobrar:</span><span>$'+(monto1-dto1+monto2).toLocaleString('es-AR')+'</span></div>';
+      resumen.innerHTML=html;
+    } else resumen.innerHTML='<span style="color:#888">Ingresá el monto del primer método</span>';
+  }
+  // Update total display
+  if(monto1>0){
+    const totalEl=document.getElementById('v-total');
+    if(totalEl)totalEl.textContent='$'+(monto1-dto1+monto2).toLocaleString('es-AR');
+  }
+};
 
-function calcDescuentoPagoDividido(){
-  // Calculate discounts per payment method portion
-  let totalDto=0;
-  const detalles=[];
-  window._pagoDivRows.forEach(r=>{
-    if(!r.metodo||!r.monto)return;
-    const metodo=(_metodosPago||[]).find(m=>m.nombre===r.metodo);
-    const ajuste=metodo?.ajuste||0;
-    if(ajuste<0){// Negative ajuste = discount
-      const dto=Math.round(r.monto*Math.abs(ajuste)/100);
-      totalDto+=dto;
-      detalles.push({metodo:r.metodo,monto:r.monto,dto:dto,pct:Math.abs(ajuste)});
-    } else {
-      detalles.push({metodo:r.metodo,monto:r.monto,dto:0,pct:0});
-    }
-  });
-  return {totalDto,detalles};
+function getPagoDivididoData(){
+  if(!window._pagoDividido)return null;
+  const metodo1=document.getElementById('pd-metodo1')?.value||'';
+  const monto1=parseFloat(document.getElementById('pd-monto1')?.value)||0;
+  const metodo2=document.getElementById('pd-metodo2')?.value||'';
+  const monto2=parseFloat(document.getElementById('pd-monto2')?.value)||0;
+  if(!monto1||!metodo1||!metodo2)return null;
+  const m1=(_metodosPago||[]).find(m=>m.nombre===metodo1);
+  const ajuste1=m1?.ajuste||0;
+  const dto1=ajuste1<0?Math.round(monto1*Math.abs(ajuste1)/100):0;
+  return {
+    pagos:[
+      {metodo:metodo1,monto:monto1,dto:dto1,pct:dto1>0?Math.abs(ajuste1):0},
+      {metodo:metodo2,monto:monto2,dto:0,pct:0}
+    ],
+    totalDescuento:dto1
+  };
 }
 
 window.applyDiscount=function(){
@@ -4914,22 +4922,8 @@ window.renderTotales=function renderTotales(){
   // Apply payment method adjustment (skip if manual discount is active)
   const metodoPago=(_metodosPago||[]).find(m=>m.nombre===pagoSel);
   const _pausado=window._ajustesPausados?.has(pagoSel);
-    // If split payment is active, use per-method discount calculation
-    if(window._pagoDividido&&window._pagoDivRows.length){
-      const splitCalc=calcDescuentoPagoDividido();
-      if(splitCalc.totalDto>0){
-        const ajusteInfo=document.getElementById('v-ajuste-pago');
-        if(ajusteInfo){
-          ajusteInfo.style.display='block';
-          let detTxt=splitCalc.detalles.filter(d=>d.dto>0).map(d=>d.pct+'% s/'+d.metodo+': -$'+d.dto.toLocaleString('es-AR')).join(' + ');
-          ajusteInfo.innerHTML='<span style="color:var(--success)">⬇ '+detTxt+' = -$'+splitCalc.totalDto.toLocaleString('es-AR')+'</span><button onclick="togglePagoDividido()" style="background:none;border:none;cursor:pointer;font-size:12px;margin-left:4px" title="Cancelar pago dividido">✕</button>';
-        }
-        const finalDiv=splitCalc.detalles.reduce((a,d)=>a+d.monto,0)-splitCalc.totalDto;
-        const totalEl=document.getElementById('v-total');
-        if(totalEl)totalEl.textContent=fmt(finalDiv);
-        return;
-      }
-    }
+    // If split payment is active, skip normal discount (handled by calcPagoDividido)
+    if(window._pagoDividido)return;
   const ajustePct=(_descManual?.pct>0||_pausado)?0:(metodoPago?.ajuste||0);
   let finalConAjuste=final;
   if(ajustePct!==0&&final>0){
@@ -5010,7 +5004,6 @@ window.eliminarPresupuesto=async function(id){
 
 window.limpiar=function(){
   if(window._pagoDividido)togglePagoDividido();
-  window._pagoDivRows=[];
   items=[];itemTotal=0;ventaDescuento=null;selectedClienteId=null;
   _descManual={pct:0,motivo:''};_acumDesc=false;_cuponAplicado=null;
   ['v-cli','v-dir','v-teli','v-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
@@ -5151,13 +5144,9 @@ window.confirmar=async function(){
   // Handle split payment
   let pagoSelGuardar=document.getElementById('v-pago')?.value||'';
   let pagoDivididoData=null;
-  if(window._pagoDividido&&window._pagoDivRows.length){
-    const rowsValidas=window._pagoDivRows.filter(r=>r.metodo&&r.monto>0);
-    if(rowsValidas.length<2){alert('Completá al menos 2 métodos de pago para dividir');return;}
-    const asignado=rowsValidas.reduce((a,r)=>a+r.monto,0);
-    if(Math.abs(asignado-itemTotal)>1){alert('El monto dividido ($'+asignado.toLocaleString('es-AR')+') no coincide con el total ($'+Math.round(itemTotal).toLocaleString('es-AR')+')');return;}
-    const splitCalc=calcDescuentoPagoDividido();
-    pagoDivididoData={pagos:splitCalc.detalles,totalDescuento:splitCalc.totalDto};
+  if(window._pagoDividido){
+    pagoDivididoData=getPagoDivididoData();
+    if(!pagoDivididoData){alert('Completá los montos del pago dividido');return;}
     pagoSelGuardar='Dividido';
   }
   // Apply method adjustment to total — pero NO si hay descuento manual activo
