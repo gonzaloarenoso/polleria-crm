@@ -1966,6 +1966,19 @@ tr:hover td{background:#fafaf8}
       </div>
       <div id="inf-resultado"></div>
 
+      <!-- RESUMEN SEMANAL -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+          <h3 style="margin:0">📊 Resumen semanal por producto</h3>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn bs bsm" onclick="cambiarSemana(-1)">◀ Anterior</button>
+            <span id="semana-label" style="font-weight:600;min-width:180px;text-align:center;font-size:13px"></span>
+            <button class="btn bs bsm" onclick="cambiarSemana(1)">Siguiente ▶</button>
+          </div>
+        </div>
+        <div id="resumen-semanal"><div class="empty">Apretá una semana para ver el resumen</div></div>
+      </div>
+
       <!-- RESUMEN MENSUAL -->
       <div class="card" style="margin-bottom:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
@@ -2718,7 +2731,7 @@ window.showSec=function(id,btn){
   if(id==='configuracion'){renderConfiguracion();renderCfgTiposCliente();renderCfgLocales();}
   if(id==='mensajes-admin')renderMensajesAdmin();
   if(id==='calendario')renderCalendario();
-  if(id==='informes'){loadCierresMensuales();initResumenMesSel();}
+  if(id==='informes'){loadCierresMensuales();initResumenMesSel();renderResumenSemanal();}
   if(id==='turnos')initTurnos();
 };
 
@@ -8592,7 +8605,21 @@ window.confirmarCierreCaja=async function(){
     fondoCambio:fondo,efectivoDisponible:efDisponible,
     costosFinancieros,cobrosCC:totalCobrosCC,nCobrosCC:cobrosCC.length,
     descuentos:desc,costoFIFO:costo,gananciaNeta:total-costo,
-    nOperaciones:hv.length,obs,ts:Date.now(),turno:ftime()
+    nOperaciones:hv.length,obs,ts:Date.now(),turno:ftime(),
+    productosVendidos:(()=>{
+      const map={};
+      hv.forEach(v=>{
+        if(v.tipo==='online'&&!['confirmado','en_preparacion','en_camino','entregado'].includes(v.estado))return;
+        (v.items||[]).forEach(it=>{
+          const k=it.nom||'Promo';
+          const prod=(_productos||[]).find(p=>p.nombre===k);
+          if(!map[k])map[k]={nombre:k,cantidad:0,unidad:prod?.unidad||'unid.',total:0};
+          map[k].cantidad+=parseFloat(it.cant||0);
+          map[k].total+=(it.cant||0)*(it.precio||0);
+        });
+      });
+      return Object.values(map).sort((a,b)=>b.total-a.total);
+    })()
   };
   try{
     // Save to cierres collection, keep last 6 months
@@ -10160,7 +10187,19 @@ function renderMisPedidos(){
     // MOD 13: Repeat order button (only for completed/delivered)
     const repeatBtn=['entregado','confirmado'].includes(v.estado)?
       '<button class="btn bs bsm" style="margin-top:8px;font-size:12px" onclick="repetirPedido(\''+v.id+'\')">🔄 Volver a pedir</button>':'';
-    return'<div class="card" style="margin-bottom:12px;padding:14px">'+
+    return'
+    // Productos vendidos
+    if(c.productosVendidos&&c.productosVendidos.length){
+      html+=`<div class="card" style="margin-bottom:12px">
+        <h3>📦 Productos vendidos</h3>
+        <div style="overflow-x:auto"><table>
+        <thead><tr><th>Producto</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Total</th></tr></thead>
+        <tbody>
+        ${c.productosVendidos.map(p=>'<tr><td>'+p.nombre+'</td><td style="text-align:right">'+Math.round(p.cantidad*1000)/1000+' '+p.unidad+'</td><td style="text-align:right">'+fmt(p.total)+'</td></tr>').join('')}
+        <tr style="border-top:2px solid var(--border);font-weight:700"><td>Total</td><td></td><td style="text-align:right">${fmt(c.productosVendidos.reduce((a,p)=>a+p.total,0))}</td></tr>
+        </tbody></table></div></div>`;
+    }
+<div class="card" style="margin-bottom:12px;padding:14px">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
       '<div style="font-weight:700;font-size:13px">'+fdate(v.fecha)+' '+v.hora+'</div>'+
       '<span style="font-size:12px;color:#888">'+(v.tipoEntrega==='retiro'?'Retiro en local':'Envío a domicilio')+'</span>'+
@@ -10620,6 +10659,89 @@ window.regenerarTodosCierres=async function(){
 let _cierresCache=[];
 
 
+// ── RESUMEN SEMANAL POR PRODUCTO ─────────────────────────────
+let _semanaOffset=0;
+function getSemana(offset){
+  const now=new Date();
+  // Find Sunday of current week
+  const dayOfWeek=now.getDay();// 0=Sun
+  const sunday=new Date(now);
+  sunday.setDate(now.getDate()-dayOfWeek+(offset*7));
+  sunday.setHours(0,0,0,0);
+  const saturday=new Date(sunday);
+  saturday.setDate(sunday.getDate()+6);
+  const days=[];
+  for(let i=0;i<7;i++){
+    const d=new Date(sunday);
+    d.setDate(sunday.getDate()+i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+  return {desde:days[0],hasta:days[6],days,sunday,saturday};
+}
+window.cambiarSemana=function(dir){
+  _semanaOffset+=dir;
+  renderResumenSemanal();
+};
+function renderResumenSemanal(){
+  const el=document.getElementById('resumen-semanal');
+  const label=document.getElementById('semana-label');
+  if(!el)return;
+  const sem=getSemana(_semanaOffset);
+  const diasNombres=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const fmtFecha=d=>{const p=d.split('-');return p[2]+'/'+p[1];};
+  if(label)label.textContent=fmtFecha(sem.desde)+' al '+fmtFecha(sem.hasta);
+  // Filter sales for this week
+  const vf=_ventas.filter(v=>v.fecha>=sem.desde&&v.fecha<=sem.hasta&&(v.tipo!=='online'||['confirmado','en_preparacion','en_camino','entregado'].includes(v.estado)));
+  if(!vf.length){el.innerHTML='<div class="empty">Sin ventas en esta semana</div>';return;}
+  // Build product x day matrix
+  const prodMap={};
+  const dayTotals=[0,0,0,0,0,0,0];
+  vf.forEach(v=>{
+    const dayIdx=sem.days.indexOf(v.fecha);
+    if(dayIdx<0)return;
+    dayTotals[dayIdx]+=v.total||0;
+    (v.items||[]).forEach(it=>{
+      const k=it.nom||'Otro';
+      if(!prodMap[k]){
+        const prod=(_productos||[]).find(p=>p.nombre===k);
+        prodMap[k]={nombre:k,unidad:prod?.unidad||'u',days:[0,0,0,0,0,0,0],total:0,facTotal:0};
+      }
+      const cant=parseFloat(it.cant||0);
+      prodMap[k].days[dayIdx]+=cant;
+      prodMap[k].total+=cant;
+      prodMap[k].facTotal+=cant*(it.precio||0);
+    });
+  });
+  const prods=Object.values(prodMap).sort((a,b)=>b.facTotal-a.facTotal);
+  const fmt=n=>n?'$'+Math.round(n).toLocaleString('es-AR'):'';
+  const fmtQ=(n,u)=>{if(!n)return'—';const r=Math.round(n*1000)/1000;return r+(u&&u!=='unidad'&&u!=='u'?' '+u:'');};
+  let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+  html+='<thead><tr style="background:#1a1a1a;color:#fff"><th style="padding:6px 8px;text-align:left">Producto</th>';
+  for(let i=0;i<7;i++){
+    const isToday=sem.days[i]===today();
+    html+='<th style="padding:6px 6px;text-align:center;min-width:55px;'+(isToday?'background:var(--primary);':'')+'">'+diasNombres[i]+'<br><span style="font-size:10px;font-weight:400">'+fmtFecha(sem.days[i])+'</span></th>';
+  }
+  html+='<th style="padding:6px 8px;text-align:center;background:#333">Total</th><th style="padding:6px 8px;text-align:right;background:#333">Facturado</th></tr></thead><tbody>';
+  prods.forEach((p,idx)=>{
+    const bg=idx%2===0?'':'background:#f9f8f5;';
+    html+='<tr style="border-bottom:1px solid #f0ede8;'+bg+'"><td style="padding:5px 8px;font-weight:600;white-space:nowrap">'+p.nombre+'</td>';
+    for(let i=0;i<7;i++){
+      html+='<td style="padding:5px 4px;text-align:center;color:'+(p.days[i]?'var(--text)':'#ccc')+'">'+fmtQ(p.days[i],p.unidad)+'</td>';
+    }
+    html+='<td style="padding:5px 8px;text-align:center;font-weight:700">'+fmtQ(p.total,p.unidad)+'</td>';
+    html+='<td style="padding:5px 8px;text-align:right;font-weight:600;color:var(--success)">'+fmt(p.facTotal)+'</td></tr>';
+  });
+  // Totals row
+  html+='<tr style="border-top:2px solid var(--border);font-weight:700;background:#f5f4f0"><td style="padding:6px 8px">TOTAL FACTURADO</td>';
+  for(let i=0;i<7;i++){
+    html+='<td style="padding:6px 4px;text-align:center;font-size:11px">'+fmt(dayTotals[i])+'</td>';
+  }
+  const totalSem=dayTotals.reduce((a,b)=>a+b,0);
+  html+='<td style="padding:6px 8px;text-align:center">'+vf.length+' ops</td><td style="padding:6px 8px;text-align:right;color:var(--success)">'+fmt(totalSem)+'</td></tr>';
+  html+='</tbody></table></div>';
+  el.innerHTML=html;
+}
+
 // ── RESUMEN MENSUAL ───────────────────────────────────────────────────────
 function initResumenMesSel(){
   const sel=document.getElementById('resumen-mes-sel');
@@ -10843,6 +10965,7 @@ window.generarInforme=async function(){
       </div>
     </div>`;
   // Append gastos y retiros section
+  const gastosPeriodo=gastosHistorico.concat(ccGastos.map(g=>({fecha:g.fecha,categoria:'Caja chica',descripcion:g.detalle||g.tipo,monto:Math.abs(g.montoAbs||g.monto||0)})));
   if(gastosPeriodo.length||retirosPeriodo.length){
     const extraDiv=document.createElement('div');
     extraDiv.style.marginTop='16px';
