@@ -532,6 +532,13 @@ tr:hover td{background:#fafaf8}
           <div id="v-cc-indicator" style="display:none;margin-bottom:6px"></div>
           <label style="margin-top:14px">Medio de pago</label>
           <select id="v-pago" onchange="checkAndApplyAutoDiscount();renderTotales();"><option value="" disabled selected style="color:#aaa">— Seleccioná método de pago —</option></select>
+          <button type="button" id="btn-dividir-pago" onclick="togglePagoDividido()" style="margin-top:6px;background:none;border:1px solid #378ADD;color:#378ADD;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;font-weight:600">✂ Dividir pago</button>
+          <div id="pago-dividido-wrap" style="display:none;margin-top:8px;padding:10px;background:rgba(55,138,221,0.06);border:1px solid rgba(55,138,221,0.2);border-radius:8px">
+            <div style="font-size:12px;font-weight:600;color:#378ADD;margin-bottom:8px">✂ Pago dividido</div>
+            <div id="pago-dividido-rows"></div>
+            <button type="button" onclick="addPagoDivididoRow()" style="margin-top:6px;background:none;border:1px dashed #378ADD;color:#378ADD;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;width:100%">+ Agregar método</button>
+            <div id="pago-dividido-rest" style="margin-top:8px;font-size:13px;font-weight:700;text-align:right"></div>
+          </div>
           <div style="margin-top:10px">
             <label>Cupón de descuento (opcional)</label>
             <div style="display:flex;gap:6px">
