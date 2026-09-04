@@ -4780,13 +4780,13 @@ window.togglePagoDividido=function(){
     pagoSel.style.display='none';
     btn.textContent='✖ Cancelar pago dividido';
     btn.style.color='#e74c3c';btn.style.borderColor='#e74c3c';
-    // Populate method selectors from v-pago options
-    const opts=[];
-    for(const o of pagoSel.options){if(o.value&&!o.disabled)opts.push(o);}
+    // Populate method selectors from _metodosPago
+    const metodos=(_metodosPago||[]).filter(m=>m.nombre&&m.activo!==false);
     const sel1=document.getElementById('pd-metodo1');
     const sel2=document.getElementById('pd-metodo2');
-    sel1.innerHTML=opts.map(o=>'<option value="'+o.value+'">'+o.textContent+'</option>').join('');
-    sel2.innerHTML=opts.map(o=>'<option value="'+o.value+'">'+o.textContent+'</option>').join('');
+    const optsHtml=metodos.map(m=>'<option value="'+m.nombre+'">'+m.nombre+(m.ajuste?' ('+m.ajuste+'%)':'')+'</option>').join('');
+    sel1.innerHTML=optsHtml;
+    sel2.innerHTML=optsHtml;
     // Default: first = Efectivo, second = next available
     const efIdx=[...sel1.options].findIndex(o=>o.value==='Efectivo');
     if(efIdx>=0)sel1.selectedIndex=efIdx;
