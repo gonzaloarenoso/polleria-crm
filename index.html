@@ -534,17 +534,12 @@ tr:hover td{background:#fafaf8}
           <select id="v-pago" onchange="checkAndApplyAutoDiscount();renderTotales();"><option value="" disabled selected style="color:#aaa">— Seleccioná método de pago —</option></select>
           <button type="button" id="btn-dividir-pago" onclick="togglePagoDividido()" style="margin-top:6px;background:none;border:1px solid #378ADD;color:#378ADD;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;font-weight:600">✂ Dividir pago</button>
           <div id="pago-dividido-wrap" style="display:none;margin-top:8px;padding:12px;background:rgba(55,138,221,0.06);border:1px solid rgba(55,138,221,0.2);border-radius:8px">
-            <div style="font-size:12px;font-weight:600;color:#378ADD;margin-bottom:10px">✂ Pago dividido</div>
-            <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-              <select id="pd-metodo1" onchange="calcPagoDividido()" style="flex:1;font-size:13px;padding:6px"></select>
-              <input type="number" id="pd-monto1" placeholder="$0" oninput="calcPagoDividido()" style="width:110px;font-size:14px;padding:6px;font-weight:700;text-align:right;border-radius:6px;border:1.5px solid #378ADD"/>
+            <div style="font-size:12px;font-weight:600;color:#378ADD;margin-bottom:10px">✂ Pago dividido (Efectivo + Posnet)</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+              <label style="font-size:13px;font-weight:600;min-width:120px">💵 Efectivo:</label>
+              <input type="number" id="pd-monto1" placeholder="$0" oninput="calcPagoDividido()" style="flex:1;font-size:16px;padding:8px;font-weight:700;text-align:right;border-radius:8px;border:2px solid #378ADD"/>
             </div>
-            <div id="pd-dto-line" style="display:none;font-size:12px;color:var(--success);margin-bottom:6px;text-align:right"></div>
-            <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-              <select id="pd-metodo2" onchange="calcPagoDividido()" style="flex:1;font-size:13px;padding:6px"></select>
-              <input type="number" id="pd-monto2" readonly style="width:110px;font-size:14px;padding:6px;font-weight:700;text-align:right;border-radius:6px;border:1px solid var(--border);background:#f5f4f0;color:var(--text)"/>
-            </div>
-            <div id="pd-resumen" style="margin-top:8px;padding:8px;background:#fff;border-radius:6px;font-size:12px"></div>
+            <div id="pd-resumen" style="padding:10px;background:#fff;border-radius:8px;font-size:13px"></div>
           </div>
           <div style="margin-top:10px">
             <label>Cupón de descuento (opcional)</label>
@@ -4780,21 +4775,7 @@ window.togglePagoDividido=function(){
     pagoSel.style.display='none';
     btn.textContent='✖ Cancelar pago dividido';
     btn.style.color='#e74c3c';btn.style.borderColor='#e74c3c';
-    // Populate method selectors from _metodosPago
-    const metodos=(_metodosPago||[]).filter(m=>m.nombre&&m.activo!==false);
-    const sel1=document.getElementById('pd-metodo1');
-    const sel2=document.getElementById('pd-metodo2');
-    const optsHtml=metodos.map(m=>'<option value="'+m.nombre+'">'+m.nombre+(m.ajuste?' ('+m.ajuste+'%)':'')+'</option>').join('');
-    sel1.innerHTML=optsHtml;
-    sel2.innerHTML=optsHtml;
-    // Default: first = Efectivo, second = next available
-    const efIdx=[...sel1.options].findIndex(o=>o.value==='Efectivo');
-    if(efIdx>=0)sel1.selectedIndex=efIdx;
-    // For second, pick something different
-    const sel1Val=sel1.value;
-    for(let i=0;i<sel2.options.length;i++){if(sel2.options[i].value!==sel1Val){sel2.selectedIndex=i;break;}}
     document.getElementById('pd-monto1').value='';
-    document.getElementById('pd-monto2').value='';
     calcPagoDividido();
   } else {
     wrap.style.display='none';
@@ -4807,63 +4788,59 @@ window.togglePagoDividido=function(){
 
 window.calcPagoDividido=function(){
   const total=itemTotal||0;
-  const metodo1=document.getElementById('pd-metodo1')?.value||'';
-  const monto1=parseFloat(document.getElementById('pd-monto1')?.value)||0;
-  const metodo2=document.getElementById('pd-metodo2')?.value||'';
-  const dtoLine=document.getElementById('pd-dto-line');
-  const monto2El=document.getElementById('pd-monto2');
+  const monto1Input=document.getElementById('pd-monto1');
+  let efectivo=parseFloat(monto1Input?.value)||0;
   const resumen=document.getElementById('pd-resumen');
-  // Calculate discount on method 1
-  const m1=(_metodosPago||[]).find(m=>m.nombre===metodo1);
-  const ajuste1=m1?.ajuste||0;// negative = discount
-  const dto1=ajuste1<0?Math.round(monto1*Math.abs(ajuste1)/100):0;
-  // Method 2 gets the remainder: total - monto1 - dto1
-  const monto2=Math.max(0,Math.round(total-monto1-dto1));
-  if(monto2El)monto2El.value=monto2||'';
-  // Show discount line
-  if(dtoLine){
-    if(dto1>0){
-      dtoLine.style.display='block';
-      dtoLine.textContent='Dto '+Math.abs(ajuste1)+'% s/'+metodo1+': -$'+dto1.toLocaleString('es-AR');
-    } else dtoLine.style.display='none';
-  }
-  // Summary
+  // Cap at total
+  if(efectivo>total&&total>0){efectivo=total;monto1Input.value=total;}
+  // Calculate discount on cash (Efectivo)
+  const metodoEfectivo=(_metodosPago||[]).find(m=>m.nombre==='Efectivo');
+  const ajuste=metodoEfectivo?.ajuste||0;
+  const dto=ajuste<0?Math.round(efectivo*Math.abs(ajuste)/100):0;
+  // Posnet = total - efectivo - dto
+  const posnet=Math.max(0,Math.round(total-efectivo-dto));
+  const totalCobrar=efectivo+posnet;
+  const ahorro=total-totalCobrar;
+  // Show summary
   if(resumen){
-    if(monto1>0){
-      const totalFinal=monto1+monto2-dto1;// What client actually pays
-      const m2=(_metodosPago||[]).find(m=>m.nombre===metodo2);
-      let html='<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>'+metodo1+':</span><strong>$'+monto1.toLocaleString('es-AR')+'</strong></div>';
-      if(dto1>0)html+='<div style="display:flex;justify-content:space-between;color:var(--success);margin-bottom:2px"><span>Dto '+Math.abs(ajuste1)+'% s/'+metodo1+':</span><strong>-$'+dto1.toLocaleString('es-AR')+'</strong></div>';
-      html+='<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>'+metodo2+':</span><strong>$'+monto2.toLocaleString('es-AR')+'</strong></div>';
-      html+='<div style="display:flex;justify-content:space-between;border-top:1.5px solid var(--border);padding-top:4px;margin-top:4px;font-weight:700"><span>Total a cobrar:</span><span>$'+(monto1-dto1+monto2).toLocaleString('es-AR')+'</span></div>';
+    if(efectivo>0){
+      let html='';
+      html+='<div style="display:flex;justify-content:space-between;padding:3px 0"><span>💵 Efectivo:</span><strong>$'+efectivo.toLocaleString('es-AR')+'</strong></div>';
+      if(dto>0)html+='<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--success)"><span>Dto '+Math.abs(ajuste)+'% s/efectivo:</span><strong>-$'+dto.toLocaleString('es-AR')+'</strong></div>';
+      html+='<div style="display:flex;justify-content:space-between;padding:3px 0"><span>💳 Posnet:</span><strong>$'+posnet.toLocaleString('es-AR')+'</strong></div>';
+      html+='<div style="display:flex;justify-content:space-between;border-top:2px solid var(--border);padding-top:5px;margin-top:5px;font-weight:700;font-size:14px"><span>Total a cobrar:</span><span>$'+totalCobrar.toLocaleString('es-AR')+'</span></div>';
+      if(ahorro>0)html+='<div style="text-align:right;font-size:11px;color:var(--success);margin-top:2px">Ahorro: $'+ahorro.toLocaleString('es-AR')+'</div>';
       resumen.innerHTML=html;
-    } else resumen.innerHTML='<span style="color:#888">Ingresá el monto del primer método</span>';
+    } else {
+      resumen.innerHTML='<span style="color:#888">Ingresá cuánto paga en efectivo</span>';
+    }
   }
   // Update total display
-  if(monto1>0){
+  if(efectivo>0){
     const totalEl=document.getElementById('v-total');
-    if(totalEl)totalEl.textContent='$'+(monto1-dto1+monto2).toLocaleString('es-AR');
+    if(totalEl)totalEl.textContent='$'+totalCobrar.toLocaleString('es-AR');
   }
 };
 
 function getPagoDivididoData(){
   if(!window._pagoDividido)return null;
-  const metodo1=document.getElementById('pd-metodo1')?.value||'';
-  const monto1=parseFloat(document.getElementById('pd-monto1')?.value)||0;
-  const metodo2=document.getElementById('pd-metodo2')?.value||'';
-  const monto2=parseFloat(document.getElementById('pd-monto2')?.value)||0;
-  if(!monto1||!metodo1||!metodo2)return null;
-  const m1=(_metodosPago||[]).find(m=>m.nombre===metodo1);
-  const ajuste1=m1?.ajuste||0;
-  const dto1=ajuste1<0?Math.round(monto1*Math.abs(ajuste1)/100):0;
+  const total=itemTotal||0;
+  const efectivo=parseFloat(document.getElementById('pd-monto1')?.value)||0;
+  if(!efectivo)return null;
+  const metodoEfectivo=(_metodosPago||[]).find(m=>m.nombre==='Efectivo');
+  const ajuste=metodoEfectivo?.ajuste||0;
+  const dto=ajuste<0?Math.round(efectivo*Math.abs(ajuste)/100):0;
+  const posnet=Math.max(0,Math.round(total-efectivo-dto));
   return {
     pagos:[
-      {metodo:metodo1,monto:monto1,dto:dto1,pct:dto1>0?Math.abs(ajuste1):0},
-      {metodo:metodo2,monto:monto2,dto:0,pct:0}
+      {metodo:'Efectivo',monto:efectivo,dto:dto,pct:dto>0?Math.abs(ajuste):0},
+      {metodo:'Posnet',monto:posnet,dto:0,pct:0}
     ],
-    totalDescuento:dto1
+    totalDescuento:dto
   };
 }
+
+
 
 window.applyDiscount=function(){
   recalcDescuentos();
@@ -4922,9 +4899,9 @@ window.renderTotales=function renderTotales(){
   // Apply payment method adjustment (skip if manual discount is active)
   const metodoPago=(_metodosPago||[]).find(m=>m.nombre===pagoSel);
   const _pausado=window._ajustesPausados?.has(pagoSel);
-    // If split payment is active, skip normal discount (handled by calcPagoDividido)
-    if(window._pagoDividido)return;
-  const ajustePct=(_descManual?.pct>0||_pausado)?0:(metodoPago?.ajuste||0);
+    // If split payment is active, skip normal payment adjustment (handled by calcPagoDividido)
+    const _skipAjustePago=window._pagoDividido;
+  const ajustePct=(_descManual?.pct>0||_pausado||_skipAjustePago)?0:(metodoPago?.ajuste||0);
   let finalConAjuste=final;
   if(ajustePct!==0&&final>0){
     const ajusteMonto=Math.round(final*ajustePct/100);
