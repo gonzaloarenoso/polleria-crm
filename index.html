@@ -4753,6 +4753,99 @@ function recalcDescuentos(){
   }
   renderTotales();
 }
+// ── PAGO DIVIDIDO ──────────────────────────────────────────────
+window._pagoDividido=false;
+window._pagoDivRows=[];
+
+window.togglePagoDividido=function(){
+  window._pagoDividido=!window._pagoDividido;
+  const wrap=document.getElementById('pago-dividido-wrap');
+  const pagoSel=document.getElementById('v-pago');
+  const btn=document.getElementById('btn-dividir-pago');
+  if(window._pagoDividido){
+    wrap.style.display='block';
+    pagoSel.style.display='none';
+    btn.textContent='✖ Cancelar pago dividido';
+    btn.style.color='#e74c3c';btn.style.borderColor='#e74c3c';
+    if(!window._pagoDivRows.length){addPagoDivididoRow();addPagoDivididoRow();}
+    renderPagoDivididoRows();
+  } else {
+    wrap.style.display='none';
+    pagoSel.style.display='';
+    btn.textContent='✂ Dividir pago';
+    btn.style.color='#378ADD';btn.style.borderColor='#378ADD';
+    window._pagoDivRows=[];
+  }
+  renderTotales();
+};
+
+window.addPagoDivididoRow=function(){
+  window._pagoDivRows.push({metodo:'',monto:0});
+  renderPagoDivididoRows();
+};
+
+window.rmPagoDivididoRow=function(idx){
+  window._pagoDivRows.splice(idx,1);
+  renderPagoDivididoRows();
+  renderTotales();
+};
+
+window.updatePagoDivRow=function(idx,field,val){
+  if(field==='metodo')window._pagoDivRows[idx].metodo=val;
+  if(field==='monto')window._pagoDivRows[idx].monto=parseFloat(val)||0;
+  renderPagoDivRest();
+  renderTotales();
+};
+
+function renderPagoDivididoRows(){
+  const el=document.getElementById('pago-dividido-rows');if(!el)return;
+  const metodos=(_metodosPago||[]).filter(m=>m.activo!==false);
+  let html='';
+  window._pagoDivRows.forEach((r,i)=>{
+    let opts='<option value="">Método...</option>';
+    metodos.forEach(m=>{
+      const ajuste=m.ajuste?(' ('+(m.ajuste>0?'+':'')+m.ajuste+'%)'):' ';
+      opts+='<option value="'+m.nombre+'"'+(r.metodo===m.nombre?' selected':'')+'>'+m.nombre+ajuste+'</option>';
+    });
+    html+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">';
+    html+='<select onchange="updatePagoDivRow('+i+',this.dataset.f,this.value)" data-f="metodo" style="flex:1;font-size:12px;padding:5px">'+opts+'</select>';
+    html+='<input type="number" value="'+(r.monto||'')+'" placeholder="$0" onchange="updatePagoDivRow('+i+',this.dataset.f,this.value)" data-f="monto" style="width:100px;font-size:13px;padding:5px;font-weight:700;text-align:right;border-radius:6px;border:1px solid var(--border)"/>';
+    html+=window._pagoDivRows.length>2?'<button onclick="rmPagoDivididoRow('+i+')" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:16px">✕</button>':'<span style="width:20px"></span>';
+    html+='</div>';
+  });
+  el.innerHTML=html;
+  renderPagoDivRest();
+}
+
+function renderPagoDivRest(){
+  const el=document.getElementById('pago-dividido-rest');if(!el)return;
+  const total=itemTotal||0;
+  const asignado=window._pagoDivRows.reduce((a,r)=>a+r.monto,0);
+  const rest=Math.round(total-asignado);
+  if(rest>0)el.innerHTML='Restante: <span style="color:var(--danger)">$'+rest.toLocaleString('es-AR')+'</span>';
+  else if(rest<0)el.innerHTML='Excedente: <span style="color:var(--danger)">$'+Math.abs(rest).toLocaleString('es-AR')+'</span>';
+  else el.innerHTML='<span style="color:var(--success)">✓ Monto completo</span>';
+}
+
+function calcDescuentoPagoDividido(){
+  // Calculate discounts per payment method portion
+  let totalDto=0;
+  const detalles=[];
+  window._pagoDivRows.forEach(r=>{
+    if(!r.metodo||!r.monto)return;
+    const metodo=(_metodosPago||[]).find(m=>m.nombre===r.metodo);
+    const ajuste=metodo?.ajuste||0;
+    if(ajuste<0){// Negative ajuste = discount
+      const dto=Math.round(r.monto*Math.abs(ajuste)/100);
+      totalDto+=dto;
+      detalles.push({metodo:r.metodo,monto:r.monto,dto:dto,pct:Math.abs(ajuste)});
+    } else {
+      detalles.push({metodo:r.metodo,monto:r.monto,dto:0,pct:0});
+    }
+  });
+  return {totalDto,detalles};
+}
+
 window.applyDiscount=function(){
   recalcDescuentos();
 };
@@ -4810,6 +4903,22 @@ window.renderTotales=function renderTotales(){
   // Apply payment method adjustment (skip if manual discount is active)
   const metodoPago=(_metodosPago||[]).find(m=>m.nombre===pagoSel);
   const _pausado=window._ajustesPausados?.has(pagoSel);
+    // If split payment is active, use per-method discount calculation
+    if(window._pagoDividido&&window._pagoDivRows.length){
+      const splitCalc=calcDescuentoPagoDividido();
+      if(splitCalc.totalDto>0){
+        const ajusteInfo=document.getElementById('v-ajuste-pago');
+        if(ajusteInfo){
+          ajusteInfo.style.display='block';
+          let detTxt=splitCalc.detalles.filter(d=>d.dto>0).map(d=>d.pct+'% s/'+d.metodo+': -$'+d.dto.toLocaleString('es-AR')).join(' + ');
+          ajusteInfo.innerHTML='<span style="color:var(--success)">⬇ '+detTxt+' = -$'+splitCalc.totalDto.toLocaleString('es-AR')+'</span><button onclick="togglePagoDividido()" style="background:none;border:none;cursor:pointer;font-size:12px;margin-left:4px" title="Cancelar pago dividido">✕</button>';
+        }
+        const finalDiv=splitCalc.detalles.reduce((a,d)=>a+d.monto,0)-splitCalc.totalDto;
+        const totalEl=document.getElementById('v-total');
+        if(totalEl)totalEl.textContent=fmt(finalDiv);
+        return;
+      }
+    }
   const ajustePct=(_descManual?.pct>0||_pausado)?0:(metodoPago?.ajuste||0);
   let finalConAjuste=final;
   if(ajustePct!==0&&final>0){
@@ -4889,6 +4998,8 @@ window.eliminarPresupuesto=async function(id){
 };
 
 window.limpiar=function(){
+  if(window._pagoDividido)togglePagoDividido();
+  window._pagoDivRows=[];
   items=[];itemTotal=0;ventaDescuento=null;selectedClienteId=null;
   _descManual={pct:0,motivo:''};_acumDesc=false;_cuponAplicado=null;
   ['v-cli','v-dir','v-teli','v-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
@@ -5026,14 +5137,27 @@ window.confirmar=async function(){
   }
   const descMonto=(ventaDescuento?Math.round(itemTotal*ventaDescuento.porcentaje/100):0)+cuponDescuento;
   const finalTotal=itemTotal-descMonto;
-  const pagoSelGuardar=document.getElementById('v-pago')?.value||'';
+  // Handle split payment
+  let pagoSelGuardar=document.getElementById('v-pago')?.value||'';
+  let pagoDivididoData=null;
+  if(window._pagoDividido&&window._pagoDivRows.length){
+    const rowsValidas=window._pagoDivRows.filter(r=>r.metodo&&r.monto>0);
+    if(rowsValidas.length<2){alert('Completá al menos 2 métodos de pago para dividir');return;}
+    const asignado=rowsValidas.reduce((a,r)=>a+r.monto,0);
+    if(Math.abs(asignado-itemTotal)>1){alert('El monto dividido ($'+asignado.toLocaleString('es-AR')+') no coincide con el total ($'+Math.round(itemTotal).toLocaleString('es-AR')+')');return;}
+    const splitCalc=calcDescuentoPagoDividido();
+    pagoDivididoData={pagos:splitCalc.detalles,totalDescuento:splitCalc.totalDto};
+    pagoSelGuardar='Dividido';
+  }
   // Apply method adjustment to total — pero NO si hay descuento manual activo
   // (el descuento manual reemplaza por completo cualquier ajuste/descuento automático del método de pago,
   // igual que ya se respeta en pantalla con checkAndApplyAutoDiscount/renderTotales).
   const metodoPagoGuardar=(_metodosPago||[]).find(m=>m.nombre===pagoSelGuardar);
   const _pausadoGuardar=window._ajustesPausados?.has(pagoSelGuardar);
   const ajustePctGuardar=(_descManual?.pct>0||_pausadoGuardar)?0:(metodoPagoGuardar?.ajuste||0);
-  const totalConAjuste=ajustePctGuardar!==0?Math.round(finalTotal*(1+ajustePctGuardar/100)):finalTotal;
+  const totalConAjuste=pagoDivididoData
+    ?Math.round(finalTotal-pagoDivididoData.totalDescuento)
+    :(ajustePctGuardar!==0?Math.round(finalTotal*(1+ajustePctGuardar/100)):finalTotal);
   const totalGuardar=pagoSelGuardar.toLowerCase()==='efectivo'&&totalConAjuste>0
     ?Math.floor(totalConAjuste/50)*50:totalConAjuste;
   const venta={
@@ -5044,14 +5168,17 @@ window.confirmar=async function(){
     dir:document.getElementById('v-dir').value,
     telCli:document.getElementById('v-teli').value,
     obs:document.getElementById('v-obs').value,
-    pago:document.getElementById('v-pago').value,
+    pago:pagoDivididoData?'Dividido':document.getElementById('v-pago').value,
+    pagoDividido:pagoDivididoData?true:false,
+    pagos:pagoDivididoData?.pagos||null,
+    pagoDtoTotal:pagoDivididoData?.totalDescuento||0,
     vendedor:CU,items:[...items],
     subtotal:itemTotal,
     descuentoMotivo:ventaDescuento?ventaDescuento.motivo:null,
     descuentoPct:ventaDescuento?ventaDescuento.porcentaje:0,
     descuentoMonto:descMonto,
     ajustePagoPct:ajustePctGuardar,
-    ajustePagoMonto:ajustePctGuardar!==0?Math.round(finalTotal*ajustePctGuardar/100):0,
+    ajustePagoMonto:pagoDivididoData?-pagoDivididoData.totalDescuento:(ajustePctGuardar!==0?Math.round(finalTotal*ajustePctGuardar/100):0),
     total:totalGuardar,
     tipo:'presencial'
   };
@@ -10187,19 +10314,7 @@ function renderMisPedidos(){
     // MOD 13: Repeat order button (only for completed/delivered)
     const repeatBtn=['entregado','confirmado'].includes(v.estado)?
       '<button class="btn bs bsm" style="margin-top:8px;font-size:12px" onclick="repetirPedido(\''+v.id+'\')">🔄 Volver a pedir</button>':'';
-    return'
-    // Productos vendidos
-    if(c.productosVendidos&&c.productosVendidos.length){
-      html+=`<div class="card" style="margin-bottom:12px">
-        <h3>📦 Productos vendidos</h3>
-        <div style="overflow-x:auto"><table>
-        <thead><tr><th>Producto</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Total</th></tr></thead>
-        <tbody>
-        ${c.productosVendidos.map(p=>'<tr><td>'+p.nombre+'</td><td style="text-align:right">'+Math.round(p.cantidad*1000)/1000+' '+p.unidad+'</td><td style="text-align:right">'+fmt(p.total)+'</td></tr>').join('')}
-        <tr style="border-top:2px solid var(--border);font-weight:700"><td>Total</td><td></td><td style="text-align:right">${fmt(c.productosVendidos.reduce((a,p)=>a+p.total,0))}</td></tr>
-        </tbody></table></div></div>`;
-    }
-<div class="card" style="margin-bottom:12px;padding:14px">'+
+    return'<div class="card" style="margin-bottom:12px;padding:14px">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
       '<div style="font-weight:700;font-size:13px">'+fdate(v.fecha)+' '+v.hora+'</div>'+
       '<span style="font-size:12px;color:#888">'+(v.tipoEntrega==='retiro'?'Retiro en local':'Envío a domicilio')+'</span>'+
@@ -10888,7 +11003,16 @@ window.generarInforme=async function(){
   const gananciaDistribuible=gananciaNtaReal-totalRetiroSocios;
   const hayFIFO=true; // Always show cost/profit metrics
   let ef=0,tr=0,ta=0,cc_=0;
-  vf.forEach(v=>{if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;else if(v.pago!=='Cuenta corriente')ta+=v.total;else cc_+=v.total;});
+  vf.forEach(v=>{
+    if(v.pagoDividido&&v.pagos){
+      v.pagos.forEach(p=>{
+        const neto=p.monto-(p.dto||0);
+        if(p.metodo==='Efectivo')ef+=neto;
+        else if(p.metodo==='Transferencia')tr+=neto;
+        else if(p.metodo!=='Cuenta corriente')ta+=neto;
+        else cc_+=neto;
+      });
+    } else if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;else if(v.pago!=='Cuenta corriente')ta+=v.total;else cc_+=v.total;});
   // Descontar retiros de caja chica del medio correspondiente
   const hoy2=today();
   const ccHoy=_cajaChica.filter(x=>x.fecha===hoy2);
