@@ -10628,8 +10628,9 @@ window.printCierre=async function(id){
     const ciPrev=ciIdx>0?allCierres[ciIdx-1]:null;
     // Caja chica del día
     const ccDia=(_cajaChica||[]).filter(g=>g.fecha===ci.fecha);
-    const gastosCajaChica=ccDia.filter(g=>g.esEgreso).reduce((a,g)=>a+(g.monto||g.montoAbs||0),0);
     const retirosCaja=ccDia.filter(g=>g.esEgreso&&(g.tipo==='retiro'||g.tipo==='retiro_caja')).reduce((a,g)=>a+Math.abs(g.monto||g.montoAbs||0),0);
+    const gastosOperativos=ccDia.filter(g=>g.esEgreso&&g.tipo!=='retiro'&&g.tipo!=='retiro_caja').reduce((a,g)=>a+Math.abs(g.monto||g.montoAbs||0),0);
+    const gastosCajaChica=retirosCaja+gastosOperativos;
     // Descuentos desglosados - rebuild from ventas
     const ventasDia=(_ventas||[]).filter(v=>v.fecha===ci.fecha);
     const descMap={};
@@ -10637,7 +10638,7 @@ window.printCierre=async function(id){
     // Fondo anterior (efectivoDisponible del cierre anterior)
     const fondoAnterior=ciPrev?.fondoCambio||ciPrev?.efectivoDisponible||0;
     // Efectivo esperado = fondo anterior + ventas efectivo - retiros
-    const efEsperado=fondoAnterior+(ci.efectivo||0)-retirosCaja;
+    const efEsperado=fondoAnterior+(ci.efectivo||0)-retirosCaja-gastosOperativos;
     const efReal=ci.efectivoReal||ci.efectivo||0;
     const difEf=efReal-efEsperado;
     const fmt=n=>'$'+Math.round(n).toLocaleString('es-AR');
@@ -10645,7 +10646,7 @@ window.printCierre=async function(id){
     const difColor=n=>n===0?'#000':n>0?'#1D9E75':'#e74c3c';
 
     const html=`<!DOCTYPE html>
-<html><head><title>Cierre ${ci.fecha}</title>
+<html><head><meta charset="UTF-8"><title>Cierre ${ci.fecha}</title>
 <style>
 body{font-family:monospace;margin:20px;font-size:12px;color:#1a1a1a}
 .center{text-align:center}.bold{font-weight:bold}
@@ -10677,7 +10678,7 @@ ${ciPrev?`<div class="row" style="font-size:11px"><span>vs turno anterior:</span
 <div class="bold">EFECTIVO — DIFERENCIAS</div>
 <div class="row"><span>Fondo día anterior:</span><span>${fmt(fondoAnterior)}</span></div>
 <div class="row"><span>Ventas efectivo:</span><span>${fmt(ci.efectivo||0)}</span></div>
-${retirosCaja>0?`<div class="row"><span>Retiros de caja:</span><span class="neg">-${fmt(retirosCaja)}</span></div>`:''}
+${retirosCaja>0?`<div class="row"><span>Retiros de caja:</span><span class="neg">-${fmt(retirosCaja)}</span></div>`:''}${gastosOperativos>0?`<div class="row"><span>Gastos operativos:</span><span class="neg">-${fmt(gastosOperativos)}</span></div>`:''}
 <div class="dline"></div>
 <div class="row"><span>Esperado en caja:</span><span class="bold">${fmt(efEsperado)}</span></div>
 <div class="row"><span>Real contado:</span><span class="bold">${fmt(efReal)}</span></div>
@@ -10690,11 +10691,15 @@ ${Object.keys(descMap).length>0?`
 <div class="bold">DESCUENTOS</div>
 ${Object.entries(descMap).map(([k,v])=>`<div class="row"><span>${k}:</span><span class="neg">-${fmt(v)}</span></div>`).join('')}
 <div class="row bold"><span>Total descuentos:</span><span class="neg">-${fmt(Object.values(descMap).reduce((a,b)=>a+b,0))}</span></div>`:''}
-${gastosCajaChica>0||ccDia.length>0?`
+${retirosCaja>0?`
 <div class="line"></div>
-<div class="bold">CAJA CHICA DEL DÍA</div>
-${ccDia.map(g=>`<div class="row"><span>${g.descripcion||g.categoria||'Gasto'}:</span><span${g.esEgreso?' class="neg"':''}>${g.esEgreso?'-':''}${fmt(Math.abs(g.monto||g.montoAbs||0))}</span></div>`).join('')}
-<div class="row bold"><span>Total gastos:</span><span class="neg">-${fmt(gastosCajaChica)}</span></div>`:''}
+<div class="bold">RETIROS DE CAJA</div>
+${ccDia.filter(g=>g.esEgreso&&(g.tipo==='retiro'||g.tipo==='retiro_caja')).map(g=>`<div class="row"><span>${g.detalle||g.descripcion||'Retiro a caja grande'}:</span><span class="neg">-${fmt(Math.abs(g.monto||g.montoAbs||0))}</span></div>`).join('')}
+<div class="row bold"><span>Total retiros:</span><span class="neg">-${fmt(retirosCaja)}</span></div>`:''}${gastosOperativos>0?`
+<div class="line"></div>
+<div class="bold">GASTOS OPERATIVOS</div>
+${ccDia.filter(g=>g.esEgreso&&g.tipo!=='retiro'&&g.tipo!=='retiro_caja').map(g=>`<div class="row"><span>${g.detalle||g.descripcion||g.categoria||'Gasto'}:</span><span class="neg">-${fmt(Math.abs(g.monto||g.montoAbs||0))}</span></div>`).join('')}
+<div class="row bold"><span>Total gastos operativos:</span><span class="neg">-${fmt(gastosOperativos)}</span></div>`:''}
 ${ci.costoFIFO?`
 <div class="line"></div>
 <div class="row"><span>Costo (FIFO):</span><span class="neg">-${fmt(ci.costoFIFO)}</span></div>`:''}
