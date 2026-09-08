@@ -4798,7 +4798,10 @@ window.calcPagoDividido=function(){
   // Calculate discount on cash (Efectivo)
   const metodoEfectivo=(_metodosPago||[]).find(m=>m.nombre==='Efectivo');
   const ajuste=metodoEfectivo?.ajuste||0;
-  const dto=(ajuste<0&&!window._splitDtoOff)?Math.round(efectivo*Math.abs(ajuste)/100):0;
+  const subElegible=items.reduce((a,it)=>a+(itemElegibleDto(it)?(it.cant*it.precio):0),0);
+  const pctElegible=total>0?subElegible/total:1;
+  const efectivoElegible=Math.round(efectivo*pctElegible);
+  const dto=(ajuste<0&&!window._splitDtoOff)?Math.round(efectivoElegible*Math.abs(ajuste)/100):0;
   // Posnet = total - efectivo - dto
   const posnet=Math.max(0,Math.round(total-efectivo-dto));
   const totalCobrar=efectivo+posnet;
@@ -4832,7 +4835,10 @@ function getPagoDivididoData(){
   if(!efectivo)return null;
   const metodoEfectivo=(_metodosPago||[]).find(m=>m.nombre==='Efectivo');
   const ajuste=metodoEfectivo?.ajuste||0;
-  const dto=(ajuste<0&&!window._splitDtoOff)?Math.round(efectivo*Math.abs(ajuste)/100):0;
+  const subElegible=items.reduce((a,it)=>a+(itemElegibleDto(it)?(it.cant*it.precio):0),0);
+  const pctElegible=total>0?subElegible/total:1;
+  const efectivoElegible=Math.round(efectivo*pctElegible);
+  const dto=(ajuste<0&&!window._splitDtoOff)?Math.round(efectivoElegible*Math.abs(ajuste)/100):0;
   const posnet=Math.max(0,Math.round(total-efectivo-dto));
   return {
     pagos:[
@@ -4844,6 +4850,27 @@ function getPagoDivididoData(){
 }
 
 
+
+// Check if a cart item is eligible for cash discount (not in 2nd+ tramo)
+function itemElegibleDto(item){
+  const prod=(_productos||[]).find(p=>p.nombre===item.nom);
+  if(!prod||!prod.tramos||!prod.tramos.length)return true;// No tramos = eligible
+  // Find which tramo applies to this quantity
+  const cant=parseFloat(item.cant)||0;
+  for(let i=1;i<prod.tramos.length;i++){
+    const t=prod.tramos[i];
+    const desde=parseFloat(t.desde)||0;
+    const hasta=t.hasta===Infinity||t.hasta==='∞'||!t.hasta?Infinity:parseFloat(t.hasta);
+    if(cant>=desde&&cant<hasta)return false;// 2nd+ tramo = NOT eligible
+  }
+  // Check if price matches a non-first tramo
+  if(prod.tramos.length>1){
+    const precioItem=parseFloat(item.precio)||0;
+    const precioTramo1=parseFloat(prod.tramos[0]?.precio)||0;
+    if(precioItem<precioTramo1)return false;// Price is lower than first tramo = using discount tramo
+  }
+  return true;// First tramo or no match = eligible
+}
 
 window.applyDiscount=function(){
   recalcDescuentos();
@@ -4907,10 +4934,13 @@ window.renderTotales=function renderTotales(){
   const ajustePct=(_descManual?.pct>0||_pausado||_skipAjustePago)?0:(metodoPago?.ajuste||0);
   let finalConAjuste=final;
   if(ajustePct!==0&&final>0){
-    const ajusteMonto=Math.round(final*ajustePct/100);
+    // Only apply discount on items eligible (not in 2nd+ tramo)
+    const subtotalElegible=items.reduce((a,it)=>a+(itemElegibleDto(it)?(it.cant*it.precio):0),0);
+    const subtotalNoElegible=final-subtotalElegible;
+    const ajusteMonto=subtotalElegible>0?Math.round(subtotalElegible*ajustePct/100):0;
     finalConAjuste=final+ajusteMonto;
     const ajusteColor=ajustePct<0?'var(--success)':'var(--danger)';
-    const ajusteLabel=ajustePct<0?`Descuento ${pagoSel} ${ajustePct}%`:`Recargo ${pagoSel} +${ajustePct}%`;
+    const ajusteLabel=ajustePct<0?(subtotalNoElegible>0?`Dto ${pagoSel} ${ajustePct}% s/${fmt(subtotalElegible)}`:`Descuento ${pagoSel} ${ajustePct}%`):`Recargo ${pagoSel} +${ajustePct}%`;
     html+=`<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:${ajusteColor};margin-top:2px"><span>${ajusteLabel}</span><div style="display:flex;align-items:center;gap:6px"><span>${ajustePct<0?'-':'+'}${fmt(Math.abs(ajusteMonto))}</span><button onclick="desactivarAjustePagoTemp()" style="background:none;border:none;color:${ajusteColor};cursor:pointer;font-size:13px;padding:0;line-height:1" title="Quitar este descuento para esta venta">✕</button></div></div>`;
     html+=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:16px;margin-top:4px"><span>Total</span><span>${fmt(finalConAjuste)}</span></div>`;
   }
@@ -5135,9 +5165,11 @@ window.confirmar=async function(){
   const metodoPagoGuardar=(_metodosPago||[]).find(m=>m.nombre===pagoSelGuardar);
   const _pausadoGuardar=window._ajustesPausados?.has(pagoSelGuardar);
   const ajustePctGuardar=(_descManual?.pct>0||_pausadoGuardar)?0:(metodoPagoGuardar?.ajuste||0);
-  const totalConAjuste=pagoDivididoData
+      // Calculate eligible subtotal (exclude items in 2nd+ tramo)
+    const subElegibleGuardar=items.reduce((a,it)=>a+(itemElegibleDto(it)?(it.cant*it.precio):0),0);
+    const totalConAjuste=pagoDivididoData
     ?Math.round(finalTotal-pagoDivididoData.totalDescuento)
-    :(ajustePctGuardar!==0?Math.round(finalTotal*(1+ajustePctGuardar/100)):finalTotal);
+    :(ajustePctGuardar!==0?Math.round(finalTotal+subElegibleGuardar*ajustePctGuardar/100):finalTotal);
   const totalGuardar=pagoSelGuardar.toLowerCase()==='efectivo'&&totalConAjuste>0
     ?Math.floor(totalConAjuste/50)*50:totalConAjuste;
   const venta={
