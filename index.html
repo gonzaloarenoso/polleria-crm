@@ -2429,11 +2429,14 @@ let _locales=[];          // [{id,nombre,direccion}]
 // agregados en el informe general. Si nunca se usó multi-local (_locales vacío),
 // se sigue trabajando como antes, sobre la base sin local.
 function LCOL(name){
+  if(!STORE)STORE='admin';
   if(ACTIVE_LOCALE)return collection(db,'users',STORE,'locales',ACTIVE_LOCALE,name);
   if(_locales.length>0)return collection(db,'users',STORE,'locales','__none__',name);
   return collection(db,'users',STORE,name);
 }
 function LDOC(name,id){
+  if(!STORE)STORE='admin';
+  if(!id)return doc(collection(db,'users',STORE,name));
   if(ACTIVE_LOCALE)return doc(db,'users',STORE,'locales',ACTIVE_LOCALE,name,id);
   if(_locales.length>0)return doc(db,'users',STORE,'locales','__none__',name,id);
   return doc(db,'users',STORE,name,id);
@@ -4444,7 +4447,6 @@ window.checkTramoVenta=function(){
   }
 };
 window.addItem=function(){
-  alert('ADDITEM V2 - Si ves esto, el archivo es el correcto');
   const val=document.getElementById('v-prod').value;if(!val||val==='')return;
   // Clear search input after adding
   const si=document.getElementById('v-prod-search');if(si)si.value='';
@@ -4458,7 +4460,7 @@ window.addItem=function(){
     const prod=_productos.find(p=>p.nombre===nom);
     // Tramo pricing with combinable group support
     const grupoActivo=prod?.grupoCombinable||null;
-    console.warn('[GRUPO DEBUG]',nom,'grupo:',grupoActivo,'tramos propios:',prod?.tramos?.length||0,'_gruposCombinables:',_gruposCombinables);
+
     let tramosUsar=prod?.tramos?.length?prod.tramos:null;
     // If product has no tramos but is in a group, find tramos from any product in the same group
     if(!tramosUsar&&grupoActivo){
