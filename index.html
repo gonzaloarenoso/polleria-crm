@@ -4764,6 +4764,8 @@ window.applyManualDiscount=function(){
   recalcDescuentos();
 };
 
+window.applyDiscount=function(){recalcDescuentos();};
+
 function recalcDescuentos(){
   const sel=document.getElementById('v-desc');
   const box=document.getElementById('v-desc-box');
@@ -4972,7 +4974,12 @@ function itemElegibleDto(item){
     if(cant>=desde&&cant<hasta)return false;// 2nd+ tramo = NOT eligible
   }
   // Check if price matches a non-first tramo
-  el.innerHTML=html;
+  if(prod.tramos.length>1){
+    const precioItem=parseFloat(item.precio)||0;
+    const precioTramo1=parseFloat(prod.tramos[0]?.precio)||0;
+    if(precioItem<precioTramo1)return false;
+  }
+  return true;
 }
 
 let _tipoVenta='venta';
