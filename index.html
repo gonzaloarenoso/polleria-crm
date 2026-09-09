@@ -4460,7 +4460,7 @@ window.addItem=function(){
     const prod=_productos.find(p=>p.nombre===nom);
     // Tramo pricing with combinable group support
     const grupoActivo=prod?.grupoCombinable||null;
-
+    toast('[DEBUG] '+nom+' | grupo: '+(grupoActivo||'NINGUNO')+' | tramos: '+(prod?.tramos?.length||0),3000);
     let tramosUsar=prod?.tramos?.length?prod.tramos:null;
     // If product has no tramos but is in a group, find tramos from any product in the same group
     if(!tramosUsar&&grupoActivo){
