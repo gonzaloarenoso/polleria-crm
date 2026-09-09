@@ -4803,6 +4803,54 @@ function recalcDescuentos(){
   }
   renderTotales();
 }
+
+function renderTotales(){
+  const el=document.getElementById('v-totales');if(!el)return;
+  const fmt=n=>'$'+Math.round(n).toLocaleString('es-AR');
+  // Base total from items
+  itemTotal=items.reduce((a,it)=>a+(parseFloat(it.cant)||0)*(parseFloat(it.precio)||0),0);
+  let final=itemTotal;
+  let html='';
+  // Apply discount
+  if(ventaDescuento&&ventaDescuento.porcentaje>0&&final>0){
+    const dMonto=Math.round(final*ventaDescuento.porcentaje/100);
+    final-=dMonto;
+    html+=`<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--success)"><span>${ventaDescuento.motivo||'Descuento'} ${ventaDescuento.porcentaje}%</span><span>-${fmt(dMonto)}</span></div>`;
+  }
+  // Payment method adjustment (only on eligible items, skip if split payment)
+  const _skipAjustePago=window._pagoDividido;
+  const pagoSel=document.getElementById('v-pago')?.value||'';
+  const _pausado=window._ajustesPausados?.has(pagoSel);
+  const metodoPago=(_metodosPago||[]).find(m=>m.nombre===pagoSel);
+  const ajustePct=(_descManual?.pct>0||_pausado||_skipAjustePago)?0:(metodoPago?.ajuste||0);
+  let finalConAjuste=final;
+  if(ajustePct!==0&&final>0){
+    const subtotalElegible=items.reduce((a,it)=>a+(itemElegibleDto(it)?(parseFloat(it.cant)*parseFloat(it.precio)):0),0);
+    // Apply discount to eligible portion first
+    let elegibleConDto=subtotalElegible;
+    if(ventaDescuento&&ventaDescuento.porcentaje>0)elegibleConDto=subtotalElegible*(1-ventaDescuento.porcentaje/100);
+    const ajusteMonto=elegibleConDto>0?Math.round(elegibleConDto*ajustePct/100):0;
+    finalConAjuste=final+ajusteMonto;
+    const ajusteLabel=ajustePct<0?(subtotalElegible<itemTotal?'Dto '+pagoSel+' '+ajustePct+'% s/'+fmt(Math.round(elegibleConDto)):'Descuento '+pagoSel+' '+ajustePct+'%'):'Recargo '+pagoSel+' +'+ajustePct+'%';
+    html+=`<div style="display:flex;justify-content:space-between;font-size:13px;align-items:center" id="v-ajuste-pago"><span style="color:${ajustePct<0?'var(--success)':'var(--danger)'}">${ajusteLabel}</span><span style="display:flex;align-items:center;gap:4px"><span style="color:${ajustePct<0?'var(--success)':'var(--danger)'}">${ajustePct<0?'-':'+'}\${fmt(Math.abs(ajusteMonto))}</span><button onclick="desactivarAjustePagoTemp()" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px" title="Quitar ajuste">✕</button></span></div>`;
+  }
+  // Total display
+  if(items.length){
+    html=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;margin-bottom:4px"><span>Total</span><span id="v-total">${fmt(Math.round(finalConAjuste))}</span></div>`+html;
+  } else {
+    html=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px"><span>Total</span><span id="v-total">$0</span></div>`;
+  }
+  el.innerHTML=html;
+}
+window.desactivarAjustePagoTemp=function(){
+  const pago=document.getElementById('v-pago')?.value;
+  if(pago){
+    if(!window._ajustesPausados)window._ajustesPausados=new Set();
+    window._ajustesPausados.add(pago);
+  }
+  renderTotales();
+};
+
 // ── PAGO DIVIDIDO ──────────────────────────────────────────────
 window._pagoDividido=false;
 window._splitDtoOff=false;
