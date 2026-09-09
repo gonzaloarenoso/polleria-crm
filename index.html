@@ -1406,7 +1406,16 @@ tr:hover td{background:#fafaf8}
                 <div><label>Tarjeta crédito (%)</label><input type="number" id="cfg-com-credito" placeholder="3.5" step="0.1" min="0" max="100"/></div>
               </div>
             </div>
-            <div class="row" style="margin-top:12px"><button class="btn bp" id="cfg-neg-btn" onclick="saveCfgNegocio()">Guardar datos</button></div>
+            <div class="row" style="margin-top:12px"><button class="btn bp" id="cfg-neg-btn" onclick="saveCfgNegocio()">Guardar datos</button>
+          </div>
+          <div class="card">
+            <h3>🔗 Grupos combinables</h3>
+            <div style="font-size:13px;color:#888;margin-bottom:12px">Productos del mismo grupo suman cantidades para activar precios por tramo. Ej: 10 burgers de distintos sabores = precio por 10+.</div>
+            <div style="display:flex;gap:8px;margin-bottom:12px">
+              <input type="text" id="cfg-grupo-nombre" placeholder="Ej: Burgers" style="flex:1"/>
+              <button class="btn bp bsm" onclick="addGrupoCombinable()">+ Crear grupo</button>
+            </div>
+            <div id="cfg-grupos-lista"><div class="empty">Sin grupos</div></div></div>
           </div>
           
           <div class="card">
@@ -3442,6 +3451,37 @@ setInterval(function(){
 
 window._montosOcultos=false;
 const BLUR_SECTIONS=['sec-dashboard','sec-inventario','sec-ventas-dia','sec-caja'];
+// ── GRUPOS COMBINABLES ──
+let _gruposCombinables=[];
+window.addGrupoCombinable=async function(){
+  const nombre=document.getElementById('cfg-grupo-nombre')?.value.trim();
+  if(!nombre){alert('Ingresá un nombre para el grupo');return;}
+  if(_gruposCombinables.includes(nombre)){alert('El grupo ya existe');return;}
+  _gruposCombinables.push(nombre);
+  await setDoc(doc(db,'config',STORE),{gruposCombinables:_gruposCombinables},{merge:true});
+  document.getElementById('cfg-grupo-nombre').value='';
+  renderGruposLista();toast('Grupo creado: '+nombre);
+};
+window.deleteGrupoCombinable=async function(nombre){
+  if(!confirm('¿Eliminar grupo "'+nombre+'"?'))return;
+  _gruposCombinables=_gruposCombinables.filter(g=>g!==nombre);
+  await setDoc(doc(db,'config',STORE),{gruposCombinables:_gruposCombinables},{merge:true});
+  renderGruposLista();toast('Grupo eliminado');
+};
+window.asignarGrupo=async function(prodId,grupo){
+  const nuevos=_productos.map(p=>p.id===prodId?{...p,grupoCombinable:grupo||null}:p);
+  await setDoc(doc(db,'productos',STORE),{lista:nuevos});
+  toast(grupo?'Asignado a grupo: '+grupo:'Grupo removido');
+};
+function renderGruposLista(){
+  const el=document.getElementById('cfg-grupos-lista');if(!el)return;
+  if(!_gruposCombinables.length){el.innerHTML='<div class="empty">Sin grupos</div>';return;}
+  el.innerHTML=_gruposCombinables.map(g=>{
+    const prods=(_productos||[]).filter(p=>p.grupoCombinable===g&&p.activo!==false);
+    return '<div class="pr"><div><strong>'+g+'</strong> <span style="font-size:11px;color:#888">('+prods.length+' productos: '+prods.map(p=>p.nombre).join(', ')+')</span></div><button class="btn bd bsm" onclick="deleteGrupoCombinable(\''+g.replace(/'/g,"\\'")+'\')">Eliminar</button></div>';
+  }).join('');
+}
+
 window.toggleMontos=function(){
   if(USER_ROLE!=='admin')return;
   window._montosOcultos=!window._montosOcultos;
@@ -3572,6 +3612,7 @@ function startListeners(){
       _cfgNegocio=d.negocio||{};
       _cfgPedidos=d.pedidos||{};
       _descuentosAuto=d.descuentosAuto||[];
+      _gruposCombinables=d.gruposCombinables||[];
       // Sync token display if admin has it open
       if(d.currentToken&&USER_ROLE==='admin'){
         const tokenDisp=document.getElementById('token-display');
@@ -4864,95 +4905,34 @@ function itemElegibleDto(item){
     if(cant>=desde&&cant<hasta)return false;// 2nd+ tramo = NOT eligible
   }
   // Check if price matches a non-first tramo
-  if(prod.tramos.length>1){
-    const precioItem=parseFloat(item.precio)||0;
-    const precioTramo1=parseFloat(prod.tramos[0]?.precio)||0;
-    if(precioItem<precioTramo1)return false;// Price is lower than first tramo = using discount tramo
-  }
-  return true;// First tramo or no match = eligible
-}
-
-window.applyDiscount=function(){
-  recalcDescuentos();
-};
-
-
-window.quitarDescuento=function(){
-  ventaDescuento=null;
-  _acumDesc=false;
-  _descManual={pct:0,motivo:''};
-  const sel=document.getElementById('v-desc');if(sel){sel.value='';sel.disabled=false;}
-  const box=document.getElementById('v-desc-box');if(box)box.style.display='none';
-  const pct=document.getElementById('v-desc-manual-pct');if(pct)pct.value='';
-  const mot=document.getElementById('v-desc-manual-mot');if(mot)mot.value='';
-  const tog=document.getElementById('v-acum-toggle');if(tog)tog.checked=false;
-  renderTotales();
-};
-
-window.quitarCupon=function(){
-  _cuponAplicado=null;
-  const inp=document.getElementById('v-cupon');if(inp)inp.value='';
-  renderTotales();
-};
-
-
-window.desactivarAjustePagoTemp=function(){
-  // Temporarily zero out the payment method adjustment for this sale only
-  const pago=document.getElementById('v-pago')?.value;
-  if(!pago)return;
-  // Store temporarily disabled methods
-  if(!window._ajustesPausados)window._ajustesPausados=new Set();
-  window._ajustesPausados.add(pago);
-  renderTotales();
-  toast('Descuento de '+pago+' desactivado para esta venta');
-};
-window.renderTotales=function renderTotales(){
-  const el=document.getElementById('v-totales');
-  if(!el)return;
-  const descMonto=ventaDescuento&&itemTotal>0?Math.round(itemTotal*ventaDescuento.porcentaje/100):0;
-  const subtotalConDesc=itemTotal-descMonto;
-  const cuponMonto=_cuponAplicado&&itemTotal>=(_cuponAplicado.minCompra||0)
-    ?Math.min(Math.round(subtotalConDesc*_cuponAplicado.descPct/100),_cuponAplicado.maxDescuento||9999):0;
-  const final=subtotalConDesc-cuponMonto;
-  let html='';
-  if(descMonto>0||cuponMonto>0){
-    html+=`<div style="display:flex;justify-content:space-between;font-size:13px;color:#888"><span>Subtotal</span><span>${fmt(itemTotal)}</span></div>`;
-    if(descMonto>0)html+=`<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--danger)"><span>Descuento -${ventaDescuento.porcentaje}% (${ventaDescuento.motivo})</span><div style="display:flex;align-items:center;gap:6px"><span>-${fmt(descMonto)}</span><button onclick="quitarDescuento()" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;padding:0;line-height:1" title="Quitar descuento">✕</button></div></div>`;
-    if(cuponMonto>0)html+=`<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--danger)"><span>Cupón ${_cuponAplicado.codigo} -${_cuponAplicado.descPct}%</span><div style="display:flex;align-items:center;gap:6px"><span>-${fmt(cuponMonto)}</span><button onclick="quitarCupon()" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;padding:0;line-height:1" title="Quitar cupón">✕</button></div></div>`;
-    html+=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;margin-top:4px"><span>Total</span><span id="v-total">${fmt(final)}</span></div>`;
-  } else {
-    html=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px"><span>Total</span><span id="v-total">${fmt(itemTotal)}</span></div>`;
-  }
-  // Redondeo a múltiplo de $50 para efectivo
-  const pagoSel=document.getElementById('v-pago')?.value||'';
-  // Only round for exact "Efectivo" match (case-insensitive), not for Posnet, Transferencia, etc.
-  // Apply payment method adjustment (skip if manual discount is active)
-  const metodoPago=(_metodosPago||[]).find(m=>m.nombre===pagoSel);
-  const _pausado=window._ajustesPausados?.has(pagoSel);
-    // If split payment is active, skip normal payment adjustment (handled by calcPagoDividido)
-    const _skipAjustePago=window._pagoDividido;
-  const ajustePct=(_descManual?.pct>0||_pausado||_skipAjustePago)?0:(metodoPago?.ajuste||0);
-  let finalConAjuste=final;
-  if(ajustePct!==0&&final>0){
-    // Only apply discount on items eligible (not in 2nd+ tramo)
-    const subtotalElegible=items.reduce((a,it)=>a+(itemElegibleDto(it)?(it.cant*it.precio):0),0);
-    const subtotalNoElegible=final-subtotalElegible;
-    const ajusteMonto=subtotalElegible>0?Math.round(subtotalElegible*ajustePct/100):0;
-    finalConAjuste=final+ajusteMonto;
-    const ajusteColor=ajustePct<0?'var(--success)':'var(--danger)';
-    const ajusteLabel=ajustePct<0?(subtotalNoElegible>0?`Dto ${pagoSel} ${ajustePct}% s/${fmt(subtotalElegible)}`:`Descuento ${pagoSel} ${ajustePct}%`):`Recargo ${pagoSel} +${ajustePct}%`;
-    html+=`<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:${ajusteColor};margin-top:2px"><span>${ajusteLabel}</span><div style="display:flex;align-items:center;gap:6px"><span>${ajustePct<0?'-':'+'}${fmt(Math.abs(ajusteMonto))}</span><button onclick="desactivarAjustePagoTemp()" style="background:none;border:none;color:${ajusteColor};cursor:pointer;font-size:13px;padding:0;line-height:1" title="Quitar este descuento para esta venta">✕</button></div></div>`;
-    html+=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:16px;margin-top:4px"><span>Total</span><span>${fmt(finalConAjuste)}</span></div>`;
-  }
-  // Rounding only for Efectivo, AFTER all adjustments
-  const esEfectivo=pagoSel.toLowerCase()==='efectivo';
-  if(esEfectivo&&finalConAjuste>0){
-    const finalRedondeado=Math.floor(finalConAjuste/50)*50;
-    if(finalRedondeado!==finalConAjuste){
-      html+=`<div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-top:2px"><span>↳ Redondeo efectivo</span><span>-${fmt(finalConAjuste-finalRedondeado)}</span></div>`;
-      html+=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:16px;margin-top:4px;color:var(--primary)"><span>Total efectivo</span><span id="v-total-ef">${fmt(finalRedondeado)}</span></div>`;
+    // Check tramo price - use combined group quantity if applicable
+    if(prod.tramos&&prod.tramos.length){
+      let cantParaTramo=cant;
+      if(prod.grupoCombinable){
+        // Sum quantities of all items in the same group already in cart
+        cantParaTramo=items.filter(it=>{
+          const p2=_productos.find(p=>p.nombre===it.nom);
+          return p2&&p2.grupoCombinable===prod.grupoCombinable;
+        }).reduce((a,it)=>a+parseFloat(it.cant||0),0)+cant;
+      }
+      for(let i=prod.tramos.length-1;i>=0;i--){
+        const t=prod.tramos[i];
+        const desde=parseFloat(t.desde)||0;
+        if(cantParaTramo>=desde){precio=parseFloat(t.precio)||precio;break;}
+      }
+      // If group combined, also update prices of existing items in same group
+      if(prod.grupoCombinable){
+        items.forEach((it,idx)=>{
+          const p2=_productos.find(p=>p.nombre===it.nom);
+          if(p2&&p2.grupoCombinable===prod.grupoCombinable&&p2.tramos&&p2.tramos.length){
+            for(let i=p2.tramos.length-1;i>=0;i--){
+              const t=p2.tramos[i];
+              if(cantParaTramo>=parseFloat(t.desde||0)){items[idx].precio=parseFloat(t.precio)||items[idx].precio;break;}
+            }
+          }
+        });
+      }
     }
-  }
   el.innerHTML=html;
 }
 
@@ -6074,6 +6054,10 @@ window.renderProductos=function renderProductos(){
 <input type="text" value="${p.codigo||''}" placeholder="Código" data-action="edit-codigo" data-prod-id="${p.id}" title="Código de producto" style="width:70px;font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)" onblur="guardarCodigoProducto(this.dataset.prodId,this.value)"/>
 <label title="Requiere elaboración (producción)" style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;padding:4px 6px;background:${p.requiereElaboracion?'rgba(239,159,39,0.15)':'var(--bg)'};border-radius:6px;border:1px solid ${p.requiereElaboracion?'#EF9F27':'var(--border)'}">
 <input type="checkbox" ${p.requiereElaboracion?'checked':''} data-action="toggle-elaboracion" data-prod-id="${p.id}" style="margin:0"/>🔧</label>
+<select onchange="asignarGrupo('${p.id}',this.value)" style="font-size:10px;padding:2px 4px;border-radius:4px;border:1px solid ${p.grupoCombinable?'#378ADD':'var(--border)'};background:${p.grupoCombinable?'rgba(55,138,221,0.1)':'var(--bg)'};color:var(--text);max-width:80px" title="Grupo combinable">
+<option value="">Sin grupo</option>
+${(_gruposCombinables||[]).map(g=>'<option value="'+g+'"'+(p.grupoCombinable===g?' selected':'')+'>'+g+'</option>').join('')}
+</select>
 </div></div>`).join('');
   } else {
     // Cliente u otros roles: solo lectura
@@ -6812,7 +6796,7 @@ window.switchCfgTab=function(tab,btn){
   if(btn)btn.className='tab-btn active';
   if(tab==='pedidos'){renderFranjas();renderCfgPedidosActual();renderCfgCategorias();renderCfgPagos();}
   if(tab==='fidelizacion'){renderDescuentos();renderDescuentosAuto();renderCfgMensajesFid();renderCfgAvanzado();loadCuponesAdmin();renderCfgNiveles();renderCuponesPausaToggle();}
-  if(tab==='negocio'){renderCfgNegocioActual();renderCfgLocales();renderVisibilidadLocalesCfg();setTimeout(renderQR,300);}
+  if(tab==='negocio'){renderGruposLista();renderCfgNegocioActual();renderCfgLocales();renderVisibilidadLocalesCfg();setTimeout(renderQR,300);}
 };
 
 window.saveCfgNegocio=async function(){
