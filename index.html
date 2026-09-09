@@ -4457,6 +4457,7 @@ window.addItem=function(){
     const prod=_productos.find(p=>p.nombre===nom);
     // Tramo pricing with combinable group support
     const grupoActivo=prod?.grupoCombinable||null;
+    console.log('[GRUPO DEBUG]',nom,'grupo:',grupoActivo,'tramos propios:',prod?.tramos?.length||0,'_gruposCombinables:',_gruposCombinables);
     let tramosUsar=prod?.tramos?.length?prod.tramos:null;
     // If product has no tramos but is in a group, find tramos from any product in the same group
     if(!tramosUsar&&grupoActivo){
@@ -4472,7 +4473,10 @@ window.addItem=function(){
         }).reduce((a,it)=>a+parseFloat(it.cant||0),0)+cant;
       }
       const resultado=calcPrecioTramo(tramosUsar,cantTramo);
-      if(resultado)precio=resultado.precio;
+      if(resultado){
+        precio=resultado.precio;
+        if(grupoActivo)toast('\U0001f517 Grupo '+grupoActivo+': '+cantTramo+' uds \u2192 $'+precio.toLocaleString('es-AR')+'/u',2000);
+      }
       // Update existing items in same group to new tramo price
       if(grupoActivo&&cantTramo>cant){
         items.forEach((it,idx)=>{
