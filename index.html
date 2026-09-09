@@ -4455,23 +4455,31 @@ window.addItem=function(){
   // Apply tramo pricing if product has tramos
   if(type!=='promo'){
     const prod=_productos.find(p=>p.nombre===nom);
-    if(prod?.tramos?.length){
+    // Tramo pricing with combinable group support
+    const grupoActivo=prod?.grupoCombinable||null;
+    let tramosUsar=prod?.tramos?.length?prod.tramos:null;
+    // If product has no tramos but is in a group, find tramos from any product in the same group
+    if(!tramosUsar&&grupoActivo){
+      const otroProd=_productos.find(pp=>pp.grupoCombinable===grupoActivo&&pp.tramos?.length&&pp.activo!==false);
+      if(otroProd)tramosUsar=otroProd.tramos;
+    }
+    if(tramosUsar){
       let cantTramo=cant;
-      // If product is in a combinable group, sum quantities of same group in cart
-      if(prod.grupoCombinable){
+      if(grupoActivo){
         cantTramo=items.filter(it=>{
           const p2=_productos.find(pp=>pp.nombre===it.nom);
-          return p2&&p2.grupoCombinable===prod.grupoCombinable;
+          return p2&&p2.grupoCombinable===grupoActivo;
         }).reduce((a,it)=>a+parseFloat(it.cant||0),0)+cant;
       }
-      const resultado=calcPrecioTramo(prod.tramos,cantTramo);
+      const resultado=calcPrecioTramo(tramosUsar,cantTramo);
       if(resultado)precio=resultado.precio;
       // Update existing items in same group to new tramo price
-      if(prod.grupoCombinable&&cantTramo>cant){
+      if(grupoActivo&&cantTramo>cant){
         items.forEach((it,idx)=>{
           const p2=_productos.find(pp=>pp.nombre===it.nom);
-          if(p2&&p2.grupoCombinable===prod.grupoCombinable&&p2.tramos?.length){
-            const res2=calcPrecioTramo(p2.tramos,cantTramo);
+          if(p2&&p2.grupoCombinable===grupoActivo){
+            let tramosP2=p2.tramos?.length?p2.tramos:tramosUsar;
+            const res2=calcPrecioTramo(tramosP2,cantTramo);
             if(res2)items[idx].precio=res2.precio;
           }
         });
