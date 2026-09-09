@@ -4456,14 +4456,33 @@ window.addItem=function(){
   if(type!=='promo'){
     const prod=_productos.find(p=>p.nombre===nom);
     if(prod?.tramos?.length){
-      const resultado=calcPrecioTramo(prod.tramos,cant);
+      let cantTramo=cant;
+      // If product is in a combinable group, sum quantities of same group in cart
+      if(prod.grupoCombinable){
+        cantTramo=items.filter(it=>{
+          const p2=_productos.find(pp=>pp.nombre===it.nom);
+          return p2&&p2.grupoCombinable===prod.grupoCombinable;
+        }).reduce((a,it)=>a+parseFloat(it.cant||0),0)+cant;
+      }
+      const resultado=calcPrecioTramo(prod.tramos,cantTramo);
       if(resultado)precio=resultado.precio;
+      // Update existing items in same group to new tramo price
+      if(prod.grupoCombinable&&cantTramo>cant){
+        items.forEach((it,idx)=>{
+          const p2=_productos.find(pp=>pp.nombre===it.nom);
+          if(p2&&p2.grupoCombinable===prod.grupoCombinable&&p2.tramos?.length){
+            const res2=calcPrecioTramo(p2.tramos,cantTramo);
+            if(res2)items[idx].precio=res2.precio;
+          }
+        });
+      }
     }
   }
   // Sin límite de productos en Nueva Venta (el límite aplica solo al portal online)
   if(type==='promo'){const promo=_promociones.find(p=>p.id===refId);if(promoStock(promo)<cant){toast('Stock insuficiente para esta promoción');return;}}
   items.push({nom,precio,cant,unidad,esPromo:type==='promo',refId});
-  itemTotal+=precio*parseFloat(cant);
+  // Recalculate total (prices of other items may have changed due to group tramos)
+  itemTotal=items.reduce((a,it)=>a+(parseFloat(it.cant)||0)*(parseFloat(it.precio)||0),0);
   renderItems();applyDiscount();
 };
 
@@ -4953,34 +4972,6 @@ function itemElegibleDto(item){
     if(cant>=desde&&cant<hasta)return false;// 2nd+ tramo = NOT eligible
   }
   // Check if price matches a non-first tramo
-    // Check tramo price - use combined group quantity if applicable
-    if(prod.tramos&&prod.tramos.length){
-      let cantParaTramo=cant;
-      if(prod.grupoCombinable){
-        // Sum quantities of all items in the same group already in cart
-        cantParaTramo=items.filter(it=>{
-          const p2=_productos.find(p=>p.nombre===it.nom);
-          return p2&&p2.grupoCombinable===prod.grupoCombinable;
-        }).reduce((a,it)=>a+parseFloat(it.cant||0),0)+cant;
-      }
-      for(let i=prod.tramos.length-1;i>=0;i--){
-        const t=prod.tramos[i];
-        const desde=parseFloat(t.desde)||0;
-        if(cantParaTramo>=desde){precio=parseFloat(t.precio)||precio;break;}
-      }
-      // If group combined, also update prices of existing items in same group
-      if(prod.grupoCombinable){
-        items.forEach((it,idx)=>{
-          const p2=_productos.find(p=>p.nombre===it.nom);
-          if(p2&&p2.grupoCombinable===prod.grupoCombinable&&p2.tramos&&p2.tramos.length){
-            for(let i=p2.tramos.length-1;i>=0;i--){
-              const t=p2.tramos[i];
-              if(cantParaTramo>=parseFloat(t.desde||0)){items[idx].precio=parseFloat(t.precio)||items[idx].precio;break;}
-            }
-          }
-        });
-      }
-    }
   el.innerHTML=html;
 }
 
