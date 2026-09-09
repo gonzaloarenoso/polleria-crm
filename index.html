@@ -4825,7 +4825,7 @@ function recalcDescuentos(){
   renderTotales();
 }
 
-function renderTotales(){
+window.renderTotales=function(){
   const el=document.getElementById('v-totales');if(!el)return;
   const fmt=n=>'$'+Math.round(n).toLocaleString('es-AR');
   // Base total from items
