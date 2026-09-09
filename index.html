@@ -4457,7 +4457,7 @@ window.addItem=function(){
     const prod=_productos.find(p=>p.nombre===nom);
     // Tramo pricing with combinable group support
     const grupoActivo=prod?.grupoCombinable||null;
-    console.log('[GRUPO DEBUG]',nom,'grupo:',grupoActivo,'tramos propios:',prod?.tramos?.length||0,'_gruposCombinables:',_gruposCombinables);
+    console.warn('[GRUPO DEBUG]',nom,'grupo:',grupoActivo,'tramos propios:',prod?.tramos?.length||0,'_gruposCombinables:',_gruposCombinables);
     let tramosUsar=prod?.tramos?.length?prod.tramos:null;
     // If product has no tramos but is in a group, find tramos from any product in the same group
     if(!tramosUsar&&grupoActivo){
@@ -4865,7 +4865,7 @@ window.renderTotales=function(){
     const ajusteMonto=elegibleConDto>0?Math.round(elegibleConDto*ajustePct/100):0;
     finalConAjuste=final+ajusteMonto;
     const ajusteLabel=ajustePct<0?(subtotalElegible<itemTotal?'Dto '+pagoSel+' '+ajustePct+'% s/'+fmt(Math.round(elegibleConDto)):'Descuento '+pagoSel+' '+ajustePct+'%'):'Recargo '+pagoSel+' +'+ajustePct+'%';
-    html+=`<div style="display:flex;justify-content:space-between;font-size:13px;align-items:center" id="v-ajuste-pago"><span style="color:${ajustePct<0?'var(--success)':'var(--danger)'}">${ajusteLabel}</span><span style="display:flex;align-items:center;gap:4px"><span style="color:${ajustePct<0?'var(--success)':'var(--danger)'}">${ajustePct<0?'-':'+'}\${fmt(Math.abs(ajusteMonto))}</span><button onclick="desactivarAjustePagoTemp()" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px" title="Quitar ajuste">✕</button></span></div>`;
+    html+=`<div style="display:flex;justify-content:space-between;font-size:13px;align-items:center" id="v-ajuste-pago"><span style="color:${ajustePct<0?'var(--success)':'var(--danger)'}">${ajusteLabel}</span><span style="display:flex;align-items:center;gap:4px"><span style="color:${ajustePct<0?'var(--success)':'var(--danger)'}">${ajustePct<0?'-':'+'}${fmt(Math.abs(ajusteMonto))}</span><button onclick="desactivarAjustePagoTemp()" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px" title="Quitar ajuste">✕</button></span></div>`;
   }
   // Total display
   if(items.length){
