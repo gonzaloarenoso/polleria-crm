@@ -4845,11 +4845,46 @@ window.renderTotales=function(){
         }
       });
     });
+    // Re-render item prices in DOM to reflect grupo tramo prices
+    const itemEls=document.querySelectorAll('#v-items .pr');
+    itemEls.forEach((el,idx)=>{
+      if(items[idx]){
+        const span=el.querySelector('span[style*="font-weight"]');
+        if(span)span.textContent=fmt(items[idx].cant*items[idx].precio);
+      }
+    });
   }
   // Base total from items
   itemTotal=items.reduce((a,it)=>a+(parseFloat(it.cant)||0)*(parseFloat(it.precio)||0),0);
   let final=itemTotal;
   let html='';
+  // Show grupo discount info
+  if(items.length>0&&_gruposCombinables?.length){
+    const grupoTotals={};
+    items.forEach(it=>{
+      const prod=(_productos||[]).find(p=>p.nombre===it.nom);
+      const grupo=prod?.grupoCombinable;
+      if(grupo){
+        if(!grupoTotals[grupo])grupoTotals[grupo]={cant:0,items:0};
+        grupoTotals[grupo].cant+=parseFloat(it.cant)||0;
+        grupoTotals[grupo].items++;
+      }
+    });
+    Object.entries(grupoTotals).forEach(([grupo,data])=>{
+      if(data.items>1){
+        // Find what tramo is active
+        const prodGrupo=(_productos||[]).find(p=>p.grupoCombinable===grupo&&p.tramos?.length);
+        if(prodGrupo){
+          const res=calcPrecioTramo(prodGrupo.tramos,data.cant);
+          const precioBase=prodGrupo.precio||prodGrupo.tramos[0]?.precio||0;
+          if(res&&res.precio<precioBase){
+            const ahorro=Math.round((precioBase-res.precio)*data.cant);
+            html+=`<div style="display:flex;justify-content:space-between;font-size:12px;color:#378ADD;padding:2px 0"><span>🔗 ${grupo} ×${data.cant}: $${res.precio.toLocaleString('es-AR')}/u (antes $${precioBase.toLocaleString('es-AR')})</span><span>-${fmt(ahorro)}</span></div>`;
+          }
+        }
+      }
+    });
+  }
   // Apply discount
   if(ventaDescuento&&ventaDescuento.porcentaje>0&&final>0){
     const dMonto=Math.round(final*ventaDescuento.porcentaje/100);
