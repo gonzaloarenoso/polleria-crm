@@ -4459,38 +4459,9 @@ window.addItem=function(){
   if(type!=='promo'){
     const prod=_productos.find(p=>p.nombre===nom);
     // Tramo pricing with combinable group support
-    const grupoActivo=prod?.grupoCombinable||null;
-    toast('[DEBUG] '+nom+' | grupo: '+(grupoActivo||'NINGUNO')+' | tramos: '+(prod?.tramos?.length||0),3000);
-    let tramosUsar=prod?.tramos?.length?prod.tramos:null;
-    // If product has no tramos but is in a group, find tramos from any product in the same group
-    if(!tramosUsar&&grupoActivo){
-      const otroProd=_productos.find(pp=>pp.grupoCombinable===grupoActivo&&pp.tramos?.length&&pp.activo!==false);
-      if(otroProd)tramosUsar=otroProd.tramos;
-    }
-    if(tramosUsar){
-      let cantTramo=cant;
-      if(grupoActivo){
-        cantTramo=items.filter(it=>{
-          const p2=_productos.find(pp=>pp.nombre===it.nom);
-          return p2&&p2.grupoCombinable===grupoActivo;
-        }).reduce((a,it)=>a+parseFloat(it.cant||0),0)+cant;
-      }
-      const resultado=calcPrecioTramo(tramosUsar,cantTramo);
-      if(resultado){
-        precio=resultado.precio;
-        if(grupoActivo)toast('\U0001f517 Grupo '+grupoActivo+': '+cantTramo+' uds \u2192 $'+precio.toLocaleString('es-AR')+'/u',2000);
-      }
-      // Update existing items in same group to new tramo price
-      if(grupoActivo&&cantTramo>cant){
-        items.forEach((it,idx)=>{
-          const p2=_productos.find(pp=>pp.nombre===it.nom);
-          if(p2&&p2.grupoCombinable===grupoActivo){
-            let tramosP2=p2.tramos?.length?p2.tramos:tramosUsar;
-            const res2=calcPrecioTramo(tramosP2,cantTramo);
-            if(res2)items[idx].precio=res2.precio;
-          }
-        });
-      }
+    if(prod?.tramos?.length){
+      const resultado=calcPrecioTramo(prod.tramos,cant);
+      if(resultado)precio=resultado.precio;
     }
   }
   // Sin límite de productos en Nueva Venta (el límite aplica solo al portal online)
@@ -4843,6 +4814,38 @@ function recalcDescuentos(){
 window.renderTotales=function(){
   const el=document.getElementById('v-totales');if(!el)return;
   const fmt=n=>'$'+Math.round(n).toLocaleString('es-AR');
+  // GRUPO COMBINABLE: recalculate prices based on group totals
+  if(items.length>0&&_gruposCombinables?.length){
+    // Sum quantities per group
+    const grupoTotals={};
+    items.forEach(it=>{
+      const prod=(_productos||[]).find(p=>p.nombre===it.nom);
+      const grupo=prod?.grupoCombinable;
+      if(grupo){
+        if(!grupoTotals[grupo])grupoTotals[grupo]=0;
+        grupoTotals[grupo]+=parseFloat(it.cant)||0;
+      }
+    });
+    // For each group with totals, recalculate tramo prices
+    Object.entries(grupoTotals).forEach(([grupo,totalCant])=>{
+      if(totalCant<=0)return;
+      items.forEach((it,idx)=>{
+        const prod=(_productos||[]).find(p=>p.nombre===it.nom);
+        if(prod?.grupoCombinable===grupo){
+          // Find tramos: from this product, or from any product in the group
+          let tramos=prod.tramos?.length?prod.tramos:null;
+          if(!tramos){
+            const otroProd=(_productos||[]).find(pp=>pp.grupoCombinable===grupo&&pp.tramos?.length&&pp.activo!==false);
+            if(otroProd)tramos=otroProd.tramos;
+          }
+          if(tramos){
+            const res=calcPrecioTramo(tramos,totalCant);
+            if(res)items[idx].precio=res.precio;
+          }
+        }
+      });
+    });
+  }
   // Base total from items
   itemTotal=items.reduce((a,it)=>a+(parseFloat(it.cant)||0)*(parseFloat(it.precio)||0),0);
   let final=itemTotal;
