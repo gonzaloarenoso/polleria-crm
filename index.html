@@ -4703,7 +4703,7 @@ function initTrendDates(){
 function renderItems(){
   const el=document.getElementById('v-items');
   if(!items.length){el.innerHTML='<div class="empty">Agregá productos al pedido</div>';renderTotales();return;}
-  el.innerHTML=items.map((it,i)=>{const cStr=parseFloat(it.cant)%1===0?String(it.cant):parseFloat(it.cant).toFixed(3).replace(/\.?0+$/,'');const hasDto=ventaDescuento?.porcentaje>0;return`<div class="pr" style="align-items:center"><div style="flex:1;display:flex;align-items:center;gap:4px">${hasDto&&!it.esPromo?'<input type="checkbox" '+(it.promoChecked?'checked':'')+' onchange="togglePromoItem('+i+',this.checked)" style="margin:0" title="Aplicar descuento a este producto"/>':''}<input type="number" value="${cStr}" onchange="updateItemCant(${i},this.value)" style="width:50px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center" inputmode="decimal" step="0.01"/> <span style="font-size:12px">${it.unidad||'unid.'} ${it.nom}${it.esPromo?'<span class="badge bb" style="font-size:10px;margin-left:4px">Promo</span>'+promoDetalle(it.refId):''}</span></div><div style="display:flex;gap:6px;align-items:center"><span style="font-weight:600">${fmt(it.precio*parseFloat(it.cant))}</span><button class="btn bs bsm" onclick="rmItem(${i})">✕</button></div></div>`;}).join('');
+  el.innerHTML=items.map((it,i)=>{const cStr=parseFloat(it.cant)%1===0?String(it.cant):parseFloat(it.cant).toFixed(3).replace(/\.?0+$/,'');const hasDto=ventaDescuento?.porcentaje>0;return`<div class="pr" style="align-items:center;gap:8px"><div style="flex:1;display:flex;align-items:center;gap:6px;min-width:0">${hasDto&&!it.esPromo?'<input type="checkbox" '+(it.promoChecked?'checked':'')+' onchange="togglePromoItem('+i+',this.checked)" style="margin:0;flex-shrink:0" title="Tildar para aplicar descuento"/>':''}<input type="number" value="${cStr}" onchange="updateItemCant(${i},this.value)" style="width:55px;padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center;flex-shrink:0" inputmode="decimal" step="0.01"/><span style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.unidad||'unid.'} ${it.nom}${it.esPromo?'<span class="badge bb" style="font-size:10px;margin-left:4px">Promo</span>'+promoDetalle(it.refId):''}</span></div><div style="display:flex;gap:6px;align-items:center;flex-shrink:0"><span style="font-weight:600;white-space:nowrap">${fmt(it.precio*parseFloat(it.cant))}</span><button class="btn bs bsm" onclick="rmItem(${i})">✕</button></div></div>`;}).join('');
   renderTotales();
 }
 
@@ -4801,9 +4801,9 @@ window.applyManualDiscount=function(){
 };
 
 window.applyDiscount=function(){
-  // If no discount selected, clear all promo checkboxes
   const descSel=document.getElementById('v-desc')?.value;
   if(!descSel||descSel===''){items.forEach(it=>{it.promoChecked=false;});}
+  renderItems();// Re-render to show/hide checkboxes
   recalcDescuentos();
 };
 
@@ -4959,12 +4959,10 @@ window.renderTotales=function(){
   let finalConAjuste=final;
   if(ajustePct!==0&&final>0){
     const subtotalElegible=items.reduce((a,it)=>a+(!it.promoChecked&&itemElegibleDto(it)?(parseFloat(it.cant)*parseFloat(it.precio)):0),0);
-    // Apply discount to eligible portion first
-    let elegibleConDto=subtotalElegible;
-    if(ventaDescuento&&ventaDescuento.porcentaje>0)elegibleConDto=subtotalElegible*(1-ventaDescuento.porcentaje/100);
-    const ajusteMonto=elegibleConDto>0?Math.round(elegibleConDto*ajustePct/100):0;
+    // Cash dto only on unchecked items (promo doesn't reduce their subtotal)
+    const ajusteMonto=subtotalElegible>0?Math.round(subtotalElegible*ajustePct/100):0;
     finalConAjuste=final+ajusteMonto;
-    const ajusteLabel=ajustePct<0?(subtotalElegible<itemTotal?'Dto '+pagoSel+' '+ajustePct+'% s/'+fmt(Math.round(elegibleConDto)):'Descuento '+pagoSel+' '+ajustePct+'%'):'Recargo '+pagoSel+' +'+ajustePct+'%';
+    const ajusteLabel=ajustePct<0?(subtotalElegible<itemTotal?'Dto '+pagoSel+' '+ajustePct+'% s/'+fmt(Math.round(subtotalElegible)):'Descuento '+pagoSel+' '+ajustePct+'%'):'Recargo '+pagoSel+' +'+ajustePct+'%';
     html+=`<div style="display:flex;justify-content:space-between;font-size:13px;align-items:center" id="v-ajuste-pago"><span style="color:${ajustePct<0?'var(--success)':'var(--danger)'}">${ajusteLabel}</span><span style="display:flex;align-items:center;gap:4px"><span style="color:${ajustePct<0?'var(--success)':'var(--danger)'}">${ajustePct<0?'-':'+'}${fmt(Math.abs(ajusteMonto))}</span><button onclick="desactivarAjustePagoTemp()" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px" title="Quitar ajuste">✕</button></span></div>`;
   }
   // Total display
