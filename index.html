@@ -4466,6 +4466,23 @@ window.addItem=function(){
   }
   // Sin límite de productos en Nueva Venta (el límite aplica solo al portal online)
   if(type==='promo'){const promo=_promociones.find(p=>p.id===refId);if(promoStock(promo)<cant){toast('Stock insuficiente para esta promoción');return;}}
+  // If same product already in cart (not promo), combine quantities
+  if(type!=='promo'){
+    const existIdx=items.findIndex(it=>it.nom===nom&&!it.esPromo);
+    if(existIdx>=0){
+      items[existIdx].cant=Math.round((parseFloat(items[existIdx].cant)+parseFloat(cant))*1000)/1000;
+      // Recalculate tramo for new combined quantity
+      const prodComb=(_productos||[]).find(p=>p.nombre===nom);
+      if(prodComb?.tramos?.length){
+        const res=calcPrecioTramo(prodComb.tramos,items[existIdx].cant);
+        if(res)items[existIdx].precio=res.precio;
+      }
+      itemTotal=items.reduce((a,it)=>a+(parseFloat(it.cant)||0)*(parseFloat(it.precio)||0),0);
+      renderItems();applyDiscount();
+      document.getElementById('v-cant').value='1';
+      return;
+    }
+  }
   items.push({nom,precio,cant,unidad,esPromo:type==='promo',refId});
   // Recalculate total (prices of other items may have changed due to group tramos)
   itemTotal=items.reduce((a,it)=>a+(parseFloat(it.cant)||0)*(parseFloat(it.precio)||0),0);
@@ -4686,10 +4703,43 @@ function initTrendDates(){
 function renderItems(){
   const el=document.getElementById('v-items');
   if(!items.length){el.innerHTML='<div class="empty">Agregá productos al pedido</div>';renderTotales();return;}
-  el.innerHTML=items.map((it,i)=>{const cStr=parseFloat(it.cant)%1===0?String(it.cant):parseFloat(it.cant).toFixed(3).replace(/\.?0+$/,'');return`<div class="pr"><span>${cStr} ${it.unidad||'unid.'} ${it.nom}${it.esPromo?`<span class="badge bb" style="font-size:10px;margin-left:4px">Promo</span><span style="font-size:11px;color:#888">${promoDetalle(it.refId)}</span>`:''}</span><div style="display:flex;gap:6px;align-items:center"><span style="font-weight:600">${fmt(it.precio*parseFloat(it.cant))}</span><button class="btn bs bsm" onclick="rmItem(${i})">✕</button></div></div>`;}).join('');
+  el.innerHTML=items.map((it,i)=>{const cStr=parseFloat(it.cant)%1===0?String(it.cant):parseFloat(it.cant).toFixed(3).replace(/\.?0+$/,'');const hasDto=ventaDescuento?.porcentaje>0;return`<div class="pr" style="align-items:center"><div style="flex:1;display:flex;align-items:center;gap:4px">${hasDto&&!it.esPromo?'<input type="checkbox" '+(it.promoChecked?'checked':'')+' onchange="togglePromoItem('+i+',this.checked)" style="margin:0" title="Aplicar descuento a este producto"/>':''}<input type="number" value="${cStr}" onchange="updateItemCant(${i},this.value)" style="width:50px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center" inputmode="decimal" step="0.01"/> <span style="font-size:12px">${it.unidad||'unid.'} ${it.nom}${it.esPromo?'<span class="badge bb" style="font-size:10px;margin-left:4px">Promo</span>'+promoDetalle(it.refId):''}</span></div><div style="display:flex;gap:6px;align-items:center"><span style="font-weight:600">${fmt(it.precio*parseFloat(it.cant))}</span><button class="btn bs bsm" onclick="rmItem(${i})">✕</button></div></div>`;}).join('');
   renderTotales();
 }
 
+window.updateItemCant=function(i,val){
+  const newCant=parseDecimal(val);
+  if(!newCant||newCant<=0){toast('Cantidad inválida');return;}
+  items[i].cant=newCant;
+  // Recalculate tramo price for new quantity
+  const prod=(_productos||[]).find(p=>p.nombre===items[i].nom);
+  if(prod?.tramos?.length&&!items[i].promoChecked){
+    const res=calcPrecioTramo(prod.tramos,newCant);
+    if(res)items[i].precio=res.precio;
+  }
+  itemTotal=items.reduce((a,it)=>a+(parseFloat(it.cant)||0)*(parseFloat(it.precio)||0),0);
+  renderItems();applyDiscount();
+};
+window.togglePromoItem=function(i,checked){
+  items[i].promoChecked=checked;
+  // If checked: force base price (first tramo or product price, ignoring quantity tramos)
+  const prod=(_productos||[]).find(p=>p.nombre===items[i].nom);
+  if(checked){
+    items[i].precioOriginal=items[i].precio;// Save tramo price
+    const precioBase=prod?.tramos?.length?parseFloat(prod.tramos[0]?.precio)||prod.precio:prod?.precio||items[i].precio;
+    items[i].precio=precioBase;
+  } else {
+    // Restore tramo price based on quantity
+    if(prod?.tramos?.length){
+      const res=calcPrecioTramo(prod.tramos,items[i].cant);
+      if(res)items[i].precio=res.precio;
+    } else if(items[i].precioOriginal){
+      items[i].precio=items[i].precioOriginal;
+    }
+  }
+  itemTotal=items.reduce((a,it)=>a+(parseFloat(it.cant)||0)*(parseFloat(it.precio)||0),0);
+  renderItems();applyDiscount();
+};
 window.rmItem=function(i){itemTotal-=items[i].precio*parseFloat(items[i].cant);items.splice(i,1);renderItems();applyDiscount();};
 
 window.checkAndApplyAutoDiscount=function(){
@@ -4750,7 +4800,12 @@ window.applyManualDiscount=function(){
   recalcDescuentos();
 };
 
-window.applyDiscount=function(){recalcDescuentos();};
+window.applyDiscount=function(){
+  // If no discount selected, clear all promo checkboxes
+  const descSel=document.getElementById('v-desc')?.value;
+  if(!descSel||descSel===''){items.forEach(it=>{it.promoChecked=false;});}
+  recalcDescuentos();
+};
 
 function recalcDescuentos(){
   const sel=document.getElementById('v-desc');
@@ -4885,11 +4940,15 @@ window.renderTotales=function(){
       }
     });
   }
-  // Apply discount
+  // Apply discount - only on checked items (or all if no checkboxes active)
   if(ventaDescuento&&ventaDescuento.porcentaje>0&&final>0){
-    const dMonto=Math.round(final*ventaDescuento.porcentaje/100);
-    final-=dMonto;
-    html+=`<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--success)"><span>${ventaDescuento.motivo||'Descuento'} ${ventaDescuento.porcentaje}%</span><span>-${fmt(dMonto)}</span></div>`;
+    const hasChecked=items.some(it=>it.promoChecked);
+    const subtotalPromo=hasChecked
+      ?items.filter(it=>it.promoChecked).reduce((a,it)=>a+(parseFloat(it.cant)||0)*(parseFloat(it.precio)||0),0)
+      :itemTotal;
+    const dMonto=Math.round(subtotalPromo*ventaDescuento.porcentaje/100);
+    final=itemTotal-dMonto;
+    html+=`<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--success)"><span>${ventaDescuento.motivo||'Descuento'} ${ventaDescuento.porcentaje}%${hasChecked?' s/'+fmt(subtotalPromo):''}</span><span>-${fmt(dMonto)}</span></div>`;
   }
   // Payment method adjustment (only on eligible items, skip if split payment)
   const _skipAjustePago=window._pagoDividido;
@@ -4899,7 +4958,7 @@ window.renderTotales=function(){
   const ajustePct=(_descManual?.pct>0||_pausado||_skipAjustePago)?0:(metodoPago?.ajuste||0);
   let finalConAjuste=final;
   if(ajustePct!==0&&final>0){
-    const subtotalElegible=items.reduce((a,it)=>a+(itemElegibleDto(it)?(parseFloat(it.cant)*parseFloat(it.precio)):0),0);
+    const subtotalElegible=items.reduce((a,it)=>a+(!it.promoChecked&&itemElegibleDto(it)?(parseFloat(it.cant)*parseFloat(it.precio)):0),0);
     // Apply discount to eligible portion first
     let elegibleConDto=subtotalElegible;
     if(ventaDescuento&&ventaDescuento.porcentaje>0)elegibleConDto=subtotalElegible*(1-ventaDescuento.porcentaje/100);
@@ -4909,6 +4968,11 @@ window.renderTotales=function(){
     html+=`<div style="display:flex;justify-content:space-between;font-size:13px;align-items:center" id="v-ajuste-pago"><span style="color:${ajustePct<0?'var(--success)':'var(--danger)'}">${ajusteLabel}</span><span style="display:flex;align-items:center;gap:4px"><span style="color:${ajustePct<0?'var(--success)':'var(--danger)'}">${ajustePct<0?'-':'+'}${fmt(Math.abs(ajusteMonto))}</span><button onclick="desactivarAjustePagoTemp()" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px" title="Quitar ajuste">✕</button></span></div>`;
   }
   // Total display
+  // Round to $50 for cash payments
+  const pagoActual=document.getElementById('v-pago')?.value||'';
+  if(pagoActual.toLowerCase()==='efectivo'&&finalConAjuste>0&&!window._pagoDividido){
+    finalConAjuste=Math.floor(finalConAjuste/50)*50;
+  }
   if(items.length){
     html=`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;margin-bottom:4px"><span>Total</span><span id="v-total">${fmt(Math.round(finalConAjuste))}</span></div>`+html;
   } else {
@@ -5024,7 +5088,7 @@ function itemElegibleDto(item){
     const t=prod.tramos[i];
     const desde=parseFloat(t.desde)||0;
     const hasta=t.hasta===Infinity||t.hasta==='∞'||!t.hasta?Infinity:parseFloat(t.hasta);
-    if(cant>=desde&&cant<hasta)return false;// 2nd+ tramo = NOT eligible
+    if(cant>=desde&&cant<=hasta)return false;// 2nd+ tramo = NOT eligible
   }
   // Check if price matches a non-first tramo
   if(prod.tramos.length>1){
@@ -6149,7 +6213,7 @@ window.renderProductos=function renderProductos(){
     if(!_productos.length){el.innerHTML='<div class="empty">Sin productos</div>';return;}
     const UNITS=['unidad','kg','g','lts','ml','porcion','docena','pack'];
     const prodsFiltrados=busq?_productos.filter(p=>p.nombre.toLowerCase().includes(busq)||(p.categoria||'').toLowerCase().includes(busq)||(p.proveedor||'').toLowerCase().includes(busq)||(p.codigo||'').toLowerCase().includes(busq)):_productos;
-    el.innerHTML=prodsFiltrados.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">${p.codigo?`<span style="background:var(--bg);border-radius:4px;padding:1px 5px;font-weight:600;margin-right:4px">${p.codigo}</span>`:''}Unidad: <strong>${p.unidad||'unidad'}</strong>${p.tramos?.length?` &nbsp;·&nbsp; <span style="color:#378ADD">🏷 ${p.tramos.length} tramo${p.tramos.length>1?'s':''}</span>`:''}</div></div><div style="display:flex;align-items:center;gap:6px;margin-top:4px">${(()=>{const stk=Math.round((_inv[p.nombre]?.stock||0)*1000)/1000;const alt=_inv[p.nombre]?.alerta||5;const ok=stk>alt;return `<span style="font-size:11px">Stock: <strong>${stk} ${p.unidad||'u.'}</strong></span><span style="padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:${ok?'rgba(29,158,117,0.1)':'rgba(232,68,34,0.1)'};color:${ok?'#1D9E75':'#e74c3c'}">${ok?'OK':'⚠ BAJO'}</span><button class="btn bs" style="font-size:10px;padding:2px 8px" data-action="open-quick-stock" data-prod-id="${p.id}" data-prod-nom="${p.nombre}" data-prod-uni="${p.unidad||'u.'}">📦 Stock</button><span style="font-size:10px;color:#aaa;margin-left:4px">Alerta:</span><input type="number" value="${_inv[p.nombre]?.alerta||5}" min="0" step="0.1" data-action="save-alerta" data-prod-nom="${p.nombre}" title="Alerta mínima de stock" style="width:55px;font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin-left:2px"/>`;})()}</div><div id="qs-${p.id}" style="display:none;margin-top:6px;padding:8px;background:var(--bg);border-radius:8px;grid-column:1/-1"><div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap"><input type="text" inputmode="decimal" class="qs-cant" placeholder="Cantidad" style="width:80px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px"/><input type="text" inputmode="numeric" class="qs-costo" placeholder="Costo $" style="width:80px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px" oninput="calcQsSug(this)"/><select class="qs-modo" style="padding:4px 6px;border-radius:6px;border:1px solid var(--border);font-size:11px"><option value="agregar">➕ Agregar</option><option value="ajustar">➖ Ajuste</option></select><button class="btn bp bsm" data-action="save-quick-stock" data-prod-id="${p.id}" data-prod-nom="${p.nombre}">✓ Guardar</button><button class="btn bs bsm" data-action="close-quick-stock" data-prod-id="${p.id}">✕</button></div><div class="qs-margin-info" style="display:none;margin-top:6px;padding:6px 8px;background:#fff;border-radius:6px;font-size:11px;line-height:1.7"></div><div class="qs-precio-row" style="display:none;margin-top:4px;display:none;gap:6px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:#888">Precio venta:</span><input type="text" inputmode="numeric" class="qs-precio-venta" value="${p.precio||''}" placeholder="$" style="width:80px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);font-size:12px" oninput="calcQsMargenReal(this)"/><span class="qs-margen-real" style="font-size:11px;font-weight:600"></span></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><input type="text" inputmode="numeric" value="${p.precio||0}" data-action="save-precio" data-prod-id="${p.id}" style="width:86px;font-size:12px;padding:5px 8px;border-radius:6px;border:1.5px solid ${p.tramos?.length?'#378ADD':'var(--border)'};text-align:right;background:${p.tramos?.length?'rgba(55,138,221,0.08)':'var(--bg)'};color:var(--text)" title="${p.tramos?.length?'Precio por tramo — editá desde la Ficha':'Editar precio (Tab para guardar)'}"/><button class="btn ${p.activo===false?'bd':'bs'} bsm" onclick="toggleActivoProducto('${p.id}',${p.activo!==false})">${p.activo===false?'🔴':'🟢'}</button><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bs bsm" onclick="iniciarRenombrar('${p.id}','${p.nombre.replace(/'/g,"\\\\'")}')" title="Renombrar producto">✏️ Renombrar</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button>
+    el.innerHTML=prodsFiltrados.map(p=>`<div class="pr" style="flex-wrap:wrap;gap:6px"><div style="flex:1;min-width:120px"><div style="font-weight:600;font-size:13px">${p.nombre}</div><div style="font-size:11px;color:#888">${p.codigo?`<span style="background:var(--bg);border-radius:4px;padding:1px 5px;font-weight:600;margin-right:4px">${p.codigo}</span>`:''}Unidad: <strong>${p.unidad||'unidad'}</strong>${p.tramos?.length?` &nbsp;·&nbsp; <span style="color:#378ADD">🏷 ${p.tramos.length} tramo${p.tramos.length>1?'s':''}</span>`:''}</div></div><div style="display:flex;align-items:center;gap:6px;margin-top:4px">${(()=>{const stk=Math.round((_inv[p.nombre]?.stock||0)*1000)/1000;const alt=_inv[p.nombre]?.alerta||5;const ok=stk>alt;return `<span style="font-size:11px">Stock: <strong>${stk} ${p.unidad||'u.'}</strong></span><span style="padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:${ok?'rgba(29,158,117,0.1)':'rgba(232,68,34,0.1)'};color:${ok?'#1D9E75':'#e74c3c'}">${ok?'OK':'⚠ BAJO'}</span><button class="btn bs" style="font-size:10px;padding:2px 8px" data-action="open-quick-stock" data-prod-id="${p.id}" data-prod-nom="${escHtml(p.nombre)}" data-prod-uni="${p.unidad||'u.'}">📦 Stock</button><span style="font-size:10px;color:#aaa;margin-left:4px">Alerta:</span><input type="number" value="${_inv[p.nombre]?.alerta||5}" min="0" step="0.1" data-action="save-alerta" data-prod-nom="${escHtml(p.nombre)}" title="Alerta mínima de stock" style="width:55px;font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin-left:2px"/>`;})()}</div><div id="qs-${p.id}" style="display:none;margin-top:6px;padding:8px;background:var(--bg);border-radius:8px;grid-column:1/-1"><div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap"><input type="text" inputmode="decimal" class="qs-cant" placeholder="Cantidad" style="width:80px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px"/><input type="text" inputmode="numeric" class="qs-costo" placeholder="Costo $" style="width:80px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px" oninput="calcQsSug(this)"/><select class="qs-modo" style="padding:4px 6px;border-radius:6px;border:1px solid var(--border);font-size:11px"><option value="agregar">➕ Agregar</option><option value="ajustar">➖ Ajuste</option></select><button class="btn bp bsm" data-action="save-quick-stock" data-prod-id="${p.id}" data-prod-nom="${escHtml(p.nombre)}">✓ Guardar</button><button class="btn bs bsm" data-action="close-quick-stock" data-prod-id="${p.id}">✕</button></div><div class="qs-margin-info" style="display:none;margin-top:6px;padding:6px 8px;background:#fff;border-radius:6px;font-size:11px;line-height:1.7"></div><div class="qs-precio-row" style="display:none;margin-top:4px;display:none;gap:6px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:#888">Precio venta:</span><input type="text" inputmode="numeric" class="qs-precio-venta" value="${p.precio||''}" placeholder="$" style="width:80px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);font-size:12px" oninput="calcQsMargenReal(this)"/><span class="qs-margen-real" style="font-size:11px;font-weight:600"></span></div></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><label class="btn bs bsm" style="cursor:pointer;margin:0;font-size:14px;padding:5px 8px" title="Subir foto">${p.foto?'🖼':'📷'}<input type="file" accept="image/*" style="display:none" onchange="subirFotoProducto('${p.id}',this)"/></label><select style="font-size:11px;padding:4px 6px;width:90px" onchange="updateCategoria('${p.id}',this.value)"><option value="">Sin cat.</option>${(_categorias||[]).map(cat=>`<option value="${cat.nombre}" ${p.categoria===cat.nombre?'selected':''}>${cat.emoji} ${cat.nombre}</option>`).join('')}</select><select style="font-size:11px;padding:4px 6px;width:86px" onchange="updateUnidad('${p.id}',this.value)">${UNITS.map(u=>`<option value="${u}" ${(p.unidad||'unidad')===u?'selected':''}>${u}</option>`).join('')}</select><input type="text" inputmode="numeric" value="${p.precio||0}" data-action="save-precio" data-prod-id="${p.id}" style="width:86px;font-size:12px;padding:5px 8px;border-radius:6px;border:1.5px solid ${p.tramos?.length?'#378ADD':'var(--border)'};text-align:right;background:${p.tramos?.length?'rgba(55,138,221,0.08)':'var(--bg)'};color:var(--text)" title="${p.tramos?.length?'Precio por tramo — editá desde la Ficha':'Editar precio (Tab para guardar)'}"/><button class="btn ${p.activo===false?'bd':'bs'} bsm" onclick="toggleActivoProducto('${p.id}',${p.activo!==false})">${p.activo===false?'🔴':'🟢'}</button><button class="btn bs bsm" onclick="toggleDestacado('${p.id}',${!p.destacado})" title="${p.destacado?'Quitar de novedades':'Marcar como novedad'}">${p.destacado?'⭐':'☆'}</button><button class="btn bs bsm" onclick="verFichaProducto('${p.id}')">📊 Ficha</button><button class="btn bs bsm" onclick="iniciarRenombrar('${p.id}','${escHtml(p.nombre)}')" title="Renombrar producto">✏️ Renombrar</button><button class="btn bd bsm" onclick="deleteProducto('${p.id}')">Eliminar</button>
 <input type="text" value="${p.codigo||''}" placeholder="Código" data-action="edit-codigo" data-prod-id="${p.id}" title="Código de producto" style="width:70px;font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)" onblur="guardarCodigoProducto(this.dataset.prodId,this.value)"/>
 <label title="Requiere elaboración (producción)" style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;padding:4px 6px;background:${p.requiereElaboracion?'rgba(239,159,39,0.15)':'var(--bg)'};border-radius:6px;border:1px solid ${p.requiereElaboracion?'#EF9F27':'var(--border)'}">
 <input type="checkbox" ${p.requiereElaboracion?'checked':''} data-action="toggle-elaboracion" data-prod-id="${p.id}" style="margin:0"/>🔧</label>
@@ -6262,12 +6326,13 @@ function renderTramosEnForm(tramos){
 }
 
 // Calculate price based on tramos for a given quantity
+function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function calcPrecioTramo(tramos, cant){
   if(!tramos||!tramos.length)return null;
   const tramo=tramos.find(t=>{
     const desde=t.desde||0;
     const hasta=t.hasta;
-    return cant>=desde&&(hasta===null||hasta===undefined||cant<hasta);
+    return cant>=desde&&(hasta===null||hasta===undefined||cant<=hasta);
   });
   // Also match last tramo if cant >= desde and hasta is null (∞)
   const tramoFinal=tramos.slice().reverse().find(t=>t.hasta===null||t.hasta===undefined);
