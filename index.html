@@ -4703,7 +4703,22 @@ function initTrendDates(){
 function renderItems(){
   const el=document.getElementById('v-items');
   if(!items.length){el.innerHTML='<div class="empty">Agregá productos al pedido</div>';renderTotales();return;}
-  el.innerHTML=items.map((it,i)=>{const cStr=parseFloat(it.cant)%1===0?String(it.cant):parseFloat(it.cant).toFixed(3).replace(/\.?0+$/,'');const hasDto=ventaDescuento?.porcentaje>0;return`<div class="pr" style="align-items:center;gap:8px"><div style="flex:1;display:flex;align-items:center;gap:6px;min-width:0">${hasDto&&!it.esPromo?'<input type="checkbox" '+(it.promoChecked?'checked':'')+' onchange="togglePromoItem('+i+',this.checked)" style="margin:0;flex-shrink:0" title="Tildar para aplicar descuento"/>':''}<input type="number" value="${cStr}" onchange="updateItemCant(${i},this.value)" style="width:55px;padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center;flex-shrink:0" inputmode="decimal" step="0.01"/><span style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.unidad||'unid.'} ${it.nom}${it.esPromo?'<span class="badge bb" style="font-size:10px;margin-left:4px">Promo</span>'+promoDetalle(it.refId):''}</span></div><div style="display:flex;gap:6px;align-items:center;flex-shrink:0"><span style="font-weight:600;white-space:nowrap">${fmt(it.precio*parseFloat(it.cant))}</span><button class="btn bs bsm" onclick="rmItem(${i})">✕</button></div></div>`;}).join('');
+  el.innerHTML=items.map((it,i)=>{
+    const cStr=parseFloat(it.cant)%1===0?String(it.cant):parseFloat(it.cant).toFixed(3).replace(/\.?0+$/,'');
+    const hasDto=ventaDescuento?.porcentaje>0;
+    const chk=hasDto&&!it.esPromo?'<input type="checkbox" '+(it.promoChecked?'checked':'')+' onchange="togglePromoItem('+i+',this.checked)" style="margin:0"/> ':'';
+    return'<div class="pr">'+
+      '<div>'+chk+
+        '<input type="number" value="'+cStr+'" onchange="updateItemCant('+i+',this.value)" style="width:50px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center" inputmode="decimal" step="0.01"/> '+
+        (it.unidad||'unid.')+' '+it.nom+
+        (it.esPromo?'<span class="badge bb" style="font-size:10px;margin-left:4px">Promo</span>':'')+
+      '</div>'+
+      '<div style="display:flex;gap:6px;align-items:center">'+
+        '<span style="font-weight:600">'+fmt(it.precio*parseFloat(it.cant))+'</span>'+
+        '<button class="btn bs bsm" onclick="rmItem('+i+')">✕</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
   renderTotales();
 }
 
