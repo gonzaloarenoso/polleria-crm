@@ -4818,8 +4818,9 @@ window.applyManualDiscount=function(){
 window.applyDiscount=function(){
   const descSel=document.getElementById('v-desc')?.value;
   if(!descSel||descSel===''){items.forEach(it=>{it.promoChecked=false;});}
-  renderItems();// Re-render to show/hide checkboxes
-  recalcDescuentos();
+  recalcDescuentos();// Sets ventaDescuento first
+  renderItems();// Then re-render with checkboxes visible
+  renderTotales();// Recalculate totals
 };
 
 function recalcDescuentos(){
