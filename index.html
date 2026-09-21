@@ -944,7 +944,7 @@ tr:hover td{background:#fafaf8}
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
             <h3 style="margin-bottom:0">Caja chica</h3>
             <div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap">
-              <div><label style="font-size:11px">Desde</label><input type="date" id="cc-fil-desde" onchange="renderCajaChica()" style="font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid var(--border)"/></div>
+              <div><label style="font-size:11px">Desde</label><input type="date" id="cc-fil-desde" onchange="const h=document.getElementById('cc-fil-hasta');if(h&&h.value&&h.value<this.value)h.value=this.value;renderCajaChica()" style="font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid var(--border)"/></div>
               <div><label style="font-size:11px">Hasta</label><input type="date" id="cc-fil-hasta" onchange="renderCajaChica()" style="font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid var(--border)"/></div>
               <select id="cc-fil-rapido" onchange="ccFiltroRapido()" style="font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid var(--border)">
                 <option value="hoy" selected>Hoy</option>
