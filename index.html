@@ -5095,21 +5095,13 @@ function getPagoDivididoData(){
 // Check if a cart item is eligible for cash discount (not in 2nd+ tramo)
 function itemElegibleDto(item){
   const prod=(_productos||[]).find(p=>p.nombre===item.nom);
-  if(!prod||!prod.tramos||!prod.tramos.length)return true;// No tramos = eligible
-  // Find which tramo applies to this quantity
-  const cant=parseFloat(item.cant)||0;
-  for(let i=1;i<prod.tramos.length;i++){
-    const t=prod.tramos[i];
-    const desde=parseFloat(t.desde)||0;
-    const hasta=t.hasta===Infinity||t.hasta==='∞'||!t.hasta?Infinity:parseFloat(t.hasta);
-    if(cant>=desde&&cant<=hasta)return false;// 2nd+ tramo = NOT eligible
+  if(!prod||!prod.tramos||!prod.tramos.length)return true;
+  const cantItem=parseFloat(item.cant)||0;
+  let tramoIdx=0;
+  for(let i=prod.tramos.length-1;i>=0;i--){
+    if(cantItem>=parseFloat(prod.tramos[i].desde||0)){tramoIdx=i;break;}
   }
-  // Check if price matches a non-first tramo
-  if(prod.tramos.length>1){
-    const precioItem=parseFloat(item.precio)||0;
-    const precioTramo1=parseFloat(prod.tramos[0]?.precio)||0;
-    if(precioItem<precioTramo1)return false;
-  }
+  if(tramoIdx>0)return false;// 2nd+ tramo = NOT eligible for cash dto
   return true;
 }
 
@@ -6343,14 +6335,14 @@ function renderTramosEnForm(tramos){
 function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function calcPrecioTramo(tramos, cant){
   if(!tramos||!tramos.length)return null;
-  const tramo=tramos.find(t=>{
-    const desde=t.desde||0;
-    const hasta=t.hasta;
-    return cant>=desde&&(hasta===null||hasta===undefined||cant<=hasta);
-  });
-  // Also match last tramo if cant >= desde and hasta is null (∞)
-  const tramoFinal=tramos.slice().reverse().find(t=>t.hasta===null||t.hasta===undefined);
-  const tramoAplicar=tramo||(cant>=(tramoFinal?.desde||0)?tramoFinal:null);
+  // Search from last to first: higher tramo wins at boundaries
+  let tramo=null;
+  for(let i=tramos.length-1;i>=0;i--){
+    const t=tramos[i];
+    const desde=parseFloat(t.desde)||0;
+    if(cant>=desde){tramo=t;break;}
+  }
+  const tramoAplicar=tramo;
   if(!tramoAplicar)return null;
   if(tramoAplicar.tipo==='precio_fijo'){
     // precio fijo por cantref unidades → precio por unidad
@@ -11901,7 +11893,7 @@ ${topClientes.length?`<div class="card">
 </div>`:''}
 
 <div class="card">
-  <h3>🛒 Historial de compras de stock</h3>
+  <h3 onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('span').textContent=this.nextElementSibling.style.display==='none'?'▶':'▼'" style="cursor:pointer">🛒 Historial de compras de stock <span style="font-size:12px">▶</span></h3><div style="display:none">
   ${compras.length?`<table><thead><tr><th>Fecha</th><th>Cantidad</th><th>Costo unit.</th><th>Total</th><th>Proveedor</th><th class="no-print">Editar</th></tr></thead><tbody id="compras-tbody">
   ${compras.map(s=>{
     const horaStr=s.ts?new Date(s.ts).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):'';
@@ -11976,7 +11968,7 @@ ${topClientes.length?`<div class="card">
       <button class="btn-save" id="btn-save-receta" style="margin-top:8px">Guardar receta</button>
     </div>
   </div>
-</div>
+</div></div>
 
 ${histPrecios.length?`<div class="card">
   <h3>💲 Historial de precios de venta</h3>
