@@ -8917,12 +8917,7 @@ window.confirmarCierreCaja=async function(){
   try{
     // Save to cierres collection, keep last 6 months
     await addDoc(LCOL('cierres'),cierre);
-    // Check and delete oldest if more than 6
-    const cierresSnap=await getDocs(LCOL('cierres'));
-    if(cierresSnap.size>6){
-      const sorted=cierresSnap.docs.sort((a,b)=>a.data().ts-b.data().ts);
-      for(let i=0;i<cierresSnap.size-6;i++)await deleteDoc(sorted[i].ref);
-    }
+    // Keep all cierres (no auto-deletion)
     document.getElementById('cierre-caja-wrap').style.display='none';
     toast('Caja cerrada y guardada correctamente');
     logAuditoria('cerró','caja','Cierre de caja · $'+(cierre.total||0),'','');
