@@ -4140,7 +4140,7 @@ window.renderVentasDia=function(){
     if(canal==='online')vf=vf.filter(v=>v.tipo==='online');
     else vf=vf.filter(v=>v.canal===canal);
   }
-  if(pago)vf=vf.filter(v=>v.pago===pago);
+  if(pago)vf=vf.filter(v=>v.pago===pago||(v.pagoDividido&&v.pagos?.some(p=>p.metodo===pago)));
   const tot=vf.reduce((a,v)=>a+v.total,0);
   const metrics=document.getElementById('vd-metrics');
   if(metrics)metrics.style.display=vf.length?'grid':'none';
@@ -8602,6 +8602,21 @@ window.renderOrdenesCompletadas=async function(){
   }
 };
 
+
+function sumarVentaPorMedio(v, totales){
+  if(v.pagoDividido&&v.pagos){
+    v.pagos.forEach(p=>{
+      const neto=(p.monto||0)-(p.dto||0);
+      if(p.metodo==='Efectivo')totales.ef+=neto;
+      else if(p.metodo==='Transferencia')totales.tr+=neto;
+      else if(p.metodo!=='Cuenta corriente')totales.ta+=neto;
+      else totales.cc+=neto;
+    });
+  } else if(v.pago==='Efectivo')totales.ef+=(v.total||0);
+  else if(v.pago==='Transferencia')totales.tr+=(v.total||0);
+  else if(v.pago!=='Cuenta corriente')totales.ta+=(v.total||0);
+  else totales.cc+=(v.total||0);
+}
 function renderCaja(){
   renderCajaChica();
   const hv=_ventas.filter(v=>v.tipo!=='online'&&v.fecha===today());
@@ -8609,12 +8624,12 @@ function renderCaja(){
   const allMov=[...hv,...onlineAll].sort((a,b)=>b.ts-a.ts);
   let ef=0,tr=0,ta=0,cc_=0,descTotal=0;
   hv.forEach(v=>{
-    if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;else if(v.pago!=='Cuenta corriente')ta+=v.total;else cc_+=v.total;
+    const t={ef:0,tr:0,ta:0,cc:0};sumarVentaPorMedio(v,t);ef+=t.ef;tr+=t.tr;ta+=t.ta;cc_+=t.cc;
     if(v.descuentoMonto)descTotal+=v.descuentoMonto;
   });
   const onlineConf=onlineAll.filter(v=>['confirmado','en_preparacion','en_camino','entregado'].includes(v.estado));
   onlineConf.forEach(v=>{
-    if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;
+    const t={ef:0,tr:0,ta:0,cc:0};sumarVentaPorMedio(v,t);ef+=t.ef;tr+=t.tr;ta+=t.ta;
     if(v.descuentoMonto)descTotal+=v.descuentoMonto;
   });
   // Always render movements (all roles see them)
@@ -8691,7 +8706,7 @@ window.showCierreCaja=async function(){
   let ef=0,tr=0,ta=0,cc_=0,desc=0,costo=0;
   hv.forEach(v=>{
     if(v.tipo!=='online'||['confirmado','en_preparacion','en_camino','entregado'].includes(v.estado)){
-      if(v.pago==='Efectivo')ef+=v.total;else if(v.pago==='Transferencia')tr+=v.total;else if(v.pago!=='Cuenta corriente')ta+=v.total;else cc_+=v.total;
+      const t={ef:0,tr:0,ta:0,cc:0};sumarVentaPorMedio(v,t);ef+=t.ef;tr+=t.tr;ta+=t.ta;cc_+=t.cc;
       if(v.descuentoMonto)desc+=v.descuentoMonto;
       if(v.costoFIFO)costo+=v.costoFIFO;
     }
@@ -13373,7 +13388,14 @@ function renderCajaChica(){
   // Saldo real de caja = fondo del último cierre + ventas en efectivo de hoy + movimientos manuales de hoy (ingresos - egresos)
   const ccHoy=_cajaChica.filter(m=>m.fecha===today());
   const movManualHoy=ccHoy.reduce((a,m)=>a+m.monto,0);
-  const ventasEfectivoHoy=(_ventas||[]).filter(v=>v.fecha===today()&&v.pago==='Efectivo').reduce((a,v)=>a+(v.total||0),0);
+  const ventasEfectivoHoy=(_ventas||[]).filter(v=>v.fecha===today()).reduce((a,v)=>{
+    if(v.pagoDividido&&v.pagos){
+      const efPago=v.pagos.find(p=>p.metodo==='Efectivo');
+      if(efPago)return a+(efPago.monto||0)-(efPago.dto||0);
+      return a;
+    }
+    return v.pago==='Efectivo'?a+(v.total||0):a;
+  },0);
   const aplicarSaldo=(fondoAnterior)=>{
     const saldo=fondoAnterior+ventasEfectivoHoy+movManualHoy;
     const elSaldo=document.getElementById('caja-chica-saldo');
