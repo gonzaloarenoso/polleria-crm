@@ -380,7 +380,7 @@ function calcular(d){
   let bancoEst=false;
   cs.forEach(c=>{ if(c.fecha>corte){ banco+=c.posnet||0; bancoEst=true; } });
   d.gastos.forEach(g=>{ if(g.origen==="efectivo") cajaGrande-=g.monto; else if(g.fecha>corte) banco-=g.monto; });
-  d.liquidaciones.forEach(l=>{ if(l.origen==="efectivo") cajaGrande-=l.neto; else if(l.fecha>corte) banco-=l.neto; });
+  d.liquidaciones.forEach(l=>{ const g=pagoLiq(l); cajaGrande-=g.efe; if(l.fecha>corte) banco-=g.ban; });
   d.pedidos.forEach(x=>{
     if(!x.pagado) return;
     const g=pagoDe(x);
@@ -960,19 +960,23 @@ function recalcLiquidar(){
 function recalcLiquidar_(){
   const e=panel.emp;
   const deuda=saldoEmp(e.id), bruto=num(val("ls")), ap=Math.min(deuda,bruto);
-  const pe=num(val("lpe")), pb=num(val("lpb")), neto=bruto-ap, falta=neto-pe-pb;
+  const pe=num(val("lpe")), pb=num(val("lpb"));
+  const brutoReal=pe+pb+ap;
+  const difiere=Math.abs(brutoReal-bruto)>1;
   document.getElementById("resLiq").innerHTML =
-    fila("Costo salarial",$$(bruto))+fila("A descontar","−"+$$(ap))+fila("Le pagás",$$(neto),true)+
-    (pe?fila("Sale de efectivo",$$(pe)):"")+(pb?fila("Sale del banco",$$(pb)):"")+
-    (Math.abs(falta)>1?'<p class="tiny" style="margin-top:6px;color:#b91c1c">'+(falta>0?"Falta asignar "+$$(falta):"Asignaste "+$$(-falta)+" de más")+". Los dos pagos tienen que sumar "+$$(neto)+'.</p>':"")+
-    (deuda>bruto?'<p class="tiny" style="margin-top:6px">El saldo supera el sueldo. Quedan '+$$(deuda-bruto)+' para la próxima.</p>':"");
+    fila("Le descontás",$$(ap))+
+    (pe?fila("Le pagás en efectivo",$$(pe)):"")+
+    (pb?fila("Le pagás por banco",$$(pb)):"")+
+    fila("Costo salarial que se registra",$$(brutoReal),true)+
+    (difiere?'<p class="tiny" style="margin-top:6px">Arriba pusiste '+$$(bruto)+'. Se va a guardar '+$$(brutoReal)+', que es lo que realmente pagás más lo que le descontás.</p>':"")+
+    (deuda>bruto?'<p class="tiny" style="margin-top:6px">Quedan '+$$(deuda-brutoReal>0?deuda-brutoReal:0)+' pendientes para la próxima.</p>':"");
 }
 function guardarLiquidacion(){
-  const e=panel.emp, bruto=num(val("ls"));
-  if(bruto<=0) return notificar("Poné el sueldo.");
-  const deuda=saldoEmp(e.id), ap=Math.min(deuda,bruto);
+  const e=panel.emp, puesto=num(val("ls"));
   const pe=num(val("lpe")), pb=num(val("lpb"));
-  if(Math.abs(bruto-ap-pe-pb)>1) return notificar("Efectivo "+$$(pe)+" + banco "+$$(pb)+" = "+$$(pe+pb)+", y tiene que dar "+$$(bruto-ap)+".");
+  if(pe+pb<=0) return notificar("Poné cuánto le pagaste en efectivo o por banco.");
+  const deuda=saldoEmp(e.id), ap=Math.min(deuda,puesto>0?puesto:pe+pb+deuda);
+  const bruto=pe+pb+ap;
   const idLiq=uid8();
   let resto=ap;
   const consumos=datos.consumos.map(c=>{
@@ -981,10 +985,11 @@ function guardarLiquidacion(){
     return c;
   });
   guardar({...datos,consumos,liquidaciones:[...datos.liquidaciones,
-    {id:idLiq,fecha:hoy(),empleadoId:e.id,nombre:e.nombre,bruto,descontado:ap,neto:bruto-ap,pagEfe:pe,pagBan:pb}]});
+    {id:idLiq,fecha:hoy(),empleadoId:e.id,nombre:e.nombre,bruto,descontado:ap,neto:pe+pb,pagEfe:pe,pagBan:pb}]});
   panel.ls=panel.lpe=panel.lpb=undefined;
-  listo(deuda>bruto ? "Liquidado. Quedan "+$$(deuda-bruto)+" pendientes." : "Liquidado. Cuenta en cero.");
+  listo(deuda>ap ? "Liquidado. Quedan "+$$(deuda-ap)+" pendientes." : "Liquidado. Cuenta en cero.");
 }
+
 
 /* ---------- nuevo empleado ---------- */
 function vNuevoEmp(){
