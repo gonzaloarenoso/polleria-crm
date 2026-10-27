@@ -390,6 +390,13 @@ tr:hover td{background:#fafaf8}
             </select>
           </div>
           <div><label>Mínimo $</label><input type="number" id="vd-min-fil" placeholder="Ej: 10000" style="width:120px" onchange="renderVentasDia()"/></div>
+          <div><label>Tipo</label>
+            <select id="vd-tipo-fil" onchange="renderVentasDia()" style="width:130px">
+              <option value="">Todos</option>
+              <option value="mayorista">Mayorista</option>
+              <option value="minorista">Minorista</option>
+            </select>
+          </div>
           <button class="btn bs bsm" onclick="clearVentasFilter()">Limpiar</button>
         </div>
       </div>
@@ -432,6 +439,10 @@ tr:hover td{background:#fafaf8}
             <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;font-size:12px;color:#888">
               <input type="checkbox" id="v-sin-cliente" style="width:15px;height:15px" onchange="window.toggleVentaSinCliente&&window.toggleVentaSinCliente(this.checked)"/>
               <span>Venta rápida sin cliente (mostrador)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;margin:6px 0 0;cursor:pointer;font-size:12px;color:#888">
+              <input type="checkbox" id="v-mayorista" style="width:15px;height:15px" onchange="window.toggleMayorista&&window.toggleMayorista(this.checked)"/>
+              <span>Cliente mayorista (precio editable)</span>
             </label>
           </div>
           <div id="v-cli-section">
@@ -4146,6 +4157,9 @@ window.renderVentasDia=function(){
   if(pago)vf=vf.filter(v=>v.pago===pago||(v.pagoDividido&&v.pagos?.some(p=>p.metodo===pago)));
   const minImporte=parseFloat(document.getElementById('vd-min-fil')?.value)||0;
   if(minImporte>0)vf=vf.filter(v=>v.total>=minImporte);
+  const tipoFil=document.getElementById('vd-tipo-fil')?.value||'';
+  if(tipoFil==='mayorista')vf=vf.filter(v=>v.mayorista===true);
+  else if(tipoFil==='minorista')vf=vf.filter(v=>!v.mayorista);
   const tot=vf.reduce((a,v)=>{
     if(pago&&v.pagoDividido&&v.pagos){
       // Solo sumar la porción del medio de pago filtrado
@@ -4164,7 +4178,7 @@ window.renderVentasDia=function(){
     <thead><tr><th>Fecha</th><th>Hora</th><th>Cliente</th><th>Canal</th><th>Productos</th><th>Pago</th>${isAdmin?'<th>Total</th>':''}<th>Estado</th><th></th></tr></thead>
     <tbody>`+
     vf.map(v=>`<tr>
-      <td>${fdate(v.fecha)}</td><td>${v.hora}</td><td>${v.cliente}</td>
+      <td>${fdate(v.fecha)}</td><td>${v.hora}</td><td>${v.cliente}${v.mayorista?'<span class="badge" style="font-size:9px;margin-left:4px;background:#FFF3CD;color:#856404">May.</span>':''}</td>
       <td>${v.tipo==='online'?'Online':v.canal}</td>
       <td style="max-width:160px">${v.items.map(i=>i.cant+' '+(i.unidad||'unid.')+' '+i.nom).join(', ')}</td>
       <td>${v.pagoDividido&&v.pagos?v.pagos.map(p=>'<div style="font-size:12px">'+p.metodo+': <strong>'+fmt((p.monto||0)-(p.dto||0))+'</strong></div>').join(''):v.pago}</td>
@@ -4176,7 +4190,7 @@ window.renderVentasDia=function(){
 }
 window.clearVentasFilter=function(){
   ['vd-desde','vd-hasta'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  ['vd-canal-fil','vd-pago-fil'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['vd-canal-fil','vd-pago-fil','vd-tipo-fil'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const minEl=document.getElementById('vd-min-fil');if(minEl)minEl.value='';
   renderVentasDia();
 };
@@ -4236,6 +4250,43 @@ window.toggleVentaSinCliente=function(checked){
     selectedClienteId=null;window._selectedClienteUsuario=null;window._ventaSinCliente=false;
     const ind=document.getElementById('v-sin-cli-ind');if(ind)ind.remove();
   }
+};
+
+// ── CLIENTE MAYORISTA ────────────────────────────────────────────────────────
+window._clienteMayorista=false;
+window.toggleMayorista=function(checked){
+  window._clienteMayorista=checked;
+  // Re-price all items: mayorista uses base precio, non-mayorista uses tramo
+  (window._items||[]).forEach(function(it){
+    const prod=(_productos||[]).find(p=>p.id===it.prodId);
+    if(!prod)return;
+    if(checked){
+      // Use base list price
+      it.precioUnit=prod.precio||0;
+      it.precioOrig=prod.precio||0;
+    } else {
+      // Restore tramo pricing
+      const tramos=prod.tramos||[];
+      if(tramos.length){
+        it.precioUnit=calcPrecioTramo(tramos,it.cant);
+      } else {
+        it.precioUnit=prod.precio||0;
+      }
+      it.precioOrig=it.precioUnit;
+    }
+  });
+  renderItems();
+  renderTotales();
+};
+// Helper to update a single item's manually-set price in mayorista mode
+window.updateItemPrecio=function(idx,val){
+  const it=(window._items||[])[idx];
+  if(!it)return;
+  const n=parseFloat(val);
+  if(isNaN(n)||n<0)return;
+  it.precioUnit=n;
+  it.precioOrig=n;
+  renderTotales();
 };
 
 // ── BUSCADOR DE PRODUCTO EN NUEVA VENTA ──────────────────────────────────────
@@ -4468,8 +4519,8 @@ window.addItem=function(){
   const parts=val.split('|');const[type,refId,nom,pr]=parts;const unidad=parts[4]||'unidad';
   const cant=parseDecimal(document.getElementById('v-cant').value)||1;
   let precio=parseInt(pr);
-  // Apply tramo pricing if product has tramos
-  if(type!=='promo'){
+  // Apply tramo pricing if product has tramos (skip if mayorista mode)
+  if(type!=='promo'&&!window._clienteMayorista){
     const prod=_productos.find(p=>p.nombre===nom);
     // Tramo pricing with combinable group support
     if(prod?.tramos?.length){
@@ -4484,11 +4535,13 @@ window.addItem=function(){
     const existIdx=items.findIndex(it=>it.nom===nom&&!it.esPromo);
     if(existIdx>=0){
       items[existIdx].cant=Math.round((parseFloat(items[existIdx].cant)+parseFloat(cant))*1000)/1000;
-      // Recalculate tramo for new combined quantity
-      const prodComb=(_productos||[]).find(p=>p.nombre===nom);
-      if(prodComb?.tramos?.length){
-        const res=calcPrecioTramo(prodComb.tramos,items[existIdx].cant);
-        if(res)items[existIdx].precio=res.precio;
+      // Recalculate tramo for new combined quantity (skip if mayorista)
+      if(!window._clienteMayorista){
+        const prodComb=(_productos||[]).find(p=>p.nombre===nom);
+        if(prodComb?.tramos?.length){
+          const res=calcPrecioTramo(prodComb.tramos,items[existIdx].cant);
+          if(res)items[existIdx].precio=res.precio;
+        }
       }
       itemTotal=items.reduce((a,it)=>a+(parseFloat(it.cant)||0)*(parseFloat(it.precio)||0),0);
       renderItems();applyDiscount();
@@ -4720,14 +4773,19 @@ function renderItems(){
     const cStr=parseFloat(it.cant)%1===0?String(it.cant):parseFloat(it.cant).toFixed(3).replace(/\.?0+$/,'');
     const hasDto=ventaDescuento?.porcentaje>0;
     const chk=hasDto&&!it.esPromo?'<input type="checkbox" '+(it.promoChecked?'checked':'')+' onchange="togglePromoItem('+i+',this.checked)" style="margin:0"/> ':'';
+    const isMay=window._clienteMayorista;
+    const precioCell=isMay&&!it.esPromo?
+      '<input type="number" value="'+it.precio+'" onchange="updateItemPrecio('+i+',this.value)" style="width:70px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:right" inputmode="decimal"/>':
+      '<span style="font-weight:600">'+fmt(it.precio*parseFloat(it.cant))+'</span>';
     return'<div class="pr">'+
       '<div>'+chk+
         '<input type="number" value="'+cStr+'" onchange="updateItemCant('+i+',this.value)" style="width:50px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center" inputmode="decimal" step="0.01"/> '+
         (it.unidad||'unid.')+' '+it.nom+
         (it.esPromo?'<span class="badge bb" style="font-size:10px;margin-left:4px">Promo</span>':'')+
+        (isMay&&!it.esPromo?'<span class="badge" style="font-size:9px;margin-left:4px;background:#FFF3CD;color:#856404">Mayorista</span>':'')+
       '</div>'+
       '<div style="display:flex;gap:6px;align-items:center">'+
-        '<span style="font-weight:600">'+fmt(it.precio*parseFloat(it.cant))+'</span>'+
+        (isMay&&!it.esPromo?'<span style="font-size:11px;color:#888;margin-right:2px">c/u $</span>'+precioCell+' <span style="font-weight:600">= '+fmt(it.precio*parseFloat(it.cant))+'</span>':precioCell)+
         '<button class="btn bs bsm" onclick="rmItem('+i+')">✕</button>'+
       '</div>'+
     '</div>';
@@ -4739,11 +4797,13 @@ window.updateItemCant=function(i,val){
   const newCant=parseDecimal(val);
   if(!newCant||newCant<=0){toast('Cantidad inválida');return;}
   items[i].cant=newCant;
-  // Recalculate tramo price for new quantity
-  const prod=(_productos||[]).find(p=>p.nombre===items[i].nom);
-  if(prod?.tramos?.length&&!items[i].promoChecked){
-    const res=calcPrecioTramo(prod.tramos,newCant);
-    if(res)items[i].precio=res.precio;
+  // Recalculate tramo price for new quantity (skip if mayorista)
+  if(!window._clienteMayorista){
+    const prod=(_productos||[]).find(p=>p.nombre===items[i].nom);
+    if(prod?.tramos?.length&&!items[i].promoChecked){
+      const res=calcPrecioTramo(prod.tramos,newCant);
+      if(res)items[i].precio=res.precio;
+    }
   }
   itemTotal=items.reduce((a,it)=>a+(parseFloat(it.cant)||0)*(parseFloat(it.precio)||0),0);
   renderItems();applyDiscount();
@@ -4898,8 +4958,8 @@ function recalcDescuentos(){
 window.renderTotales=function(){
   const el=document.getElementById('v-totales');if(!el)return;
   const fmt=n=>'$'+Math.round(n).toLocaleString('es-AR');
-  // GRUPO COMBINABLE: recalculate prices based on group totals
-  if(items.length>0&&_gruposCombinables?.length){
+  // GRUPO COMBINABLE: recalculate prices based on group totals (skip if mayorista)
+  if(items.length>0&&_gruposCombinables?.length&&!window._clienteMayorista){
     // Sum quantities per group
     const grupoTotals={};
     items.forEach(it=>{
@@ -4942,8 +5002,8 @@ window.renderTotales=function(){
   itemTotal=items.reduce((a,it)=>a+(parseFloat(it.cant)||0)*(parseFloat(it.precio)||0),0);
   let final=itemTotal;
   let html='';
-  // Show grupo discount info
-  if(items.length>0&&_gruposCombinables?.length){
+  // Show grupo discount info (skip if mayorista)
+  if(items.length>0&&_gruposCombinables?.length&&!window._clienteMayorista){
     const grupoTotals={};
     items.forEach(it=>{
       const prod=(_productos||[]).find(p=>p.nombre===it.nom);
@@ -5192,6 +5252,9 @@ window.limpiar=function(){
   const sinCli=document.getElementById('v-sin-cliente');if(sinCli)sinCli.checked=false;
   const sinCliInd=document.getElementById('v-sin-cli-ind');if(sinCliInd)sinCliInd.remove();
   window._ventaSinCliente=false;
+  // Reset mayorista
+  window._clienteMayorista=false;
+  const mayChk=document.getElementById('v-mayorista');if(mayChk)mayChk.checked=false;
   const ccInd=document.getElementById('v-cc-indicator');if(ccInd)ccInd.style.display='none';
   // Reset pago to empty (keeps placeholder)
   const vp=document.getElementById('v-pago');if(vp)vp.value='';
@@ -5354,7 +5417,8 @@ window.confirmar=async function(){
     ajustePagoPct:ajustePctGuardar,
     ajustePagoMonto:pagoDivididoData?-pagoDivididoData.totalDescuento:(ajustePctGuardar!==0?Math.round(finalTotal*ajustePctGuardar/100):0),
     total:totalGuardar,
-    tipo:'presencial'
+    tipo:'presencial',
+    mayorista:window._clienteMayorista||false
   };
   try{
     let docRef;
@@ -5447,6 +5511,7 @@ window.printTicket=function(v,tipo){
   lines.push(divider('-'));
   lines.push('Fecha: '+fdate(v.fecha)+' '+v.hora);
   if(v.cliente&&v.cliente!=='Mostrador')lines.push('Cliente: '+v.cliente.substring(0,W-9));
+  if(v.mayorista)lines.push(center('** MAYORISTA **'));
   lines.push(divider('-'));
   // Header
   lines.push(pad('Producto','Precio'));
@@ -6942,6 +7007,7 @@ body{font-family:-apple-system,sans-serif;margin:0;padding:0;color:#1a1a1a}
     <div class="section-title">Detalles del pedido</div>
     <div class="row"><span class="lbl">Franja horaria</span><span class="val"><span class="tag">${v.franja||'—'}</span></span></div>
     <div class="row"><span class="lbl">Método de pago</span><span class="val">${v.pago}</span></div>
+    ${v.mayorista?'<div class="row"><span class="lbl">Tipo</span><span class="val" style="color:#856404;font-weight:600">Mayorista</span></div>':''}
     ${v.obs?`<div class="row"><span class="lbl">Observaciones</span><span class="val">${v.obs}</span></div>`:''}
   </div>
 
