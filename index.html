@@ -389,6 +389,7 @@ tr:hover td{background:#fafaf8}
               <option value="">Todos</option>
             </select>
           </div>
+          <div><label>Mínimo $</label><input type="number" id="vd-min-fil" placeholder="Ej: 10000" style="width:120px" onchange="renderVentasDia()"/></div>
           <button class="btn bs bsm" onclick="clearVentasFilter()">Limpiar</button>
         </div>
       </div>
@@ -4116,6 +4117,8 @@ window.renderVentasDia=function(){
         opt.value='Cuenta corriente';opt.textContent='Cuenta corriente';
         pagoSel.appendChild(opt);
       }
+      // Add "Dividido" option to filter
+      {const opt=document.createElement('option');opt.value='Dividido';opt.textContent='Dividido';pagoSel.appendChild(opt);}
     }
     if(curVal)pagoSel.value=curVal;
   }
@@ -4141,7 +4144,16 @@ window.renderVentasDia=function(){
     else vf=vf.filter(v=>v.canal===canal);
   }
   if(pago)vf=vf.filter(v=>v.pago===pago||(v.pagoDividido&&v.pagos?.some(p=>p.metodo===pago)));
-  const tot=vf.reduce((a,v)=>a+v.total,0);
+  const minImporte=parseFloat(document.getElementById('vd-min-fil')?.value)||0;
+  if(minImporte>0)vf=vf.filter(v=>v.total>=minImporte);
+  const tot=vf.reduce((a,v)=>{
+    if(pago&&v.pagoDividido&&v.pagos){
+      // Solo sumar la porción del medio de pago filtrado
+      const porcion=v.pagos.filter(p=>p.metodo===pago).reduce((s,p)=>s+((p.monto||0)-(p.dto||0)),0);
+      return a+porcion;
+    }
+    return a+v.total;
+  },0);
   const metrics=document.getElementById('vd-metrics');
   if(metrics)metrics.style.display=vf.length?'grid':'none';
   const elC=document.getElementById('vd-count');if(elC)elC.textContent=vf.length;
@@ -4155,7 +4167,7 @@ window.renderVentasDia=function(){
       <td>${fdate(v.fecha)}</td><td>${v.hora}</td><td>${v.cliente}</td>
       <td>${v.tipo==='online'?'Online':v.canal}</td>
       <td style="max-width:160px">${v.items.map(i=>i.cant+' '+(i.unidad||'unid.')+' '+i.nom).join(', ')}</td>
-      <td>${v.pago}</td>
+      <td>${v.pagoDividido&&v.pagos?v.pagos.map(p=>'<div style="font-size:12px">'+p.metodo+': <strong>'+fmt((p.monto||0)-(p.dto||0))+'</strong></div>').join(''):v.pago}</td>
       ${isAdmin?`<td style="font-weight:600;color:var(--success)">${fmt(v.total)}</td>`:''}
       <td>${v.tipo==='online'?`<span class="badge ${statusClass(v.estado)}">${statusLabel(v.estado)}</span>`:'<span class="badge bg">OK</span>'}</td>
       <td style="display:flex;gap:4px"><button class="btn bs bsm" onclick="reprintTicket('${v.id}')">🖨</button>${isAdmin?`<button class="btn bs bsm" onclick="startEdit('${v.id}')">✏</button><button class="btn bd bsm" onclick="deleteVenta('${v.id}')">✕</button>`:''}</td>
@@ -4165,6 +4177,7 @@ window.renderVentasDia=function(){
 window.clearVentasFilter=function(){
   ['vd-desde','vd-hasta'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['vd-canal-fil','vd-pago-fil'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const minEl=document.getElementById('vd-min-fil');if(minEl)minEl.value='';
   renderVentasDia();
 };
 window.reprintTicket=function(id){
@@ -5465,7 +5478,16 @@ window.printTicket=function(v,tipo){
   lines.push(divider('='));
   lines.push(pad('TOTAL',fmt(v.total)));
   lines.push(divider('='));
-  lines.push('Pago: '+v.pago);
+  if(v.pagoDividido&&v.pagos&&v.pagos.length){
+    lines.push('Pago: Dividido');
+    v.pagos.forEach(p=>{
+      const lbl='  '+p.metodo+':';
+      lines.push(pad(lbl,fmt(p.monto||0)));
+      if(p.dto>0)lines.push(pad('  Dto '+p.pct+'%:','-'+fmt(p.dto)));
+    });
+  } else {
+    lines.push('Pago: '+v.pago);
+  }
   if(v.obs)lines.push('Obs: '+v.obs.substring(0,W-5));
   if(esDup)lines.push('Vendedor: '+(v.vendedor||CU||'').substring(0,W-10));
   lines.push(divider('-'));
