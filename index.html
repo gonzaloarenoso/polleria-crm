@@ -4257,36 +4257,36 @@ window._clienteMayorista=false;
 window.toggleMayorista=function(checked){
   window._clienteMayorista=checked;
   // Re-price all items: mayorista uses base precio, non-mayorista uses tramo
-  (window._items||[]).forEach(function(it){
-    const prod=(_productos||[]).find(p=>p.id===it.prodId);
+  (items||[]).forEach(function(it){
+    if(it.esPromo)return;
+    const prod=(_productos||[]).find(p=>p.nombre===it.nom);
     if(!prod)return;
     if(checked){
       // Use base list price
-      it.precioUnit=prod.precio||0;
-      it.precioOrig=prod.precio||0;
+      it.precio=prod.precio||0;
     } else {
       // Restore tramo pricing
       const tramos=prod.tramos||[];
       if(tramos.length){
-        it.precioUnit=calcPrecioTramo(tramos,it.cant);
+        const res=calcPrecioTramo(tramos,it.cant);
+        if(res)it.precio=res.precio;
       } else {
-        it.precioUnit=prod.precio||0;
+        it.precio=prod.precio||0;
       }
-      it.precioOrig=it.precioUnit;
     }
   });
+  itemTotal=items.reduce((a,it)=>a+(parseFloat(it.cant)||0)*(parseFloat(it.precio)||0),0);
   renderItems();
-  renderTotales();
 };
 // Helper to update a single item's manually-set price in mayorista mode
 window.updateItemPrecio=function(idx,val){
-  const it=(window._items||[])[idx];
+  const it=items[idx];
   if(!it)return;
   const n=parseFloat(val);
   if(isNaN(n)||n<0)return;
-  it.precioUnit=n;
-  it.precioOrig=n;
-  renderTotales();
+  it.precio=n;
+  itemTotal=items.reduce((a,x)=>a+(parseFloat(x.cant)||0)*(parseFloat(x.precio)||0),0);
+  renderItems();
 };
 
 // ── BUSCADOR DE PRODUCTO EN NUEVA VENTA ──────────────────────────────────────
